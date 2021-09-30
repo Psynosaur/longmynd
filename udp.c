@@ -57,6 +57,72 @@ int sockfd_ts;
 /* -------------------------------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------------------------------- */
+
+void udp_send_normalize(u_int8_t *b, int len)
+    {
+#define BUFF_MAX_SIZE (7 * 188)
+        static u_int8_t *Buffer=NULL;
+        if(Buffer==NULL) Buffer=(u_int8_t*)malloc(BUFF_MAX_SIZE*2);
+       
+        static int Size = 0;
+        //Align to Sync Packet
+        static bool IsSync=false;
+       
+        //fprintf(stderr,"len %d Size %d\n",len,Size);
+        
+        if((IsSync==false)&&(len>=2*188))
+        {
+            int start_packet=0;
+            for(start_packet=0;start_packet<188;start_packet++)
+            {
+                if ((b[start_packet]==0x47)&&(b[start_packet+188]==0x47))
+                {
+                    b=b+start_packet;
+                    len=len-start_packet;
+                    IsSync=true;
+                    fprintf(stderr,"Recover Sync %d\n",start_packet);
+                    break;        
+                } 
+            }
+            
+        }
+        
+        if(Buffer[0]!=0x47) 
+        {
+            if(Size>=188) 
+            {
+                IsSync=false;
+                Size=0;
+                fprintf(stderr,"Lost Sync\n");
+                return; 
+            }    
+        }
+        
+        
+        if ((Size + len) >= BUFF_MAX_SIZE)
+        {
+                memcpy(Buffer + Size, b, len);
+                
+                //fprintf(stderr,"len %d Size %d %x\n",len,Size,Buffer[0]);
+                if (sendto(sockfd_ts, Buffer, BUFF_MAX_SIZE, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)) < 0)
+                {
+                    fprintf(stderr, "UDP send failed\n");
+                }
+                
+                memmove(Buffer,Buffer+BUFF_MAX_SIZE,Size-BUFF_MAX_SIZE+len);
+                Size+=len;
+                Size = Size-BUFF_MAX_SIZE;
+                
+            }
+            else
+            {
+                memcpy(Buffer + Size, b, len);
+                Size += len;
+                
+            }
+        
+    }
+
 uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
 /* -------------------------------------------------------------------------------------------------- */
 /* takes a buffer and writes out the contents to udp socket                                           */
@@ -68,7 +134,7 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
     uint8_t err=ERROR_NONE;
     int32_t remaining_len; /* note it is signed so can go negative */
     uint32_t write_size;
-
+   
     remaining_len=len;
     /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
     /* the FTDI chip every 512 bytes of USB message */
@@ -76,14 +142,16 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
         if (remaining_len>510) {
              /* calculate where to start in the buffer and how many bytes to send */
              write_size=510;
-             sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,
-                                (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
+              //fprintf(stderr,"1Usb len %d remainin %d\n",len,remaining_len);
+             udp_send_normalize( &buffer[len-remaining_len],write_size);
+             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              /* note we skip over the 2 bytes inserted by the FTDI */
              remaining_len-=512;
         } else {
              write_size=remaining_len;
-             sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,
-                                (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
+             //fprintf(stderr,"2 Usb len %d remainin %d\n",len,remaining_len);            
+             udp_send_normalize( &buffer[len-remaining_len],write_size);
+             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              remaining_len-=write_size; /* should be 0 if all went well */
         }
     }
@@ -152,7 +220,7 @@ static uint8_t udp_init(struct sockaddr_in *servaddr_ptr, int *sockfd_ptr, char 
     printf("Flow: UDP Init\n");
 
     /* Creat the socket  for IPv4 and UDP */
-    if ((*sockfd_ptr = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+    if ((*sockfd_ptr = socket(AF_INET, SOCK_DGRAM,IPPROTO_UDP)) < 0 ) { 
         printf("ERROR: socket creation failed\n"); 
         err=ERROR_UDP_SOCKET_OPEN; 
     } else {
