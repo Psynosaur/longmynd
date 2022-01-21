@@ -923,7 +923,7 @@ int main(int argc, char *argv[]) {
     {
         if(0 == pthread_create(&thread_ts, NULL, loop_ts, (void *)&thread_vars_ts))
         {
-            pthread_setname_np(thread_ts, "TS Transport");
+            //pthread_setname_np(thread_ts, "TS Transport");
         }
         else
         {
@@ -943,7 +943,7 @@ int main(int argc, char *argv[]) {
     {
         if(0 == pthread_create(&thread_ts_parse, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse))
         {
-            pthread_setname_np(thread_ts_parse, "TS Parse");
+            //pthread_setname_np(thread_ts_parse, "TS Parse");
         }
         else
         {
@@ -963,7 +963,7 @@ int main(int argc, char *argv[]) {
     {
         if(0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)&thread_vars_i2c))
         {
-            pthread_setname_np(thread_i2c, "Receiver");
+            //pthread_setname_np(thread_i2c, "Receiver");
         }
         else
         {
@@ -983,7 +983,7 @@ int main(int argc, char *argv[]) {
     {
         if(0 == pthread_create(&thread_beep, NULL, loop_beep, (void *)&thread_vars_beep))
         {
-            pthread_setname_np(thread_beep, "Beep Audio");
+           // pthread_setname_np(thread_beep, "Beep Audio");
         }
         else
         {

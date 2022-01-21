@@ -112,7 +112,7 @@ void udp_send_normalize(u_int8_t *b, int len)
                 memmove(Buffer,Buffer+BUFF_MAX_SIZE,Size-BUFF_MAX_SIZE+len);
                 Size+=len;
                 Size = Size-BUFF_MAX_SIZE;
-                
+                 
             }
             else
             {
