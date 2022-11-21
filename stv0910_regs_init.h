@@ -375,7 +375,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     /* DVB2 P2 Registers */
     { RSTV0910_P2_PDELCTRL0,      0x01 }, /* P2_PDELCTRL0 */
     { RSTV0910_P2_PDELCTRL1,      0x00 }, /* P2_PDELCTRL1 */
-    { RSTV0910_P2_PDELCTRL2,      0x20 }, /* P2_PDELCTRL2 */
+    { RSTV0910_P2_PDELCTRL2,      0x20 }, /* P2_PDELCTRL2  THIS ONE*/
     { RSTV0910_P2_HYSTTHRESH,     0x41 }, /* P2_HYSTTHRESH */
     { RSTV0910_P2_UPLCCST0,       0xe6 }, /* P2_UPLCCST0 */
     { RSTV0910_P2_ISIENTRY,       0x00 }, /* P2_ISIENTRY */
@@ -741,7 +741,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_UPCRCKO0,       0x00 }, /* P1_UPCRCKO0 */
     { RSTV0910_P1_PDELCTRL3,      0x00 }, /* P1_PDELCTRL3 */
     /* TS P1 Registers */
-    { RSTV0910_P1_TSSTATEM,       0xf0 }, /* P1_TSSTATEM      deinterleaver on, reed-solomon on, descrambler on,
+    { RSTV0910_P1_TSSTATEM,       0xf0 }, /*F0 P1_TSSTATEM      deinterleaver on, reed-solomon on, descrambler on,
                                                                  TS enabled, immediate output of data*/
     { RSTV0910_P1_TSSTATEL,       0x12 }, /* P1_TSSTATEL */
     { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH        was 0x40

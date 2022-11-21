@@ -403,6 +403,24 @@ uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *shor
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) {
+
+    uint8_t err;
+    uint8_t regval;
+    
+    err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_MATSTR0-1 : RSTV0910_P1_MATSTR0-1, &regval);
+    *matype1 = regval;
+    
+    err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_MATSTR0 : RSTV0910_P1_MATSTR0, &regval);
+    *matype2 = regval;
+    
+    if (err!=ERROR_NONE) printf("ERROR: STV0910 read MATYPE\n");
+
+    return err;
+}
+
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_clocks() {
 /* -------------------------------------------------------------------------------------------------- */
 /* sequence is:                                                                                       */

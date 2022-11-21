@@ -1,33 +1,28 @@
 # Makefile for longmynd
 
-SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c
+SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c
 OBJ = ${SRC:.c=.o}
 
-ifndef CC
-CC = gcc
-endif
 
+
+ifdef $(pluto)
+CROSS_COMPILE=arm-linux-gnueabihf-
+SYSROOT=/home/linuxdev/prog/pluto/firm033/pluto_radar/plutosdr-fw/buildroot/output/staging
+CXX=$(CROSS_COMPILE)g++
+CC=$(CROSS_COMPILE)gcc
+HOST_DIR=/home/linuxdev/prog/pluto/firm033/pluto_radar/plutosdr-fw/buildroot/output/host
+CFLAGS = -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -g -O2 -mfpu=neon --sysroot=$(SYSROOT) -mfloat-abi=hard
+else
+CXX=g++
+CC=gcc
+CFLAGS = -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -g -O2
+endif
 # Build parallel
 MAKEFLAGS += -j$(shell nproc || printf 1)
 
-COPT = -O3 -march=native -mtune=native
-# Help detection for ARM SBCs, using devicetree
-F_CHECKDTMODEL = $(if $(findstring $(1),$(shell cat /sys/firmware/devicetree/base/model 2>/dev/null)),$(2))
-# Jetson Nano is detected correctly
-# Raspberry Pi 1 / Zero is detected correctly
-DTMODEL_RPI2 = Raspberry Pi 2 Model B
-DTMODEL_RPI3 = Raspberry Pi 3 Model B
-DTMODEL_RPI4 = Raspberry Pi 4 Model B
-COPT_RPI2 = -mfpu=neon-vfpv4
-COPT_RPI34 = -mfpu=neon-fp-armv8
-COPT += $(call F_CHECKDTMODEL,$(DTMODEL_RPI2),$(COPT_RPI2))
-COPT += $(call F_CHECKDTMODEL,$(DTMODEL_RPI3),$(COPT_RPI34))
-COPT += $(call F_CHECKDTMODEL,$(DTMODEL_RPI4),$(COPT_RPI34))
-# -funsafe-math-optimizations required for NEON, warning: may lead to loss of floating-point precision
-COPT += -funsafe-math-optimizations
 
-CFLAGS += -Wall -Wextra -Wpedantic -Wunused -DVERSION=\"${VER}\" -pthread -D_GNU_SOURCE
-LDFLAGS += -lusb-1.0 -lm -lasound
+#CFLAGS += -Wall -Wextra -Wpedantic -Wunused -DVERSION=\"${VER}\" -pthread -D_GNU_SOURCE
+LDFLAGS += -lusb-1.0 -lm -lasound -lpthread -lmosquitto
 
 all: _print_banner longmynd fake_read ts_analyse
 

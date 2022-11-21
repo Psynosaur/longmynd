@@ -62,6 +62,8 @@
 #define STATUS_LNB_POLARISATION_H 25
 #define STATUS_AGC1_GAIN          26
 #define STATUS_AGC2_GAIN          27
+#define STATUS_MATYPE1            28
+#define STATUS_MATYPE2            29
 
 /* The number of constellation peeks we do for each background loop */
 #define NUM_CONSTELLATIONS 16
@@ -88,6 +90,7 @@ typedef struct {
     int ts_ip_port;
 
     bool status_use_ip;
+    bool status_use_mqtt;
     char status_fifo_path[128];
     char status_ip_addr[16];
     int status_ip_port;
@@ -129,6 +132,8 @@ typedef struct {
     uint8_t ts_null_percentage;
     uint16_t ts_elementary_streams[NUM_ELEMENT_STREAMS][2]; // { pid, type }
     uint32_t modcod;
+    uint32_t matype1;
+    uint32_t matype2;
     bool short_frame;
     bool pilots;
     uint64_t last_ts_or_reinit_monotonic;

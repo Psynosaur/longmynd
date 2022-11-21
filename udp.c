@@ -39,6 +39,7 @@
 #include "errors.h"
 #include "udp.h"
 
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
@@ -84,6 +85,7 @@ void udp_send_normalize(u_int8_t *b, int len)
                     break;        
                 } 
             }
+            fprintf(stderr,"Not Sync!\n");
             
         }
         
@@ -123,6 +125,40 @@ void udp_send_normalize(u_int8_t *b, int len)
         
     }
 
+#define BBFRAME_MAX_LEN 6906
+void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
+{
+    static unsigned char BBFrame[BBFRAME_MAX_LEN];
+    static int offset=0;
+    static int dfl=0;
+    if(offset+len>BBFRAME_MAX_LEN) 
+    {
+        fprintf(stderr,"bbframe overflow! %d/%d\n",offset,len);
+        offset=0;
+        return;
+    }
+   
+    if((b[0]==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
+    {
+        offset=0; //Start of bbframe header
+        dfl=(((int)b[4]<<8) + (int)b[5])/8 + 10;
+        //fprintf(stderr,"BBFrame Len %d\n",dfl);
+    }
+    memcpy(BBFrame+offset,b,len);
+    offset+=len;
+    //fprintf(stderr,"BBFrame %d/%d\n",offset,dfl);
+    if(offset==dfl)
+    {
+        if (sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)) < 0)
+                {
+                    fprintf(stderr, "UDP BBframe send failed\n");
+                }
+        offset=0;        
+    }
+
+}
+
+
 uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
 /* -------------------------------------------------------------------------------------------------- */
 /* takes a buffer and writes out the contents to udp socket                                           */
@@ -136,6 +172,7 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
     uint32_t write_size;
    
     remaining_len=len;
+    
     /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
     /* the FTDI chip every 512 bytes of USB message */
     while (remaining_len>0) {
@@ -144,14 +181,14 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
              write_size=510;
               //fprintf(stderr,"1Usb len %d remainin %d\n",len,remaining_len);
              udp_send_normalize( &buffer[len-remaining_len],write_size);
-             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
+            //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              /* note we skip over the 2 bytes inserted by the FTDI */
              remaining_len-=512;
         } else {
              write_size=remaining_len;
              //fprintf(stderr,"2 Usb len %d remainin %d\n",len,remaining_len);            
              udp_send_normalize( &buffer[len-remaining_len],write_size);
-             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
+            //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              remaining_len-=write_size; /* should be 0 if all went well */
         }
     }
@@ -166,6 +203,48 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
 
     return err;
 }
+
+uint8_t udp_bb_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
+/* -------------------------------------------------------------------------------------------------- */
+/* takes a buffer and writes out the contents to udp socket                                           */
+/* *buffer: the buffer that contains the data to be sent                                              */
+/*     len: the length (number of bytes) of data to be sent                                           */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    (void)output_ready;
+    uint8_t err=ERROR_NONE;
+    int32_t remaining_len; /* note it is signed so can go negative */
+    uint32_t write_size;
+   
+    remaining_len=len;
+    
+    /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
+    /* the FTDI chip every 512 bytes of USB message */
+    while (remaining_len>0) {
+        if (remaining_len>510) {
+             /* calculate where to start in the buffer and how many bytes to send */
+             write_size=510;
+         
+            udp_bb_defrag( &buffer[len-remaining_len],write_size,true);
+             remaining_len-=512;
+        } else {
+             write_size=remaining_len;
+             udp_bb_defrag( &buffer[len-remaining_len],write_size,true);
+             remaining_len-=write_size; /* should be 0 if all went well */
+        }
+    }
+
+    /* if someting went bad with our calcs, remaining will not be 0 */
+    if ((err==ERROR_NONE) && (remaining_len!=0)) {
+        printf("ERROR: UDP socket write incorrect number of bytes\n");
+        err=ERROR_UDP_WRITE;
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: UDP socket ts write\n");
+
+    return err;
+}
+
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t udp_status_write(uint8_t message, uint32_t data, bool *output_ready) {

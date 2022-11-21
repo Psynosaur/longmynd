@@ -30,6 +30,7 @@
 #include "ts.h"
 
 #include "libts.h"
+#include "stv0910.h"
 
 #define TS_FRAME_SIZE 20*512 // 512 is base USB FTDI frame
 
@@ -105,12 +106,34 @@ void *loop_ts(void *arg) {
 
            config->ts_reset = false; 
         }
+        
 
         *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
-
+        
+        //if(len>2) fprintf(stderr,"len %d\n",len);
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
         if ((*err==ERROR_NONE) && (len>2)) {
+
+/*
+            uint32_t matype1,matype2;
+            pthread_mutex_lock(&status->mutex);
+         stv0910_read_matype(1, &matype1,&matype2);
+         pthread_mutex_unlock(&status->mutex);
+         */
+        
+        if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 3)
+        {
+             
+            //fprintf(stderr,"matype %x\n",status->power_i);
+            ts_write = udp_ts_write;
+        }
+        if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 1)
+        {
+            ts_write = udp_bb_write;
+        }    
+
+
             if(thread_vars->config->ts_use_ip || fifo_ready)
             {
                 *err=ts_write(&buffer[2],len-2,&fifo_ready);
