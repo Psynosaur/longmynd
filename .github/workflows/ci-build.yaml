@@ -18,7 +18,7 @@ jobs:
         sudo apt-get update -q -y
         sudo apt-get install -q -y build-essential gcc-7 gcc-8 gcc-9 gcc-10
         # Install longmynd dependencies
-        sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev
+        sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev libmosquitto-dev
     - name: Build longmynd
       shell: bash
       run: |
@@ -59,11 +59,11 @@ jobs:
             case "${{ matrix.distro }}" in
               buster)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev
+                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev
+                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
                 ;;
             esac
 
