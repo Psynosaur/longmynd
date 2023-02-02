@@ -157,6 +157,7 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
     uint8_t err=ERROR_NONE;
     char status_topic[255];
 	char status_message[255];
+	static int latest_modcod=0;
     /* WARNING: This currently prints as signed integer (int32_t), even though function appears to expect unsigned (uint32_t) */
     sprintf(status_topic, "dt/longmynd/%s", StatusString[message]);
 	if(message==STATUS_STATE) //state machine
@@ -175,6 +176,7 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
 	if(message==STATUS_MODCOD)
 	{
 		int modcod=data;
+		latest_modcod=modcod;
         char modulation[50];
         char fec[50];
         const char TabFec[][255]={"none","1/4","1/3","2/5","1/2","3/5","2/3","3/4","4/5","5/6","8/9","9/10","3/5","2/3","3/4","5/6",
@@ -210,6 +212,21 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
 				
 		
 		mosquitto_publish(mosq,NULL,status_topic,strlen(matype),matype,2,false);
+	}
+	else
+	if( message==STATUS_MER)
+	{
+			int TheoricMER[]={0,-24,-12,0,10,22,32,40,46,52,62,65,55,66,79,94,106,110,90,102,110,116,129,131,126,136,143,157,161};
+			sprintf(status_message, "%0.1f", ((int)data)/10.0);
+			mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+			if(latest_modcod!=0)
+			{
+				char smargin[50];
+				int Margin = (int)data-TheoricMER[latest_modcod];
+				sprintf(smargin,"%d",Margin/10);
+				mosquitto_publish(mosq,NULL,"dt/longmynd/margin_db",strlen(smargin),smargin,2,false);
+			}
+
 	}
 	else
 	{	
