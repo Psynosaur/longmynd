@@ -125,12 +125,49 @@ void udp_send_normalize(u_int8_t *b, int len)
         
     }
 
+
+
+#define CRC_POLY 0xAB
+// Reversed
+#define CRC_POLYR 0xD5
+uint8_t m_crc_tab[256];
+void build_crc8_table( void )
+{
+    int r,crc;
+    fprintf(stderr,"Init crc8\n");
+    for( int i = 0; i < 256; i++ )
+    {
+        r = i;
+        crc = 0;
+        for( int j = 7; j >= 0; j-- )
+        {
+            if((r&(1<<j)?1:0) ^ ((crc&0x80)?1:0))
+                crc = (crc<<1)^CRC_POLYR;
+            else
+                crc <<= 1;
+        }
+        m_crc_tab[i] = crc;
+    }
+}
+
+uint8_t calc_crc8( uint8_t *b, int len )
+{
+    uint8_t crc = 0;
+
+    for( int i = 0; i < len; i++ )
+    {
+        crc = m_crc_tab[b[i]^crc];
+    }
+    return crc;
+}
+
 #define BBFRAME_MAX_LEN 6906
 void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
 {
     static unsigned char BBFrame[BBFRAME_MAX_LEN];
     static int offset=0;
     static int dfl=0;
+    static int count=0;
     if(offset+len>BBFRAME_MAX_LEN) 
     {
         fprintf(stderr,"bbframe overflow! %d/%d\n",offset,len);
@@ -138,22 +175,26 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
         return;
     }
    
-    if((b[0]==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
+   // if(((b[0]&0xC0)==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
+   if((len>=10)&&(calc_crc8(b,9)==b[9]))
     {
+        
         offset=0; //Start of bbframe header
         dfl=(((int)b[4]<<8) + (int)b[5])/8 + 10;
-        //fprintf(stderr,"BBFrame Len %d\n",dfl);
+        
     }
+    
     memcpy(BBFrame+offset,b,len);
     offset+=len;
-    //fprintf(stderr,"BBFrame %d/%d\n",offset,dfl);
+    fprintf(stderr,"BBFrame #%d : %d/%d\n",count,offset,dfl);
     if(offset==dfl)
     {
-        if (sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)) < 0)
+        count++;
+        if (sendto(sockfd_ts, BBFrame, offset, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)) < 0)
                 {
                     fprintf(stderr, "UDP BBframe send failed\n");
                 }
-        offset=0;        
+        //offset=0;        
     }
 
 }
@@ -186,7 +227,7 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
              remaining_len-=512;
         } else {
              write_size=remaining_len;
-             //fprintf(stderr,"2 Usb len %d remainin %d\n",len,remaining_len);            
+            ///fprintf(stderr,"2 Usb len %d remainin %d\n",len,remaining_len);            
              udp_send_normalize( &buffer[len-remaining_len],write_size);
             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              remaining_len-=write_size; /* should be 0 if all went well */
@@ -220,16 +261,19 @@ uint8_t udp_bb_write(uint8_t *buffer, uint32_t len, bool *output_ready) {
     
     /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
     /* the FTDI chip every 512 bytes of USB message */
+    //fprintf(stderr,"bbframe %d\n",len);
     while (remaining_len>0) {
         if (remaining_len>510) {
              /* calculate where to start in the buffer and how many bytes to send */
              write_size=510;
          
             udp_bb_defrag( &buffer[len-remaining_len],write_size,true);
+            //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              remaining_len-=512;
         } else {
              write_size=remaining_len;
              udp_bb_defrag( &buffer[len-remaining_len],write_size,true);
+             //sendto(sockfd_ts, &buffer[len-remaining_len], write_size, 0,(const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)); 
              remaining_len-=write_size; /* should be 0 if all went well */
         }
     }
@@ -297,7 +341,7 @@ static uint8_t udp_init(struct sockaddr_in *servaddr_ptr, int *sockfd_ptr, char 
     uint8_t err=ERROR_NONE;
   
     printf("Flow: UDP Init\n");
-
+    build_crc8_table();
     /* Creat the socket  for IPv4 and UDP */
     if ((*sockfd_ptr = socket(AF_INET, SOCK_DGRAM,IPPROTO_UDP)) < 0 ) { 
         printf("ERROR: socket creation failed\n"); 
