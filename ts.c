@@ -53,6 +53,8 @@ static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer = {
     .signal = PTHREAD_COND_INITIALIZER
 };
 
+
+
 /* -------------------------------------------------------------------------------------------------- */
 void *loop_ts(void *arg) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -121,12 +123,13 @@ void *loop_ts(void *arg) {
          stv0910_read_matype(1, &matype1,&matype2);
          pthread_mutex_unlock(&status->mutex);
          */
-        
+         
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 3)
         {
              
-            //fprintf(stderr,"matype %x\n",status->power_i);
+           
             ts_write = udp_ts_write;
+            //ts_write = udp_bb_write;
         }
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 1)
         {

@@ -1085,6 +1085,7 @@ int main(int argc, char *argv[])
     {
         if (err == ERROR_NONE)
             err = mqttinit(longmynd_config.status_ip_addr);
+        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");    
         status_write = mqtt_status_write;
         status_string_write = mqtt_status_string_write;
     }

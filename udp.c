@@ -168,34 +168,88 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
     static int offset=0;
     static int dfl=0;
     static int count=0;
-    if(offset+len>BBFRAME_MAX_LEN) 
+    int end=false;
+    int idx_b=0;
+
+     if(offset+len>BBFRAME_MAX_LEN) 
     {
         fprintf(stderr,"bbframe overflow! %d/%d\n",offset,len);
         offset=0;
         return;
     }
-   
-   // if(((b[0]&0xC0)==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
-   if((len>=10)&&(calc_crc8(b,9)==b[9]))
+
+    
+    // if(((b[0]&0xC0)==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
+    if((offset==0)&&(len>=10)&&(calc_crc8(b,9)==b[9]))
     {
-        
-        offset=0; //Start of bbframe header
-        dfl=(((int)b[4]<<8) + (int)b[5])/8 + 10;
-        
+            //offset=0; //Start of bbframe header
+            dfl=(((int)b[4]<<8) + (int)b[5])/8 + 10;
+    }
+    if(dfl==0) 
+    {
+        fprintf(stderr,"wrong dfl size %d\n",len);
+        /*
+        for(int i=0;i<len;i++)
+        {
+            fprintf(stderr,"%x ",b[i]);
+        }
+        fprintf(stderr,"\n");
+        */
+        return; 
+    }    
+    if(offset+len<dfl)
+    {
+        //fprintf(stderr,"bbframe # %d : %d/%d\n",count,offset+len,dfl);
+        memcpy(BBFrame+offset,b,len);
+        offset+=len;
+        return;
+    }     
+
+    if(offset+len==dfl)
+    {
+         memcpy(BBFrame+offset,b,len);
+         //fprintf(stderr,"Complete bbframe # %d : %d/%d\n",count,offset+len,dfl);
+         sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
+         offset=0;
+         count++;
+         return;
+           
     }
     
-    memcpy(BBFrame+offset,b,len);
-    offset+=len;
-    fprintf(stderr,"BBFrame #%d : %d/%d\n",count,offset,dfl);
-    if(offset==dfl)
+    if(offset+len>dfl)
     {
-        count++;
-        if (sendto(sockfd_ts, BBFrame, offset, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr)) < 0)
-                {
-                    fprintf(stderr, "UDP BBframe send failed\n");
-                }
-        //offset=0;        
+        fprintf(stderr,"------------------------ Partial bbframe # %d : %d/%d\n",count,offset+len,dfl);
+         memcpy(BBFrame+offset,b,dfl-offset);
+         sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
+         fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
+
+        int size=len - (dfl-offset);
+        /*
+          for(int i=0;i<len;i++)
+        {
+            if(i==dfl-offset) fprintf(stderr,"/////// \n");
+            fprintf(stderr,"%x ",b[i]);
+        }
+        fprintf(stderr,"\n");
+        */
+         int oldoffset=offset;
+         int olddfl=dfl;
+         offset=0;
+         dfl=0;
+         /*
+          fprintf(stderr,"Recursive with size %d\n",size);
+           for(int i=0;i<size;i++)
+        {
+                    fprintf(stderr,"%x ",b[i+olddfl-oldoffset]);
+        }
+        fprintf(stderr,"\n");
+        */
+         udp_bb_defrag(b+olddfl-oldoffset,size,true);
+         
+           
     }
+           
+    
 
 }
 
