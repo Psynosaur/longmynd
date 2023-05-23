@@ -161,7 +161,7 @@ uint8_t calc_crc8( uint8_t *b, int len )
     return crc;
 }
 
-#define BBFRAME_MAX_LEN 6906
+#define BBFRAME_MAX_LEN 7274
 void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
 {
     static unsigned char BBFrame[BBFRAME_MAX_LEN];
@@ -218,7 +218,7 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
     
     if(offset+len>dfl)
     {
-        fprintf(stderr,"------------------------ Partial bbframe # %d : %d/%d\n",count,offset+len,dfl);
+        //fprintf(stderr,"------------------------ Partial bbframe # %d : %d/%d\n",count,offset+len,dfl);
          memcpy(BBFrame+offset,b,dfl-offset);
          sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
          fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
