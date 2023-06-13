@@ -180,6 +180,11 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
 
     
     // if(((b[0]&0xC0)==0x70)&&(b[1]==0x0)) // FixeMe : SHould be better to compute crc to be sure it is a header
+    if((offset==0)&&(b[0]!=0x72))
+    {
+         fprintf(stderr,"BBFRAME padding ? %x\n",b[0]);
+         return;
+    }     
     if((offset==0)&&(len>=10)&&(calc_crc8(b,9)==b[9]))
     {
             //offset=0; //Start of bbframe header
@@ -188,6 +193,7 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
     if(dfl==0) 
     {
         fprintf(stderr,"wrong dfl size %d\n",len);
+        
         /*
         for(int i=0;i<len;i++)
         {
@@ -221,7 +227,7 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
         //fprintf(stderr,"------------------------ Partial bbframe # %d : %d/%d\n",count,offset+len,dfl);
          memcpy(BBFrame+offset,b,dfl-offset);
          sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
-         fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
+         //fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
 
         int size=len - (dfl-offset);
         /*
@@ -236,14 +242,14 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
          int olddfl=dfl;
          offset=0;
          dfl=0;
-         /*
+         
           fprintf(stderr,"Recursive with size %d\n",size);
            for(int i=0;i<size;i++)
         {
                     fprintf(stderr,"%x ",b[i+olddfl-oldoffset]);
         }
         fprintf(stderr,"\n");
-        */
+        
          udp_bb_defrag(b+olddfl-oldoffset,size,true);
          
            
