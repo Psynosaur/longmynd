@@ -78,6 +78,12 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		config_set_frequency(Frequency);
        	
 	}
+	if (strcmp(key, "cmd/longmynd/swport") == 0)
+	{
+		bool sport=atoi(svalue);
+		config_set_swport(sport);
+       	
+	}
 }
 
 /* Callback called when the client receives a message. */

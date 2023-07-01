@@ -155,6 +155,28 @@ void config_set_lnbv(bool enabled, bool horizontal)
     pthread_mutex_unlock(&longmynd_config.mutex);
 }
 
+void config_set_swport(bool sport)
+{
+    pthread_mutex_lock(&longmynd_config.mutex);
+
+    printf("swport: %d\n",sport);
+    longmynd_config.port_swap = sport;
+    longmynd_config.new = true;
+
+    pthread_mutex_unlock(&longmynd_config.mutex);
+}
+
+void config_set_tsip(char *tsip)
+{
+    pthread_mutex_lock(&longmynd_config.mutex);
+
+    strcpy(longmynd_config.ts_ip_addr, tsip);
+    udp_ts_init(tsip,1234);
+    longmynd_config.new = true;
+
+    pthread_mutex_unlock(&longmynd_config.mutex);
+}
+
 void config_reinit(bool increment_frsr)
 {
     pthread_mutex_lock(&longmynd_config.mutex);

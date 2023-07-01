@@ -158,6 +158,7 @@ void config_set_symbolrate(uint32_t symbolrate);
 void config_set_frequency_and_symbolrate(uint32_t frequency, uint32_t symbolrate);
 void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
+void config_set_swport(bool sport);
 
 #endif
 
