@@ -84,6 +84,13 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		config_set_swport(sport);
        	
 	}
+	
+	if (strcmp(key, "cmd/longmynd/tsip") == 0)
+	{
+		
+		config_set_tsip(svalue);
+       	
+	}
 }
 
 /* Callback called when the client receives a message. */
