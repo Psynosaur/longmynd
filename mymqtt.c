@@ -232,13 +232,19 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
 			int TheoricMER[]={0,-24,-12,0,10,22,32,40,46,52,62,65,55,66,79,94,106,110,90,102,110,116,129,131,126,136,143,157,161};
 			sprintf(status_message, "%0.1f", ((int)data)/10.0);
 			mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+			char smargin[50];
 			if(latest_modcod!=0)
 			{
-				char smargin[50];
+				
 				int Margin = (int)data-TheoricMER[latest_modcod];
 				sprintf(smargin,"%d",Margin/10);
 				mosquitto_publish(mosq,NULL,"dt/longmynd/margin_db",strlen(smargin),smargin,2,false);
 			}
+			else
+			{
+				sprintf(smargin,"%d",0);
+				mosquitto_publish(mosq,NULL,"dt/longmynd/margin_db",strlen(smargin),smargin,2,false);
+			}	
 
 	}
 	else
