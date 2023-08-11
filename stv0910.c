@@ -73,7 +73,7 @@ uint8_t stv0910_read_car_freq(uint8_t demod, int32_t *cf) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_read_constellation(uint8_t demod, uint8_t *i, uint8_t *q) {
+uint8_t stv0910_read_constellation(uint8_t demod, int8_t *i, int8_t *q) {
 /* -------------------------------------------------------------------------------------------------- */
 /* reads an I,Q pair from the constellation monitor registers                                         */
 /*     i,q: places to store the results                                                               */
@@ -81,10 +81,13 @@ uint8_t stv0910_read_constellation(uint8_t demod, uint8_t *i, uint8_t *q) {
 /*  return: error state                                                                               */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err;
+    uint8_t ui;
+    uint8_t uq;
 
-                         err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_ISYMB : RSTV0910_P1_ISYMB, i);
-    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_QSYMB : RSTV0910_P1_QSYMB, q);
-
+                         err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_ISYMB : RSTV0910_P1_ISYMB, &ui);
+    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_QSYMB : RSTV0910_P1_QSYMB, &uq);
+    *i=(int8_t)ui;
+    *q=(int8_t)uq;
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read constellation\n");
 
     return err;

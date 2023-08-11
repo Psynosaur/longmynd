@@ -44,7 +44,7 @@
 #define STV0910_PUNCTURE_7_8 0x1a
 
 uint8_t stv0910_read_car_freq(uint8_t, int32_t*);
-uint8_t stv0910_read_constellation(uint8_t, uint8_t*, uint8_t*);
+uint8_t stv0910_read_constellation(uint8_t, int8_t*, int8_t*);
 uint8_t stv0910_read_sr(uint8_t demod, uint32_t*);
 uint8_t stv0910_read_puncture_rate(uint8_t, uint8_t*);
 uint8_t stv0910_read_agc1_gain(uint8_t, uint16_t*);

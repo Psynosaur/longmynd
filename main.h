@@ -125,7 +125,7 @@ typedef struct {
     bool errors_bch_uncorrected;
     uint32_t errors_bch_count;
     uint32_t errors_ldpc_count;
-    uint8_t constellation[NUM_CONSTELLATIONS][2]; // { i, q }
+    int8_t constellation[NUM_CONSTELLATIONS][2]; // { i, q }
     uint8_t puncture_rate;
     char service_name[255];
     char service_provider_name[255];

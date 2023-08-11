@@ -242,6 +242,16 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
 
 	}
 	else
+	if( (message==STATUS_CONSTELLATION_I) || (message==STATUS_CONSTELLATION_Q) )
+	{
+			int8_t signed_data;
+			signed_data = (int8_t)data;
+			sprintf(status_message, "%d", data);
+			
+			mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);		
+
+	}
+	else
 	{	
 	sprintf(status_message, "%i", data);
 	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
