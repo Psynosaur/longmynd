@@ -65,6 +65,7 @@ uint32_t Frequency=0;
 bool sport;
 char stsip[255];
 
+
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
 	char *key = msg->topic;
@@ -96,6 +97,19 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		config_set_tsip(svalue);
        	
 	}
+
+	if (strcmp(key, "cmd/longmynd/polar") == 0)
+	{
+		if(strcmp(svalue,"h")==0)
+			config_set_lnbv(true,true);
+		if(strcmp(svalue,"v")==0)
+			config_set_lnbv(true,false);
+		if(strcmp(svalue,"n")==0)
+			config_set_lnbv(false,false);
+			
+
+	}
+	
 }
 
 /* Callback called when the client receives a message. */
