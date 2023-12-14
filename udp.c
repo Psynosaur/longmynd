@@ -38,8 +38,11 @@
 #include <netinet/in.h> 
 #include "errors.h"
 #include "udp.h"
+#include <mutex>
+#include <unordered_set>
+#include <CivetServer.h>
 
-
+using namespace std;
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
@@ -53,12 +56,187 @@ int sockfd_ts;
 /* ----------------- DEFINES ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
 
+#define WS_PORT "7682"
+#define DOCUMENT_ROOT "."
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
+// ================= CIVETWEB ================================
 
+class WsStartHandler : public CivetHandler
+{
+public:
+    bool
+    handleGet(CivetServer *server, struct mg_connection *conn)
+    {
+
+        mg_printf(conn,
+                  "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: "
+                  "close\r\n\r\n");
+
+        mg_printf(conn, "<!DOCTYPE html>\n");
+        mg_printf(conn, "<html>\n<head>\n");
+        mg_printf(conn, "<meta charset=\"UTF-8\">\n");
+        mg_printf(conn, "<title>Embedded websocket example</title>\n");
+
+        /* mg_printf(conn, "<script type=\"text/javascript\"><![CDATA[\n"); ...
+         * xhtml style */
+        mg_printf(conn, "<script>\n");
+        mg_printf(
+            conn,
+            "var i=0\n"
+            "function load() {\n"
+            "  var wsproto = (location.protocol === 'https:') ? 'wss:' : 'ws:';\n"
+            "  connection = new WebSocket(wsproto + '//' + window.location.host + "
+            "'/websocket');\n"
+            "  websock_text_field = "
+            "document.getElementById('websock_text_field');\n"
+            "  connection.onmessage = function (e) {\n"
+            "    websock_text_field.innerHTML=e.data;\n"
+            "    i=i+1;"
+            "    connection.send(i);\n"
+            "  }\n"
+            "  connection.onerror = function (error) {\n"
+            "    alert('WebSocket error');\n"
+            "    connection.close();\n"
+            "  }\n"
+            "}\n");
+        /* mg_printf(conn, "]]></script>\n"); ... xhtml style */
+        mg_printf(conn, "</script>\n");
+        mg_printf(conn, "</head>\n<body onload=\"load()\">\n");
+        mg_printf(
+            conn,
+            "<div id='websock_text_field'>No websocket connection yet</div>\n");
+        mg_printf(conn, "</body>\n</html>\n");
+
+        return 1;
+    }
+};
+
+
+void extract_between_quotes(char *s, char *dest)
+{
+    int in_quotes = 0;
+    *dest = 0;
+    while (*s != 0)
+    {
+        if (in_quotes)
+        {
+            if (*s == '"')
+                return;
+            dest[0] = *s;
+            dest[1] = 0;
+            dest++;
+        }
+        else if (*s == '"')
+            in_quotes = 1;
+        s++;
+    }
+}
+
+class WebSocketHandler : public CivetWebSocketHandler
+{
+
+private:
+    /// Lock protecting \c connections_.
+    std::mutex connectionsLock_;
+
+    /// Set of connected clients to the entry point.
+    std::unordered_set<mg_connection *> connections_;
+
+public:
+    virtual bool handleConnection(CivetServer *server,
+                                  const struct mg_connection *conn)
+    {
+         fprintf(stderr,"WS connected\n");
+
+        return true;
+    }
+
+    virtual void handleReadyState(CivetServer *server,
+                                  struct mg_connection *conn)
+    {
+        // printf("WS ready\n");
+        {
+            std::lock_guard<std::mutex> l(connectionsLock_);
+            connections_.insert(conn);
+        }
+        //update_web_param();
+        // process_param(span);
+        //  process_param(centrefreq);
+        /*
+         send(centrefreq, strlen(centrefreq),MG_WEBSOCKET_OPCODE_TEXT);
+        send(span, strlen(centrefreq),MG_WEBSOCKET_OPCODE_TEXT);
+        */
+    }
+
+    virtual bool handleData(CivetServer *server,
+                            struct mg_connection *conn,
+                            int bits,
+                            char *data,
+                            size_t data_len)
+    {
+        // printf("WS got %lu bytes: ", (long unsigned)data_len);
+        // fwrite(data, 1, data_len, stdout);
+        // printf("\n");
+        char message[255];
+        strncpy(message, data, data_len);
+        char name[255];
+        extract_between_quotes(message, name);
+        fprintf(stderr, "Message received : %s : name %s ", message, name);
+        if (strcmp(name, "freq") == 0)
+        {
+            char *pch;
+            pch = strstr(message, ":");
+            char value[255];
+            strncpy(value, pch + 1, strlen(pch - 2));
+            // set_frequency_span(atof(value), span);
+        }
+
+        return (data_len < 4);
+    }
+
+    virtual void handleClose(CivetServer *server,
+                             const struct mg_connection *conn)
+    {
+
+        std::lock_guard<std::mutex> l(connectionsLock_);
+
+        auto it = connections_.find(const_cast<struct mg_connection *>(conn));
+        if (it != connections_.end())
+            connections_.erase(it);
+        // printf("WS closed\n");
+    }
+
+    void process(uint8_t *tsbuff, int tssize)
+    {
+
+        send((char *)tsbuff, tssize, MG_WEBSOCKET_OPCODE_BINARY);
+    }
+
+    void process_param(char *param)
+    {
+        fprintf(stderr, "Param : %s\n", param);
+        send(param, strlen(param), MG_WEBSOCKET_OPCODE_TEXT);
+    }
+
+    void send(char *data, int len, int MessageType)
+    {
+        std::lock_guard<std::mutex> l(connectionsLock_);
+        std::vector<struct mg_connection *> errors;
+        for (auto it : connections_)
+        {
+            if (0 >= mg_websocket_write(it, MessageType, data, len))
+                errors.push_back(it);
+        }
+
+        for (auto it : errors)
+            connections_.erase(it);
+    }
+};
 /* -------------------------------------------------------------------------------------------------- */
-
+WebSocketHandler h_websocket;
 void udp_send_normalize(u_int8_t *b, int len)
     {
 #define BUFF_MAX_SIZE (7 * 188)
@@ -110,7 +288,7 @@ void udp_send_normalize(u_int8_t *b, int len)
                 {
                     fprintf(stderr, "UDP send failed\n");
                 }
-                
+                h_websocket.process(Buffer, BUFF_MAX_SIZE);
                 memmove(Buffer,Buffer+BUFF_MAX_SIZE,Size-BUFF_MAX_SIZE+len);
                 Size+=len;
                 Size = Size-BUFF_MAX_SIZE;
@@ -214,7 +392,7 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
     if(offset+len==dfl)
     {
          memcpy(BBFrame+offset,b,len);
-         //fprintf(stderr,"Complete bbframe # %d : %d/%d\n",count,offset+len,dfl);
+         fprintf(stderr,"Complete bbframe # %d : %d/%d\n",count,offset+len,dfl);
          sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
          offset=0;
          count++;
@@ -227,7 +405,7 @@ void udp_bb_defrag(u_int8_t *b, int len,bool withheader)
         //fprintf(stderr,"------------------------ Partial bbframe # %d : %d/%d\n",count,offset+len,dfl);
          memcpy(BBFrame+offset,b,dfl-offset);
          sendto(sockfd_ts, BBFrame, dfl, 0, (const struct sockaddr *) &servaddr_ts,  sizeof(struct sockaddr));
-         //fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
+         fprintf(stderr,"First Complete bbframe # %d : %d/%d\n",count,offset+dfl-offset,dfl);
 
         int size=len - (dfl-offset);
         /*
@@ -389,7 +567,7 @@ uint8_t udp_status_string_write(uint8_t message, char *data, bool *output_ready)
     return err;
 }
 
-
+CivetServer *server; // <-- C++ style start
 /* -------------------------------------------------------------------------------------------------- */
 static uint8_t udp_init(struct sockaddr_in *servaddr_ptr, int *sockfd_ptr, char *udp_ip, int udp_port) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -423,7 +601,10 @@ uint8_t udp_status_init(char *udp_ip, int udp_port) {
 }
 
 uint8_t udp_ts_init(char *udp_ip, int udp_port) {
-    return udp_init(&servaddr_ts, &sockfd_ts, udp_ip, udp_port);
+    
+    uint8_t err=udp_init(&servaddr_ts, &sockfd_ts, udp_ip, udp_port);
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */

@@ -60,6 +60,11 @@ void on_subscribe(struct mosquitto *mosq, void *obj, int mid, int qos_count, con
 	}
 }
 
+uint32_t Symbolrate=0;
+uint32_t Frequency=0;
+bool sport;
+char stsip[255];
+
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
 	char *key = msg->topic;
@@ -67,27 +72,27 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	
 	if (strcmp(key, "cmd/longmynd/sr") == 0)
 	{
-		uint32_t Symbolrate=atol(svalue);
+		Symbolrate=atol(svalue);
 		
 		config_set_symbolrate(Symbolrate);
        	
 	}
 	if (strcmp(key, "cmd/longmynd/frequency") == 0)
 	{
-		uint32_t Frequency=atol(svalue);
+		Frequency=atol(svalue);
 		config_set_frequency(Frequency);
        	
 	}
 	if (strcmp(key, "cmd/longmynd/swport") == 0)
 	{
-		bool sport=atoi(svalue);
+		sport=atoi(svalue);
 		config_set_swport(sport);
        	
 	}
 	
 	if (strcmp(key, "cmd/longmynd/tsip") == 0)
 	{
-		
+		strcpy(stsip,svalue);
 		config_set_tsip(svalue);
        	
 	}
@@ -263,6 +268,23 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready) {
 	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
 	}
 	
+		
+	sprintf(status_topic, "dt/longmynd/set/sr");
+	sprintf(status_message, "%d",Symbolrate);
+	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+
+	sprintf(status_topic, "dt/longmynd/set/frequency");
+	sprintf(status_message, "%d",Frequency);
+	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+
+	sprintf(status_topic, "dt/longmynd/set/swport");
+	sprintf(status_message, "%d",sport);
+	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+
+	sprintf(status_topic, "dt/longmynd/set/tsip");
+	sprintf(status_message, "%s",stsip);
+	mosquitto_publish(mosq,NULL,status_topic,strlen(status_message),status_message,2,false);
+
 
     return err;
 }
