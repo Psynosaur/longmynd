@@ -100,7 +100,7 @@ typedef struct {
 
     int ts_timeout;
 
-    bool new;
+    bool new_config;
     pthread_mutex_t mutex;
 } longmynd_config_t;
 

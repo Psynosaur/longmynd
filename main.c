@@ -61,14 +61,16 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 static longmynd_config_t longmynd_config = {
-    .new = false,
-    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    
     .freq_index = 0,
-    .sr_index = 0};
+    .sr_index = 0,
+    .new_config = false,
+    .mutex = PTHREAD_MUTEX_INITIALIZER
+    };
 
 static longmynd_status_t longmynd_status = {
-    .service_name = "\0",
-    .service_provider_name = "\0",
+    .service_name = {'\0'},
+    .service_provider_name = {'\0'},
     .last_updated_monotonic = 0,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER,
@@ -95,7 +97,7 @@ void config_set_frequency(uint32_t frequency)
         longmynd_config.freq_requested[2] = 0;
         longmynd_config.freq_requested[3] = 0;
         longmynd_config.freq_index = 0;
-        longmynd_config.new = true;
+        longmynd_config.new_config = true;
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -113,7 +115,7 @@ void config_set_symbolrate(uint32_t symbolrate)
         longmynd_config.sr_requested[2] = 0;
         longmynd_config.sr_requested[3] = 0;
         longmynd_config.sr_index = 0;
-        longmynd_config.new = true;
+        longmynd_config.new_config = true;
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -138,7 +140,7 @@ void config_set_frequency_and_symbolrate(uint32_t frequency, uint32_t symbolrate
         longmynd_config.sr_requested[3] = 0;
         longmynd_config.sr_index = 0;
 
-        longmynd_config.new = true;
+        longmynd_config.new_config = true;
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -150,7 +152,7 @@ void config_set_lnbv(bool enabled, bool horizontal)
 
     longmynd_config.polarisation_supply = enabled;
     longmynd_config.polarisation_horizontal = horizontal;
-    longmynd_config.new = true;
+    longmynd_config.new_config = true;
 
     pthread_mutex_unlock(&longmynd_config.mutex);
 }
@@ -161,7 +163,7 @@ void config_set_swport(bool sport)
 
     printf("swport: %d\n",sport);
     longmynd_config.port_swap = sport;
-    longmynd_config.new = true;
+    longmynd_config.new_config = true;
 
     pthread_mutex_unlock(&longmynd_config.mutex);
 }
@@ -172,7 +174,7 @@ void config_set_tsip(char *tsip)
 
     strcpy(longmynd_config.ts_ip_addr, tsip);
     udp_ts_init(tsip,1234);
-    longmynd_config.new = true;
+    longmynd_config.new_config = true;
 
     pthread_mutex_unlock(&longmynd_config.mutex);
 }
@@ -201,7 +203,7 @@ void config_reinit(bool increment_frsr)
         } while (longmynd_config.sr_requested[longmynd_config.sr_index] == 0);
     }
 
-    longmynd_config.new = true;
+    longmynd_config.new_config = true;
 
     pthread_mutex_unlock(&longmynd_config.mutex);
 
@@ -582,7 +584,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
         printf("    man -l longmynd.1\n");
     }
 
-    config->new = true;
+    config->new_config = true;
 
     return err;
 }
@@ -718,7 +720,7 @@ void *loop_i2c(void *arg)
         status_cpy.last_ts_or_reinit_monotonic = 0;
 
         /* Check if there's a new config */
-        if (thread_vars->config->new)
+        if (thread_vars->config->new_config)
         {
             fprintf(stderr,"New Config !!!!!!!!!\n");
             /* Lock config struct */
@@ -726,7 +728,7 @@ void *loop_i2c(void *arg)
             /* Clone status struct locally */
             memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
             /* Clear new config flag */
-            thread_vars->config->new = false;
+            thread_vars->config->new_config = false;
             /* Set flag to clear ts buffer */
             thread_vars->config->ts_reset = true;
             pthread_mutex_unlock(&thread_vars->config->mutex);
