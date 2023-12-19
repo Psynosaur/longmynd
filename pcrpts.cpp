@@ -384,5 +384,142 @@ void InsertPacketPadding()
 }
 
 
+void ProcessTSTiming(uint8_t *Buffer, size_t BUFF_MAX_SIZE,size_t *video_delay,size_t *audio_delay)
+{
 
+    uint8_t *cur_packet = Buffer;
+for (size_t i = 0; i < BUFF_MAX_SIZE; i += 188)
+    {
+       
+        static long long pts, oldpts;
+        static  long long pcr, oldpcr;
+        unsigned long long dts;
+
+        int PacketOffsetPTS;
+        int PacketOffsetDTS;
+        char flag = 0;
+        if (GetPid((char *)cur_packet) == 256) // video
+        {
+
+            if (PCRAvailable((char *)cur_packet)) // Just take when PCR to low cpu
+            {
+                pcr = GetPCRFromPacket(cur_packet);
+                flag = GetPTSFromPacket(cur_packet, (unsigned long long *)&pts, (unsigned long long *)&dts, &PacketOffsetPTS, &PacketOffsetDTS);
+                if (flag == 2) // PTS
+                {
+
+                    *video_delay = (pts - pcr) / 27000LL;
+
+                    // fprintf(stderr, "Video PCR/PTS %lld \n", video_delay / 27000LL);
+
+                    
+                }
+                if (flag == 3) // PTS/DTS
+                {
+
+                    *video_delay = (pts - pcr) / 27000LL;
+
+                    // fprintf(stderr, "Video PCR/PTS %lld \n", video_delay / 27000LL);
+
+                    
+                }
+            }
+        }
+        else if (GetPid((char *)cur_packet) == 257) // audio
+        {
+            flag = GetPTSFromPacket(cur_packet, (unsigned long long *)&pts, (unsigned long long *)&dts, &PacketOffsetPTS, &PacketOffsetDTS);
+            if (flag == 2) // PTS
+            {
+
+                *audio_delay = (pts - pcr) / 27000LL;
+            }
+            if (flag == 3) // PTS/DTS
+            {
+                *audio_delay = (pts - pcr) / 27000LL;
+            }
+        }
+        cur_packet += 188;
+    }
+}
+
+void ProcessCorectPCR(uint8_t *Buffer, size_t BUFF_MAX_SIZE)
+{
+    uint8_t *cur_packet = Buffer;
+    static unsigned long long pts, oldpts;
+    unsigned long long dts;
+    static unsigned long long pcr, oldpcr;
+    long long video_delay;
+    int PacketOffsetPTS;
+    int PacketOffsetDTS;
+    char flag = 0;
+    static unsigned long long offset_time_clk=4*27000000LL;
+    for (size_t i = 0; i < BUFF_MAX_SIZE; i += 188)
+    {
+        if (GetPid((char *)cur_packet) == 256) // video
+        {
+
+            // if(PCRAvailable(cur_packet))
+            {
+                if (PCRAvailable((char *)cur_packet))
+                {
+                    oldpcr = pcr;
+                    pcr = GetPCRFromPacket(cur_packet);
+                    //fprintf(stderr, "PCR %llu \n", pcr);
+                    SetPacketPCR(cur_packet,pcr+offset_time_clk);
+                    
+                }
+                flag = GetPTSFromPacket(cur_packet, &pts, &dts, &PacketOffsetPTS, &PacketOffsetDTS);
+                if (flag == 2) // PTS
+                {
+                    
+                   if (PacketOffsetPTS)
+                    {
+                        set_timedts_pts(pts+offset_time_clk, cur_packet+PacketOffsetPTS);
+                        //fprintf(stderr, "VPTS %llu \n", pts);
+                    }
+                }
+                if (flag == 3) // PTS/DTS
+                {
+
+                    if (PacketOffsetPTS)
+                    {
+                        set_timedts_pts(pts+offset_time_clk, cur_packet+PacketOffsetPTS);
+                        //fprintf(stderr, "VPTS %llu \n", pts);
+                    }
+
+                    if (PacketOffsetDTS)
+                    {
+                        //fprintf(stderr, "VDTS %llu \n", dts);
+                         set_timedts_pts(dts+offset_time_clk,cur_packet+ PacketOffsetDTS);
+                    }
+                }
+            }
+        }
+        else if (GetPid((char *)cur_packet) == 257) // audio
+        {
+            flag = GetPTSFromPacket(cur_packet, &pts, &dts, &PacketOffsetPTS, &PacketOffsetDTS);
+            if (flag == 2) // PTS
+            {
+               if (PacketOffsetPTS)
+                {
+                    //fprintf(stderr, "APPTS %llu \n", dts);
+                    set_timedts_pts(pts+offset_time_clk,cur_packet+ PacketOffsetPTS);
+                }
+                //fprintf(stderr, "Warning :: PTS in audio APTS %llu ADTS %llu \n", pts,dts);
+            }
+            if (flag == 3) // DTS
+            {
+                if (PacketOffsetDTS)
+                {
+                    fprintf(stderr, "ADTS %llu \n", dts);
+                    set_timedts_pts(dts+offset_time_clk,cur_packet+ PacketOffsetDTS);
+                }    
+            }
+        }
+        else
+        {
+        }
+        cur_packet += 188;
+    }
+}
 
