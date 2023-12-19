@@ -186,12 +186,13 @@ char GetPTSFromPacket(unsigned char *Packet, unsigned long long *pts, unsigned l
 
 		unsigned char pes_header_length = pes[8];
 
-		if ((PTS_DTS_Flag == 2) || (PTS_DTS_Flag == 3))
+		if ((PTS_DTS_Flag == 2) || (PTS_DTS_Flag == 3)) //PTS
 		{
 			*pts = parse_timedts_pts(&pes[9]);
 			*PacketOffsetPTS = (&pes[9] - Packet);
 		}
-		if ((PTS_DTS_Flag == 3))
+
+		if ((PTS_DTS_Flag == 3)) /// PTS AND DTS
 		{
 			*dts = parse_timedts_pts(&pes[14]);
 			*PacketOffsetDTS = (&pes[14] - Packet);
@@ -228,8 +229,8 @@ void SetPacketPCR(unsigned char *Packet, unsigned long long pcr)
 	unsigned long long CodingPCR = 0;
 	unsigned long long CodingPCRExt = 0;
 
-	CodingPCR = ((CalculatePCR) / 300ll) & 0x1FFFFFFFFll;
-	CodingPCRExt = ((CalculatePCR) % 300ll);
+	CodingPCR = ((pcr) / 300ll) & 0x1FFFFFFFFll;
+	CodingPCRExt = ((pcr) % 300ll);
 
 	Packet[11] = (char)((CodingPCRExt)&0xFF);
 	Packet[10] = (char)((((CodingPCR & 0x1) << 7) & 0xFF) | ((CodingPCRExt >> 8) & 0x1));
@@ -382,171 +383,6 @@ void InsertPacketPadding()
 	fwrite(null_ts_packet, TS_PACKET_SIZE, 1, stdout);
 }
 
-unsigned long long flush_buffer(void)
-{
 
-	unsigned long long result = 0;
-
-	//fprintf(stderr,"----------------------------------------------------------\n");
-
-	current_output_packet = output_packet_buffer;
-	unsigned long long NbInputPacket = (pid_pcr_index_table[NoPCR]) / TS_PACKET_SIZE;
-	//PacketPadding=CalculatePacketPadding();
-	unsigned long PacketPadding = CalculatePacketPadding();
-
-	//fprintf(stderr,"Padding %lu \n",PacketPadding);
-
-	int CurrentIndexPCR = 0;
-	int RatioInterleavePadding = (PacketPadding > 0) ? (NbInputPacket + PacketPadding) / PacketPadding : 0;
-	int PaddingInserted = 0;
-	static unsigned long long CorrectPTS = 0;
-
-	//fprintf(stderr,"ts_packet_count %llu NbInputPacket%llu \n",ts_packet_count,NbInputPacket);
-	for (int i = 0; i < (int) NbInputPacket; i++)
-	{
-		if ((i * TS_PACKET_SIZE) == (int) pid_pcr_index_table[CurrentIndexPCR])
-		{
-
-			unsigned long long OriginalPCR = GetPCRFromPacket(current_output_packet);
-			static unsigned long long AvgFrameCounter = 0;
-			static unsigned long long AvgFrame = 0;
-
-			AvgFrame += GetTimeFrame(CurrentIndexPCR);
-			if (GetTimeFrame(CurrentIndexPCR) != 0)
-			{
-				AvgFrameCounter++;
-			}
-
-			//unsigned long long OriginalNextPCRIndex = GetPCRFromPacket(pid_pcr_index_table[CurrentIndexPCR+1]);
-			//fprintf(stderr,"%llu NbInputPacket%llu \n",ts_packet_count,NbInputPacket);
-
-			SetPacketPCR(current_output_packet, CalculatePCR);
-			//fprintf(stderr, "Gop %llu Avg %llu Frame %llu ms Time %llu Bitrate = %llu PCR/PTS : %llu ms)\n",GetGop(CurrentIndexPCR),AvgFrame/AvgFrameCounter,GetTimeFrame(CurrentIndexPCR), GetTimeMs(CurrentIndexPCR),GetInstantBitrate(CurrentIndexPCR), (1000ll*(OriginalPCR-CalculatePCR))/SYSTEM_CLOCK_FREQUENCY );
-
-			if (OriginalPCR > CalculatePCR) // Normal buffering PCR<PTS
-			{
-
-				// Can we forcast an overflow
-
-				if (GetTimeMs(CurrentIndexPCR) > (1000ll * (OriginalPCR - CalculatePCR)) / SYSTEM_CLOCK_FREQUENCY)
-				{
-					unsigned long long pts, dts;
-					int offpts, offdts;
-					//fprintf(stderr, "Forecast Gop %llu Avg %llu Frame %llu ms Time %llu Bitrate = %llu PCR/PTS : %llu ms)\n",GetGop(CurrentIndexPCR),AvgFrame/AvgFrameCounter,GetTimeFrame(CurrentIndexPCR), GetTimeMs(CurrentIndexPCR),GetInstantBitrate(CurrentIndexPCR), (1000ll*(OriginalPCR-CalculatePCR))/SYSTEM_CLOCK_FREQUENCY );
-					fprintf(stderr, "Forecast %llu ms Time %llu Bitrate = %llu PCR/PTS : %llu ms)\n", GetTimeFrame(CurrentIndexPCR), GetTimeMs(CurrentIndexPCR), GetInstantBitrate(CurrentIndexPCR), (1000ll * (OriginalPCR - CalculatePCR)) / SYSTEM_CLOCK_FREQUENCY);
-
-					char isptsdts = GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-
-					if (isptsdts)
-					{
-						unsigned char *p_pts = current_output_packet + offpts;
-						unsigned char *p_dts = current_output_packet + offdts;
-						CorrectPTS = (GetTimeMs(CurrentIndexPCR) * SYSTEM_CLOCK_FREQUENCY) / 1000ll;
-
-						if (offpts)
-							set_timedts_pts(CalculatePCR + CorrectPTS, p_pts);
-						if (offdts)
-							set_timedts_pts(CalculatePCR + CorrectPTS, p_dts);
-
-						GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-						fprintf(stderr, "(mode %d) Correct Forecast PCR/PTS : PCR (%llu ms)\n", isptsdts, (1000ll * (pts - CalculatePCR)) / SYSTEM_CLOCK_FREQUENCY);
-					}
-				}
-				else
-				{
-					//fprintf(stderr, "Nominal %llu ms Time %llu Bitrate = %llu PCR/PTS : %llu ms)\n",GetTimeFrame(CurrentIndexPCR), GetTimeMs(CurrentIndexPCR),GetInstantBitrate(CurrentIndexPCR), (1000ll*(OriginalPCR-CalculatePCR))/SYSTEM_CLOCK_FREQUENCY );
-					CorrectPTS = 0;
-				}
-			}
-			else // We are in overflow, let's correct the pts
-			{
-				fprintf(stderr, "Overflow : Gop %llu Avg %llu Frame %llu ms Time %llu Bitrate = %llu PCR/PTS : - %llu ms)\n", GetGop(CurrentIndexPCR), AvgFrame / AvgFrameCounter, GetTimeFrame(CurrentIndexPCR), GetTimeMs(CurrentIndexPCR), GetInstantBitrate(CurrentIndexPCR), (1000ll * (CalculatePCR - OriginalPCR)) / SYSTEM_CLOCK_FREQUENCY);
-				char payload[200];
-				sprintf(payload, "%d",(int) -((1000ll * (CalculatePCR - OriginalPCR)) / SYSTEM_CLOCK_FREQUENCY));
-
-				
-				int pcrptsms=(1000ll * (CalculatePCR - OriginalPCR)) / SYSTEM_CLOCK_FREQUENCY;
-				if(pcrptsms>200) synctopcr = 0; // We overflow more than 200ms : do a resynch PCR
-
-				unsigned long long pts, dts;
-				int offpts, offdts;
-
-				char isptsdts = GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-				if (isptsdts)
-				{
-					unsigned char *p_pts = current_output_packet + offpts;
-					unsigned char *p_dts = current_output_packet + offdts;
-					CorrectPTS = (GetTimeMs(CurrentIndexPCR) * SYSTEM_CLOCK_FREQUENCY) / 1000ll;
-					//CorrectPTS=CorrectPTS-
-					if (offpts)
-						set_timedts_pts(CalculatePCR + CorrectPTS, p_pts);
-					if (offdts)
-						set_timedts_pts(CalculatePCR + CorrectPTS, p_dts);
-
-					GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-					
-					fprintf(stderr, "Correct PCR/PTS : PCR %llu  PTS %llu dts  %llu (%llu %llu ms)\n", OriginalPCR, pts, dts, (1000ll * (pts - CalculatePCR)) / SYSTEM_CLOCK_FREQUENCY, (1000ll * pts) / SYSTEM_CLOCK_FREQUENCY);
-				}
-			}
-
-			CurrentIndexPCR++;
-		}
-
-		if (CorrectPTS) // Some PTS has been corrected for video, do the same with audio
-		{
-			unsigned short pid = GetPid(current_output_packet);
-
-			/*if(pid==PID_AUDIO)
-			{
-				unsigned long long pts, dts;
-				int offpts, offdts;
-				char isptsdts = GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-				if (isptsdts)
-					{
-						unsigned char *p_pts = current_output_packet + offpts;
-						unsigned char *p_dts = current_output_packet + offdts;
-						
-						if(offpts)	set_timedts_pts(CalculatePCR+CorrectPTS, p_pts);
-						if(offdts) set_timedts_pts(CalculatePCR+CorrectPTS, p_dts);
-
-						GetPTSFromPacket(current_output_packet, &pts, &dts, &offpts, &offdts);
-						fprintf(stderr, "Audio Correct PCR/PTS :  PTS %llu dts  %llu (%llu %llu ms)\n",  pts, dts,(1000ll*(pts-CalculatePCR))/SYSTEM_CLOCK_FREQUENCY,(1000ll*pts)/SYSTEM_CLOCK_FREQUENCY  );
-					}	
-			}*/
-		}
-
-		if (current_output_packet[0] != 0x47)
-			fprintf(stderr, "tsvbr sync output\n");
-		fwrite(current_output_packet, TS_PACKET_SIZE, 1, stdout);
-		current_output_packet += TS_PACKET_SIZE;
-		IncrementPacketClock();
-		if ((PaddingInserted < PacketPadding) && (i % RatioInterleavePadding == 0))
-		{
-			//CalculatePCR += IncrementPCRPacket;
-			InsertPacketPadding();
-			/*
-			IncrementPacketClock();
-			fwrite(null_ts_packet, TS_PACKET_SIZE, 1, stdout);
-			*/
-			PaddingInserted++;
-		}
-		//fflush(stdout);
-
-		//CalculatePCR += IncrementPCRPacket;
-	}
-
-	// Let fill with remaining NULL packets
-	for (int i = 0; i < PacketPadding - PaddingInserted; i++)
-	{
-
-		//CalculatePCR += IncrementPCRPacket;
-		InsertPacketPadding();
-	}
-
-	fflush(stdout);
-	fflush(stderr);
-
-	return result;
-}
 
 
