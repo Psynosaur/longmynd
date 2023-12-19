@@ -210,6 +210,7 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 
 		extern size_t video_pcrpts;
 		extern size_t audio_pcrpts;
+		extern long transmission_delay;
 
 		sprintf(status_topic, "dt/longmynd/videobuffer");
 		sprintf(status_message, "%d", video_pcrpts);
@@ -217,6 +218,10 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 
 		sprintf(status_topic, "dt/longmynd/audiobuffer");
 		sprintf(status_message, "%d", audio_pcrpts);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "dt/longmynd/transdelay");
+		sprintf(status_message, "%ld", transmission_delay);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
 	else if (message == STATUS_SYMBOL_RATE)
