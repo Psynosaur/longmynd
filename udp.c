@@ -243,7 +243,8 @@ public:
 
 
 size_t video_pcrpts = 0;
-size_t audio_pcrpts = 0;    
+size_t audio_pcrpts = 0;
+long transmission_delay=0;
             
 void udp_send_normalize(u_int8_t *b, int len)
 {
@@ -296,7 +297,7 @@ void udp_send_normalize(u_int8_t *b, int len)
         if (IsSync)
         {
             //ProcessCorectPCR(Buffer, BUFF_MAX_SIZE);
-            ProcessTSTiming(Buffer, BUFF_MAX_SIZE,&video_pcrpts,&audio_pcrpts);
+            ProcessTSTiming(Buffer, BUFF_MAX_SIZE,&video_pcrpts,&audio_pcrpts,&transmission_delay);
         }
         if (sendto(sockfd_ts, Buffer, BUFF_MAX_SIZE, 0, (const struct sockaddr *)&servaddr_ts, sizeof(struct sockaddr)) < 0)
         {

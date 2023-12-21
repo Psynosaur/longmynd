@@ -220,9 +220,12 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 		sprintf(status_message, "%d", audio_pcrpts);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
+		if(transmission_delay!=0)
+		{
 		sprintf(status_topic, "dt/longmynd/transdelay");
 		sprintf(status_message, "%ld", transmission_delay);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+		}
 	}
 	else if (message == STATUS_SYMBOL_RATE)
 	{
