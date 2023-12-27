@@ -6,7 +6,7 @@ jobs:
     name: Build on ${{ matrix.os }} x86_64
     strategy:
       matrix:
-        os: [ubuntu-22.10]
+        os: [ubuntu-20.04]
 
     steps:
     - uses: actions/checkout@v2.1.0
@@ -59,11 +59,11 @@ jobs:
             case "${{ matrix.distro }}" in
               buster)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev libcivetweb-dev
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev libcivetweb-dev
                 ;;
             esac
 
