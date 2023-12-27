@@ -3,7 +3,8 @@
 SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c pcrpts.c
 OBJ = ${SRC:.c=.o}
 
-pluto=1
+# Should only be used when compiling on pluto...
+# pluto=1
 
 ifdef pluto
 
