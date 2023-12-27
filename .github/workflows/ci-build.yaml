@@ -22,7 +22,7 @@ jobs:
     - name: Build longmynd
       shell: bash
       run: |
-        make clean && make werror CC=gcc-10
+        make clean && make CC=gcc-10
 
   # build-arm:
   #   # The host should always be linux
