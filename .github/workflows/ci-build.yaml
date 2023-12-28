@@ -16,7 +16,7 @@ jobs:
         # Install test matrix dependencies
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -q -y
-        sudo apt-get install -q -y build-essential gcc-7 gcc-8 gcc-9 gcc-10
+        sudo apt-get install -q -y build-essential gcc-9 gcc-10
         # Install longmynd dependencies
         sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev libmosquitto-dev
         wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
@@ -28,8 +28,6 @@ jobs:
     - name: Build longmynd
       shell: bash
       run: |
-        make clean && make CC=gcc-7
-        make clean && make CC=gcc-8
         make clean && make CC=gcc-9
         make clean && make CC=gcc-10
 
