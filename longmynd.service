@@ -1,0 +1,14 @@
+[Unit]
+Description=Longmynd ATV receiver
+After=syslog.target
+
+[Service]
+WorkingDirectory=placeholder
+ExecStart=placeholder/longmynd -r -1 -p h -M pluto 1883 -i 230.0.0.2 1234 741500 1500
+Restart=always
+RestartSec=30
+User=suchuser
+SyslogIdentifier=longmynd
+
+[Install]
+WantedBy=multi-user.target
