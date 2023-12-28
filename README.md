@@ -1,20 +1,30 @@
-# Longmynd
+# Longmynd - MQTT
 
-An Open Source Linux ATV Receiver.
+An Open Source Linux ATV Receiver using MQTT
 
 Copyright 2019 Heather Lomond
+Copyright 2023 Evariste Courjaud
+Copyright 2023 Ohan Smit
+
 
 ## Dependencies
 
-    sudo apt-get install make gcc libusb-1.0-0-dev libasound2-dev
-
-To run longmynd without requiring root, unplug the minitiouner and then install the udev rules file with:
-
-    sudo cp minitiouner.rules /etc/udev/rules.d/
+```bash
+git clone https://github.com/Psynosaur/longmynd && cd longmynd && chmod +x *.sh && ./install_dependencies.sh
+```
 
 ## Compile
 
-    make
+```bash
+make clean && make
+```
+
+## Run as daemon (persisting after device reboot) for non pluto devices
+- Run `install_longmynd.sh` and provide pluto broker address
+```bash
+./install_longmynd.sh 192.168.1.111
+```
+- This will install a service on your device that will run `longmynd` as a daemon
 
 ## Run
 
