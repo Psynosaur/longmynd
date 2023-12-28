@@ -6,7 +6,7 @@ jobs:
     name: Build on ${{ matrix.os }} x86_64
     strategy:
       matrix:
-        os: [ubuntu-22.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
 
     steps:
     - uses: actions/checkout@v4.1.1
@@ -16,12 +16,19 @@ jobs:
         # Install test matrix dependencies
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -q -y
-        sudo apt-get install -q -y build-essential gcc-10
+        sudo apt-get install -q -y build-essential gcc-9 gcc-10
         # Install longmynd dependencies
-        sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev libmosquitto-dev libcivetweb-dev
+        sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+        wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+        tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+        cd civetweb-1.16
+        make build WITH_CPP=1 
+        sudo make install-lib WITH_CPP=1
+        sudo make install-headers WITH_CPP=1
     - name: Build longmynd
       shell: bash
       run: |
+        make clean && make CC=gcc-9
         make clean && make CC=gcc-10
 
   build-arm:
@@ -41,7 +48,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
-      - uses: uraimo/run-on-arch-action@v2.0.5
+      - uses: uraimo/run-on-arch-action@v2.6.0
         name: Build Matrix
         id: build
         with:
