@@ -60,6 +60,7 @@ jobs:
                 wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
                 tar -xvzf v1.16.tar.gz civetweb-1.16/ 
                 cd civetweb-1.16
+                echo | gcc -xc -E -v -
                 make
                 make lib
                 make slib 
@@ -67,7 +68,11 @@ jobs:
                 sudo make install-lib
                 sudo make install-slib
                 sudo make install
-                echo | gcc -xc -E -v -
+                sudo ln -s include/CivetServer.h /usr/include/CivetServer.h
+                sudo ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include/CivetServer.h
+                sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
+                sudo ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include-fixed/CivetServer.h
+                sudo ln -s include/CivetServer.h /usr/include/arm-linux-gnueabihf/CivetServer.h
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
@@ -75,6 +80,7 @@ jobs:
                 wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
                 tar -xvzf v1.16.tar.gz civetweb-1.16/ 
                 cd civetweb-1.16
+                echo | gcc -xc -E -v -
                 make
                 make lib
                 make slib 
@@ -82,7 +88,11 @@ jobs:
                 sudo make install-lib
                 sudo make install-slib
                 sudo make install
-                echo | gcc -xc -E -v -
+                # sudo ln -s include/CivetServer.h /usr/include/CivetServer.h
+                # sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
+                # sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
+                # sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
+                # sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
                 ;;
             esac
 
