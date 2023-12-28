@@ -31,3 +31,5 @@ echo "Longmynd installed successfully!"
 echo ""
 echo "log output can be viewed by running"
 echo "sudo journalctl -u longmynd.service -f -n"
+git update-index --assume-unchanged *.sh
+git update-index --assume-unchanged *.service
