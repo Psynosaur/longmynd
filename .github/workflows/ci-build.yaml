@@ -71,8 +71,8 @@ jobs:
                 tar -xvzf v1.16.tar.gz civetweb-1.16/ 
                 cd civetweb-1.16
                 make build WITH_CPP=1
-                sudo make install-lib WITH_CPP=1
-                sudo make install-headers WITH_CPP=1
+                make install-lib WITH_CPP=1
+                make install-headers WITH_CPP=1
                 ;;
             esac
 
