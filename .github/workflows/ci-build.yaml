@@ -24,54 +24,66 @@ jobs:
       run: |
         make clean && make CC=gcc-10
 
-  # build-arm:
-  #   # The host should always be linux
-  #   runs-on: ubuntu-22.04
-  #   name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
+  build-arm:
+    # The host should always be linux
+    runs-on: ubuntu-22.04
+    name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
-  #   strategy:
-  #     matrix:
-  #       include:
-  #         # - arch: armv6
-  #         #   distro: buster
-  #         # - arch: armv7
-  #         #   distro: buster
-  #         - arch: aarch64
-  #           distro: ubuntu22.04
+    strategy:
+      matrix:
+        include:
+          - arch: armv6
+            distro: buster
+          - arch: armv7
+            distro: buster
+          - arch: aarch64
+            distro: ubuntu20.04
 
-  #   steps:
-  #     - uses: actions/checkout@v2.1.0
-  #     - uses: uraimo/run-on-arch-action@v2.0.5
-  #       name: Build Matrix
-  #       id: build
-  #       with:
-  #         arch: ${{ matrix.arch }}
-  #         distro: ${{ matrix.distro }}
+    steps:
+      - uses: actions/checkout@v2.1.0
+      - uses: uraimo/run-on-arch-action@v2.0.5
+        name: Build Matrix
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
 
-  #         githubToken: ${{ github.token }}
+          githubToken: ${{ github.token }}
 
-  #         shell: /bin/sh
+          shell: /bin/sh
 
-  #         install: |
-  #           case "${{ matrix.distro }}" in
-  #             buster)
-  #               apt-get update -q -y
-  #               apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev libcivetweb-dev
-  #               ;;
-  #             ubuntu22.04)
-  #               apt-get update -q -y
-  #               apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev libcivetweb-dev
-  #               ;;
-  #           esac
+          install: |
+            case "${{ matrix.distro }}" in
+              buster)
+                apt-get update -q -y
+                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib1g-dev
+                wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+                tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+                cd civetweb-1.16
+                make build WITH_CPP=1 
+                make install-lib WITH_CPP=1
+                make install-headers WITH_CPP=1
+                ;;
+              ubuntu20.04)
+                apt-get update -q -y
+                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib1g-dev
+                wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+                tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+                cd civetweb-1.16
+                make build WITH_CPP=1
+                make install-lib WITH_CPP=1
+                make install-headers WITH_CPP=1
+                ;;
+            esac
 
-  #         run: |
-  #           case "${{ matrix.distro }}" in
-  #             buster)
-  #               make clean && make CC=gcc-7
-  #               make clean && make CC=gcc-8
-  #               ;;
-  #             ubuntu22.04)
-  #               make clean && make werror CC=gcc-9
-  #               make clean && make  CC=gcc-10
-  #               ;;
-  #           esac
+          run: |
+            case "${{ matrix.distro }}" in
+              buster)
+                make clean && make CC=gcc-7
+                make clean && make CC=gcc-8
+                ;;
+              ubuntu20.04)
+                make clean && make CC=gcc-9
+                make clean && make CC=gcc-10
+                ;;
+            esac
