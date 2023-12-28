@@ -67,7 +67,7 @@ jobs:
                 sudo make install-lib
                 sudo make install-slib
                 sudo make install
-                sudo ln -s include/CivetServer.h /usr/include/CivetServer.h
+                echo | gcc -xc -E -v -
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
@@ -82,7 +82,7 @@ jobs:
                 sudo make install-lib
                 sudo make install-slib
                 sudo make install
-                sudo ln -s include/CivetServer.h /usr/include/CivetServer.h
+                echo | gcc -xc -E -v -
                 ;;
             esac
 
