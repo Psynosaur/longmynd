@@ -56,20 +56,22 @@ jobs:
             case "${{ matrix.distro }}" in
               buster)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget
+                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib
                 wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
                 tar -xvzf v1.16.tar.gz civetweb-1.16/ 
                 cd civetweb-1.16
                 make build WITH_CPP=1 
+                make install-lib WITH_CPP=1
                 make install-headers WITH_CPP=1
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget
+                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib
                 wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
                 tar -xvzf v1.16.tar.gz civetweb-1.16/ 
                 cd civetweb-1.16
                 make build WITH_CPP=1
+                sudo make install-lib WITH_CPP=1
                 sudo make install-headers WITH_CPP=1
                 ;;
             esac
