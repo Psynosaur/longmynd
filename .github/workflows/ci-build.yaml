@@ -64,15 +64,15 @@ jobs:
                 make
                 make lib
                 make slib 
-                sudo make install-headers
-                sudo make install-lib
-                sudo make install-slib
-                sudo make install
-                sudo ln -s include/CivetServer.h /usr/include/CivetServer.h
-                sudo ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include/CivetServer.h
-                sudo ln -s include/CivetServer.h /usr/local/include/CivetServer.h
-                sudo ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include-fixed/CivetServer.h
-                sudo ln -s include/CivetServer.h /usr/include/arm-linux-gnueabihf/CivetServer.h
+                make install-headers
+                make install-lib
+                make install-slib
+                make install
+                ln -s include/CivetServer.h /usr/include/CivetServer.h
+                ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include/CivetServer.h
+                ln -s include/CivetServer.h /usr/local/include/CivetServer.h
+                ln -s include/CivetServer.h /usr/lib/gcc/arm-linux-gnueabihf/8/include-fixed/CivetServer.h
+                ln -s include/CivetServer.h /usr/include/arm-linux-gnueabihf/CivetServer.h
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
