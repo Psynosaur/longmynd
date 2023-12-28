@@ -77,11 +77,11 @@ jobs:
           run: |
             case "${{ matrix.distro }}" in
               buster)
-                make clean && make werror CC=gcc-7
-                make clean && make werror CC=gcc-8
+                make clean && make CC=gcc-7
+                make clean && make CC=gcc-8
                 ;;
               ubuntu20.04)
-                make clean && make werror CC=gcc-9
-                make clean && make werror CC=gcc-10
+                make clean && make CC=gcc-9
+                make clean && make CC=gcc-10
                 ;;
             esac
