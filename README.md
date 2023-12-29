@@ -3,14 +3,16 @@
 An Open Source Linux ATV Receiver using MQTT
 
 Copyright 2019 Heather Lomond
+
 Copyright 2023 Evariste Courjaud
+
 Copyright 2023 Ohan Smit
 
 
 ## Dependencies
 
 ```bash
-git clone https://github.com/Psynosaur/longmynd && cd longmynd && chmod +x *.sh && ./install_dependencies.sh
+git clone https://github.com/F5OEO/longmynd && cd longmynd && chmod +x *.sh && ./install_dependencies.sh
 ```
 
 ## Compile
