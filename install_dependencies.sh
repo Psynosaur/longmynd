@@ -14,4 +14,5 @@ cd civetweb-1.16
 make build WITH_CPP=1 
 sudo make install-lib WITH_CPP=1
 sudo make install-headers WITH_CPP=1
+cd ..
 rm -rf civetweb-1.16
