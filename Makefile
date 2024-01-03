@@ -8,13 +8,17 @@ pluto=1
 ifdef pluto
 
 #FOR 0.37
-CROSS_COMPILE=arm-linux-
-SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/37plutosdr-fw/buildroot/output/staging
-PAPR_ORI=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/pluto-buildroot/board/pluto/overlay/root/datv
+#CROSS_COMPILE=arm-linux-
+#SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/37plutosdr-fw/buildroot/output/staging
+#PAPR_ORI=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/pluto-buildroot/board/pluto/overlay/root/datv
+CROSS_COMPILE = arm-linux-gnueabihf-
+SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/staging
+TOOLS_PATH = PATH="/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/bin:/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/sbin:$(PATH)"
+
 
 CXX=$(CROSS_COMPILE)g++
 CC=$(CROSS_COMPILE)gcc
-HOST_DIR=/home/linuxdev/prog/pluto/firm033/pluto_radar/plutosdr-fw/buildroot/output/host
+#HOST_DIR=/home/linuxdev/prog/pluto/firm033/pluto_radar/plutosdr-fw/buildroot/output/host
 CFLAGS = -fpermissive -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -O2 -mfpu=neon --sysroot=$(SYSROOT) -mfloat-abi=hard
 else
 CXX=g++
@@ -38,23 +42,23 @@ werror: CFLAGS += -Werror
 werror: all
 
 _print_banner:
-	@echo "Compiling longmynd with $(CXX) $(shell $(CXX) -dumpfullversion) on $(shell $(CXX) -dumpmachine)"
+	@$(TOOLS_PATH) echo "Compiling longmynd with $(CXX) $(shell $(CXX) -dumpfullversion) on $(shell $(CXX) -dumpmachine)"
 
 fake_read: fake_read.c
 	@echo "  CC     "$@
-	@${CC} fake_read.c -o $@
+	@$(TOOLS_PATH) ${CC} fake_read.c -o $@
 
 ts_analyse: ts_analyse.c libts.o
 	@echo "  CXX     "$@
-	@${CXX} ${CFLAGS} ts_analyse.c libts.o -o $@
+	@$(TOOLS_PATH) ${CXX} ${CFLAGS} ts_analyse.c libts.o -o $@
 
 longmynd: ${OBJ}
 	@echo "  LD     "$@
-	@${CXX} ${COPT} ${CFLAGS} -o $@ ${OBJ} ${LDFLAGS}
+	@$(TOOLS_PATH) ${CXX} ${COPT} ${CFLAGS} -o $@ ${OBJ} ${LDFLAGS}
 
 %.o: %.c
 	@echo "  CXX     "$<
-	@${CXX} ${COPT} ${CFLAGS} -c -fPIC -o $@ $<
+	@$(TOOLS_PATH) ${CXX} ${COPT} ${CFLAGS} -c -fPIC -o $@ $<
 
 clean:
 	@rm -rf longmynd fake_read ts_analyse ${OBJ}
