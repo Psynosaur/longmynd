@@ -74,8 +74,8 @@ typedef struct {
     bool port_swap;
     uint8_t port;
     float halfscan_ratio;
-    uint8_t freq_index;
-    uint8_t sr_index;
+    uint8_t freq_index=0;
+    uint8_t sr_index=0;
     uint32_t freq_requested[4];
     uint32_t sr_requested[4];
     bool beep_enabled;
@@ -100,8 +100,8 @@ typedef struct {
 
     int ts_timeout;
 
-    bool new_config;
-    pthread_mutex_t mutex;
+    bool new_config=false;
+    pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 } longmynd_config_t;
 
 typedef struct {
@@ -127,8 +127,8 @@ typedef struct {
     uint32_t errors_ldpc_count;
     int8_t constellation[NUM_CONSTELLATIONS][2]; // { i, q }
     uint8_t puncture_rate;
-    char service_name[255];
-    char service_provider_name[255];
+    char service_name[255]={'\0'};
+    char service_provider_name[255]={'\0'};
     uint8_t ts_null_percentage;
     uint16_t ts_elementary_streams[NUM_ELEMENT_STREAMS][2]; // { pid, type }
     uint32_t modcod;
@@ -138,11 +138,11 @@ typedef struct {
     bool pilots;
     uint64_t last_ts_or_reinit_monotonic;
 
-    uint64_t last_updated_monotonic;
-    pthread_mutex_t mutex;
-    pthread_cond_t signal;
+    uint64_t last_updated_monotonic=0;
+    pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t signal=PTHREAD_COND_INITIALIZER;
 
-    uint32_t ts_packet_count_nolock;
+    uint32_t ts_packet_count_nolock=0;
 } longmynd_status_t;
 
 typedef struct {
