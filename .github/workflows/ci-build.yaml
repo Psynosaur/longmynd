@@ -30,6 +30,24 @@ jobs:
       run: |
         make clean && make CC=gcc-9
         make clean && make CC=gcc-10
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+        release_name: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./longmynd
+        asset_name: longmynd
+        asset_content_type: application/octet-stream
 
   build-arm:
     # The host should always be linux
@@ -94,3 +112,22 @@ jobs:
                 make clean && make CC=gcc-10
                 ;;
             esac
+      - name: Create Release
+        id: create_release_arm
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+          release_name: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_arm.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./longmynd
+          asset_name: longmynd
+          asset_content_type: application/octet-stream  
+
