@@ -36,8 +36,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
       with:
-        tag_name: Longmynd_${{ matrix.distro }}_${{ github.run_number }}
-        release_name: Release ${{ matrix.distro }} ${{ github.run_number }}
+        tag_name: Longmynd_${{ matrix.os }}_${{ github.run_number }}
+        release_name: Release ${{ matrix.os }} ${{ github.run_number }}
     - name: Upload Release Asset
       id: upload-release-asset 
       uses: actions/upload-release-asset@v1
@@ -118,8 +118,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
         with:
-          tag_name: Longmynd_${{ matrix.distro }}_${{ github.run_number }}
-          release_name: Release ${{ matrix.distro }} ${{ github.run_number }}
+          tag_name: Longmynd_${{ matrix.os }}_${{ github.run_number }}
+          release_name: Release ${{ matrix.os }} ${{ github.run_number }}
       - name: Upload Release Asset
         id: upload-release-asset 
         uses: actions/upload-release-asset@v1
