@@ -30,6 +30,14 @@ jobs:
       run: |
         make clean && make CC=gcc-9
         make clean && make CC=gcc-10
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
 
   build-arm:
     # The host should always be linux
@@ -44,7 +52,7 @@ jobs:
           - arch: armv7
             distro: buster
           - arch: aarch64
-            distro: ubuntu22.04
+            distro: ubuntu20.04
 
     steps:
       - uses: actions/checkout@v4.1.1
@@ -71,7 +79,7 @@ jobs:
                 make install-lib WITH_CPP=1
                 make install-headers WITH_CPP=1
                 ;;
-              ubuntu22.04)
+              ubuntu20.04)
                 apt-get update -q -y
                 apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib1g-dev
                 wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
@@ -89,8 +97,9 @@ jobs:
                 make clean && make CC=gcc-7
                 make clean && make CC=gcc-8
                 ;;
-              ubuntu22.04)
+              ubuntu20.04)
                 make clean && make CC=gcc-9
                 make clean && make CC=gcc-10
                 ;;
             esac
+
