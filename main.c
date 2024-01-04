@@ -60,22 +60,25 @@
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
 
-static longmynd_config_t longmynd_config = {
+static longmynd_config_t longmynd_config;
+/* = {
     
-    .freq_index = 0,
-    .sr_index = 0,
-    .new_config = false,
-    .mutex = PTHREAD_MUTEX_INITIALIZER
+    freq_index : 0,
+    sr_index : 0,
+    new_config : false,
+    mutex : PTHREAD_MUTEX_INITIALIZER
     };
+*/
 
-static longmynd_status_t longmynd_status = {
+static longmynd_status_t longmynd_status;
+/* = {
     .service_name = {'\0'},
     .service_provider_name = {'\0'},
     .last_updated_monotonic = 0,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER,
     .ts_packet_count_nolock = 0};
-
+*/
 static pthread_t thread_ts_parse;
 static pthread_t thread_ts;
 static pthread_t thread_i2c;
@@ -1124,11 +1127,11 @@ int main(int argc, char *argv[])
     if (err == ERROR_NONE)
         err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
 
-    thread_vars_t thread_vars_ts = {
-        .main_err_ptr = &err,
-        .thread_err = ERROR_NONE,
-        .config = &longmynd_config,
-        .status = &longmynd_status};
+    thread_vars_t thread_vars_ts;
+        thread_vars_ts.main_err_ptr = &err;
+        thread_vars_ts.thread_err = ERROR_NONE;
+        thread_vars_ts.config = &longmynd_config;
+        thread_vars_ts.status = &longmynd_status;
 
     if (err == ERROR_NONE)
     {
@@ -1143,11 +1146,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_ts_parse = {
-        .main_err_ptr = &err,
-        .thread_err = ERROR_NONE,
-        .config = &longmynd_config,
-        .status = &longmynd_status};
+    thread_vars_t thread_vars_ts_parse;
+     
+        thread_vars_ts_parse.main_err_ptr = &err;
+        thread_vars_ts_parse.thread_err = ERROR_NONE;
+        thread_vars_ts_parse.config = &longmynd_config;
+        thread_vars_ts_parse.status = &longmynd_status;
 
     if (err == ERROR_NONE)
     {
@@ -1162,11 +1166,12 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_i2c = {
-        .main_err_ptr = &err,
-        .thread_err = ERROR_NONE,
-        .config = &longmynd_config,
-        .status = &longmynd_status};
+    thread_vars_t thread_vars_i2c;
+    
+        thread_vars_i2c.main_err_ptr = &err;
+        thread_vars_i2c.thread_err = ERROR_NONE;
+        thread_vars_i2c.config = &longmynd_config;
+        thread_vars_i2c.status = &longmynd_status;
 
     if (err == ERROR_NONE)
     {
@@ -1181,11 +1186,11 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_beep = {
-        .main_err_ptr = &err,
-        .thread_err = ERROR_NONE,
-        .config = &longmynd_config,
-        .status = &longmynd_status};
+    thread_vars_t thread_vars_beep;
+        thread_vars_beep.main_err_ptr = &err;
+        thread_vars_beep.thread_err = ERROR_NONE;
+        thread_vars_beep.config = &longmynd_config;
+        thread_vars_beep.status = &longmynd_status;
 
     if (err == ERROR_NONE)
     {
