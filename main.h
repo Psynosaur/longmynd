@@ -64,6 +64,7 @@
 #define STATUS_AGC2_GAIN          27
 #define STATUS_MATYPE1            28
 #define STATUS_MATYPE2            29
+#define STATUS_ROLLOFF            30
 
 /* The number of constellation peeks we do for each background loop */
 #define NUM_CONSTELLATIONS 16
@@ -136,6 +137,7 @@ typedef struct {
     uint32_t matype2;
     bool short_frame;
     bool pilots;
+    uint8_t rolloff;
     uint64_t last_ts_or_reinit_monotonic;
 
     uint64_t last_updated_monotonic=0;

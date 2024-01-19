@@ -384,7 +384,7 @@ uint8_t stv0910_read_errors_ldpc_count(uint8_t demod, uint32_t *errors_ldpc_coun
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *short_frame, bool *pilots) {
+uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *short_frame, bool *pilots, uint8_t *rolloff) {
 /* -------------------------------------------------------------------------------------------------- */
 /*   Note that MODCODs are different in DVBS and DVBS2. Also short_frame and pilots only valid for S2 */
 /*    demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator is being read                */
@@ -402,6 +402,9 @@ uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *shor
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read MODCOD\n");
 
+    err=stv0910_read_reg_field(demod==STV0910_DEMOD_TOP ? FSTV0910_P2_ROLLOFF_STATUS : FSTV0910_P1_ROLLOFF_STATUS, &regval); 
+    *rolloff=regval;
+    
     return err;
 }
 

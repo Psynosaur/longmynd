@@ -56,7 +56,7 @@ uint8_t stv0910_read_errors_bch_uncorrected(uint8_t demod, bool *errors_bch_unco
 uint8_t stv0910_read_errors_bch_count(uint8_t demod, uint32_t *errors_bch_count);
 uint8_t stv0910_read_errors_ldpc_count(uint8_t demod, uint32_t *errors_ldpc_count);
 uint8_t stv0910_read_mer(uint8_t, int32_t*);
-uint8_t stv0910_read_modcod_and_type(uint8_t, uint32_t*, bool*, bool*);
+uint8_t stv0910_read_modcod_and_type(uint8_t, uint32_t*, bool*, bool*,uint8_t *);
 uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) ;
 uint8_t stv0910_init(uint32_t, uint32_t, float, float);
 uint8_t stv0910_init_regs(void);

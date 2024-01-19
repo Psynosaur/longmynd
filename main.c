@@ -680,7 +680,7 @@ uint8_t do_report(longmynd_status_t *status)
 
     /* MODCOD, Short Frames, Pilots */
     if (err == ERROR_NONE)
-        err = stv0910_read_modcod_and_type(STV0910_DEMOD_TOP, &status->modcod, &status->short_frame, &status->pilots);
+        err = stv0910_read_modcod_and_type(STV0910_DEMOD_TOP, &status->modcod, &status->short_frame, &status->pilots,&status->rolloff);
     if (status->state != STATE_DEMOD_S2)
     {
         /* short frames & pilots only valid for S2 DEMOD state */
@@ -939,6 +939,7 @@ void *loop_i2c(void *arg)
         status->matype2 = status_cpy.matype2;
         status->short_frame = status_cpy.short_frame;
         status->pilots = status_cpy.pilots;
+        status->rolloff = status_cpy.rolloff;
         if (status_cpy.last_ts_or_reinit_monotonic != 0)
         {
             status->last_ts_or_reinit_monotonic = status_cpy.last_ts_or_reinit_monotonic;
@@ -1059,7 +1060,9 @@ uint8_t status_all_write(longmynd_status_t *status, uint8_t (*status_write)(uint
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_MATYPE1, status->matype1, output_ready_ptr);    
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = status_write(STATUS_MATYPE2, status->matype2, output_ready_ptr);    
+        err = status_write(STATUS_MATYPE2, status->matype2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = status_write(STATUS_ROLLOFF, status->rolloff, output_ready_ptr);        
     return err;
 }
 
