@@ -3,10 +3,7 @@
 SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c pcrpts.c
 OBJ = ${SRC:.c=.o}
 
-pluto=1
-
-ifdef pluto
-
+ifeq ($(env),local)
 #FOR 0.37
 #CROSS_COMPILE=arm-linux-
 #SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/37plutosdr-fw/buildroot/output/staging

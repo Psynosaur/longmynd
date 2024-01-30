@@ -6,30 +6,52 @@ jobs:
     name: Build on ${{ matrix.os }} x86_64
     strategy:
       matrix:
-        os: [ubuntu-20.04, ubuntu-18.04]
+        os: [ubuntu-20.04, ubuntu-22.04]
 
     steps:
-    - uses: actions/checkout@v2.1.0
+    - uses: actions/checkout@v4.1.1
     - name: Install dependencies
       shell: bash
       run: |
         # Install test matrix dependencies
         sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
         sudo apt-get update -q -y
-        sudo apt-get install -q -y build-essential gcc-7 gcc-8 gcc-9 gcc-10
+        sudo apt-get install -q -y build-essential gcc-9 gcc-10
         # Install longmynd dependencies
         sudo apt-get install -q -y libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+        wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+        tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+        cd civetweb-1.16
+        make build WITH_CPP=1 
+        sudo make install-lib WITH_CPP=1
+        sudo make install-headers WITH_CPP=1
     - name: Build longmynd
       shell: bash
       run: |
-        make clean && make werror CC=gcc-7
-        make clean && make werror CC=gcc-8
-        make clean && make werror CC=gcc-9
-        make clean && make werror CC=gcc-10
+        make clean && make CC=gcc-9
+        make clean && make CC=gcc-10
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      with:
+        tag_name: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+        release_name: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
+    - name: Upload Release Asset
+      id: upload-release-asset 
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+        asset_path: ./longmynd
+        asset_name: longmynd
+        asset_content_type: application/octet-stream
 
   build-arm:
     # The host should always be linux
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }}
 
     strategy:
@@ -43,8 +65,8 @@ jobs:
             distro: ubuntu20.04
 
     steps:
-      - uses: actions/checkout@v2.1.0
-      - uses: uraimo/run-on-arch-action@v2.0.5
+      - uses: actions/checkout@v4.1.1
+      - uses: uraimo/run-on-arch-action@v2.6.0
         name: Build Matrix
         id: build
         with:
@@ -59,22 +81,53 @@ jobs:
             case "${{ matrix.distro }}" in
               buster)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+                apt-get install -q -y build-essential gcc-7 gcc-8 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib1g-dev
+                wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+                tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+                cd civetweb-1.16
+                make build WITH_CPP=1 
+                make install-lib WITH_CPP=1
+                make install-headers WITH_CPP=1
                 ;;
               ubuntu20.04)
                 apt-get update -q -y
-                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev
+                apt-get install -q -y build-essential gcc-9 gcc-10 libusb-1.0-0-dev libasound2-dev libmosquitto-dev wget zlib1g-dev
+                wget https://github.com/civetweb/civetweb/archive/refs/tags/v1.16.tar.gz
+                tar -xvzf v1.16.tar.gz civetweb-1.16/ 
+                cd civetweb-1.16
+                make build WITH_CPP=1
+                make install-lib WITH_CPP=1
+                make install-headers WITH_CPP=1
                 ;;
             esac
 
           run: |
             case "${{ matrix.distro }}" in
               buster)
-                make clean && make werror CC=gcc-7
-                make clean && make werror CC=gcc-8
+                make clean && make CC=gcc-7
+                make clean && make CC=gcc-8
                 ;;
               ubuntu20.04)
-                make clean && make werror CC=gcc-9
-                make clean && make werror CC=gcc-10
+                make clean && make CC=gcc-9
+                make clean && make CC=gcc-10
                 ;;
             esac
+      - name: Create Release
+        id: create_release_arm
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+          release_name: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release_arm.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: ./longmynd
+          asset_name: longmynd
+          asset_content_type: application/octet-stream  
+
