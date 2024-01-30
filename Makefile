@@ -29,7 +29,8 @@ MAKEFLAGS += -j$(shell nproc || printf 1)
 
 #CFLAGS += -Wall -Wextra -Wpedantic -Wunused -DVERSION=\"${VER}\" -pthread -D_GNU_SOURCE
 LDFLAGS += -lusb-1.0 -lm -lasound -lpthread -lmosquitto -lcivetweb -lz
-VERSION=$(shell git describe --abbrev=4 --always --tags)	
+VERSION=$(shell git describe --always --tags)#Get version	
+
 
 all: _print_banner longmynd fake_read ts_analyse archive
 
@@ -66,7 +67,7 @@ install:
 	cp longmynd $(PAPR_ORI)
 
 archive: longmynd
-	mkdir -p Release && zip -r Release/longmynd-fw-$(VERSION).zip . -i longmynd
+	mkdir -p Release && zip -r Release/longmynd-fw-$(VERSION).zip longmynd
 
 
 .PHONY: all clean
