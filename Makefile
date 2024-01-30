@@ -30,7 +30,7 @@ MAKEFLAGS += -j$(shell nproc || printf 1)
 #CFLAGS += -Wall -Wextra -Wpedantic -Wunused -DVERSION=\"${VER}\" -pthread -D_GNU_SOURCE
 LDFLAGS += -lusb-1.0 -lm -lasound -lpthread -lmosquitto -lcivetweb -lz
 
-all: _print_banner longmynd fake_read ts_analyse
+all: _print_banner longmynd fake_read ts_analyse archive
 
 debug: COPT = -Og
 debug: CFLAGS += -ggdb -fno-omit-frame-pointer
@@ -63,6 +63,11 @@ clean:
 
 install:	
 	cp longmynd $(PAPR_ORI)
+
+archive:
+	VERSION=$(shell git describe --abbrev=4 --always --tags)	
+	mkdir -p Release && zip -r Release/longmynd-fw-$(VERSION).zip longmynd
+
 
 .PHONY: all clean
 
