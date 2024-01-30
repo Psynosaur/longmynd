@@ -101,12 +101,16 @@ jobs:
                 make clean && make CC=gcc-9
                 make clean && make CC=gcc-10
                 ;;
-            esac
-            - uses: "marvinpinto/action-automatic-releases@latest"
-            with:
-              repo_token: "${{ secrets.GITHUB_TOKEN }}"
-              automatic_release_tag: "latest"
-              prerelease: true
-              files: |
-                Release/*.zip 
+            esac       
+      - name: Build Release
+        shell: bash
+        run: |
+            echo "done!"
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+            repo_token: "${{ secrets.GITHUB_TOKEN }}"
+            automatic_release_tag: "latest"
+            prerelease: true
+            files: |
+              Release/*.zip 
 
