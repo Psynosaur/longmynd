@@ -256,10 +256,20 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 		strcpy(fec, TabFec[modcod]);
 		mosquitto_publish(mosq, NULL, "dt/longmynd/modulation", strlen(modulation), modulation, 2, false);
 		mosquitto_publish(mosq, NULL, "dt/longmynd/fec", strlen(fec), fec, 2, false);
+		
 	}
 	else if (message == STATUS_MATYPE2)
 	{
 		sprintf(status_message, "%x", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ROLLOFF)
+	{
+		sprintf(status_topic, "dt/longmynd/rolloff");
+		if(data==0)	sprintf(status_message, "0.35");
+		if(data==1)	sprintf(status_message, "0.25");
+		if(data==2)	sprintf(status_message, "0.20");
+		if(data==3)	sprintf(status_message, "0.15");
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
 	else if (message == STATUS_MATYPE1)
