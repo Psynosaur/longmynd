@@ -54,15 +54,15 @@ jobs:
           - arch: armv6
             distro: buster
             artifact_name: Release/longmynd-fw-.zip
-            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
+            asset_name: longmynd-buster-armv6
           - arch: armv7
             distro: buster
             artifact_name: Release/longmynd-fw-.zip
-            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
+            asset_name: longmynd-buster-armv7
           - arch: aarch64
             distro: ubuntu20.04
             artifact_name: Release/longmynd-fw-.zip
-            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
+            asset_name: longmynd-ubuntu20-aarch64
 
     steps:
       - uses: actions/checkout@v4.1.1
