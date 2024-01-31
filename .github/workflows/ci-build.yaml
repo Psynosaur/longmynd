@@ -66,6 +66,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
+      - run: chown -R 1001:1001 /home/runner/work/longmynd/longmynd
       - uses: uraimo/run-on-arch-action@v2.6.0
         name: Build Matrix
         id: build
