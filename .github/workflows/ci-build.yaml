@@ -128,8 +128,8 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
-            title: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
+            automatic_release_tag: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{  github.ref_name }}
+            title: Release ${{ matrix.arch }} ${{ matrix.os }} ${{  github.ref_name }}
             prerelease: false
             files: |
               Release/**.zip 
