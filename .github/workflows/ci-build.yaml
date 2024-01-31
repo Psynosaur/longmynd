@@ -41,7 +41,7 @@ jobs:
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: Longmynd_${{ matrix.arch }}${{  github.ref_name }}
+            automatic_release_tag: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{  github.ref_name }}
             title: Release ${{ matrix.arch }} ${{  github.ref_name }}
             prerelease: false
             files: |
