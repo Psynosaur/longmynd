@@ -38,11 +38,12 @@ jobs:
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: release-${{ github.ref }}-${{ matrix.distro }}-${{ matrix.arch }}
+            automatic_release_tag: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+            title: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
             prerelease: false
             files: |
               Release/**.zip 
-
+              
   build-arm:
     # The host should always be linux
     runs-on: ubuntu-22.04
@@ -124,7 +125,8 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
             repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: release-${{ github.ref }}-${{ matrix.distro }}-${{ matrix.arch }}
+            automatic_release_tag: Longmynd_${{ matrix.arch }}_${{ matrix.os }}_${{ github.run_number }}
+            title: Release ${{ matrix.arch }} ${{ matrix.os }} ${{ github.run_number }}
             prerelease: false
             files: |
               Release/**.zip 
