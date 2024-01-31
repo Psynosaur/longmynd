@@ -41,7 +41,7 @@ jobs:
             automatic_release_tag: "latest"
             prerelease: false
             files: |
-              *.zip 
+              Release/**.zip 
 
   build-arm:
     # The host should always be linux
@@ -53,10 +53,16 @@ jobs:
         include:
           - arch: armv6
             distro: buster
+            artifact_name: Release/longmynd-fw-.zip
+            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
           - arch: armv7
             distro: buster
+            artifact_name: Release/longmynd-fw-.zip
+            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
           - arch: aarch64
             distro: ubuntu20.04
+            artifact_name: Release/longmynd-fw-.zip
+            asset_name: longmynd-${{ matrix.distro }}-${{ matrix.arch }}
 
     steps:
       - uses: actions/checkout@v4.1.1
@@ -106,14 +112,20 @@ jobs:
                 make clean && make CC=gcc-10
                 ;;
             esac       
-      - name: Build Release
-        shell: bash
-        run: |
-            echo "done!"
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --release --locked
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-            repo_token: "${{ secrets.GITHUB_TOKEN }}"
-            automatic_release_tag: "latest"
-            prerelease: false
-            files: |
-              *.zip 
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: target/release/${{ matrix.artifact_name }}
+          asset_name: ${{ matrix.asset_name }}
+          tag: ${{ github.ref }}     
+      # - uses: "marvinpinto/action-automatic-releases@latest"
+      #   with:
+      #       repo_token: "${{ secrets.GITHUB_TOKEN }}"
+      #       automatic_release_tag: "latest"
+      #       prerelease: false
+      #       files: |
+      #         *.zip 
