@@ -9,9 +9,9 @@ ifeq ($(env),local)
 #SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/37plutosdr-fw/buildroot/output/staging
 #PAPR_ORI=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/pluto-buildroot/board/pluto/overlay/root/datv
 # TO BE UNCOMENTED for NATIVE
-CROSS_COMPILE = arm-linux-gnueabihf-
-SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/staging
-TOOLS_PATH = PATH="/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/bin:/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/sbin:$(PATH)"
+#CROSS_COMPILE = arm-linux-gnueabihf-
+#SYSROOT=/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/staging
+#TOOLS_PATH = PATH="/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/bin:/home/linuxdev/prog/pluto/pluto-ori/pluto-ori-frm/f5oeo38plutosdr-fw/buildroot/output/host/sbin:$(PATH)"
 
 
 CXX=$(CROSS_COMPILE)g++
