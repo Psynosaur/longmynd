@@ -1187,8 +1187,6 @@ uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_STATE, status->state, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(1, STATUS_LNA_OK, status->lna_ok, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_LNA_GAIN, status->lna_gain, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_AGC1_GAIN, status->agc1_gain, output_ready_ptr);
@@ -1212,8 +1210,6 @@ uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
     // Publish tuner 2 status using tuner-aware MQTT functions
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_STATE, status->state2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_LNA_OK, status->lna_ok2, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_LNA_GAIN, status->lna_gain2, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
