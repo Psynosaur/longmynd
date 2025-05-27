@@ -50,8 +50,10 @@ using namespace std;
 
 struct sockaddr_in servaddr_status;
 struct sockaddr_in servaddr_ts;
+struct sockaddr_in servaddr_ts2;
 int sockfd_status;
 int sockfd_ts;
+int sockfd_ts2;
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- DEFINES ------------------------------------------------------------------------ */
@@ -245,7 +247,7 @@ public:
 size_t video_pcrpts = 0;
 size_t audio_pcrpts = 0;
 long transmission_delay=0;
-            
+
 void udp_send_normalize(u_int8_t *b, int len)
 {
 #define BUFF_MAX_SIZE (7 * 188)
@@ -270,11 +272,11 @@ void udp_send_normalize(u_int8_t *b, int len)
                 len = len - start_packet;
                 IsSync = true;
                 fprintf(stderr, "Recover Sync %d\n", start_packet);
-                
+
                 break;
             }
         }
-        
+
         fprintf(stderr, "Not Sync!\n");
     }
 
@@ -627,6 +629,213 @@ uint8_t udp_ts_init(char *udp_ip, int udp_port)
 {
 
     uint8_t err = udp_init(&servaddr_ts, &sockfd_ts, udp_ip, udp_port);
+
+    return err;
+}
+
+uint8_t udp_ts2_init(char *udp_ip, int udp_port)
+{
+
+    uint8_t err = udp_init(&servaddr_ts2, &sockfd_ts2, udp_ip, udp_port);
+
+    return err;
+}
+
+// Second tuner UDP send functions
+void udp_send_normalize2(u_int8_t *b, int len)
+{
+#define BUFF_MAX_SIZE2 (7 * 188)
+    static u_int8_t *Buffer2 = NULL;
+    if (Buffer2 == NULL)
+        Buffer2 = (u_int8_t *)malloc(BUFF_MAX_SIZE2 * 2);
+
+    static int Size2 = 0;
+    // Align to Sync Packet
+    static bool IsSync2 = false;
+
+    if ((IsSync2 == false) && (len >= 2 * 188))
+    {
+        int start_packet = 0;
+        for (start_packet = 0; start_packet < 188; start_packet++)
+        {
+            if ((b[start_packet] == 0x47) && (b[start_packet + 188] == 0x47))
+            {
+                b = b + start_packet;
+                len = len - start_packet;
+                IsSync2 = true;
+                fprintf(stderr, "Tuner2: Recover Sync %d\n", start_packet);
+                break;
+            }
+        }
+        fprintf(stderr, "Tuner2: Not Sync!\n");
+    }
+
+    if (Buffer2[0] != 0x47)
+    {
+        if (Size2 >= 188)
+        {
+            IsSync2 = false;
+            Size2 = 0;
+            fprintf(stderr, "Tuner2: Lost Sync\n");
+            return;
+        }
+    }
+
+    if ((Size2 + len) >= BUFF_MAX_SIZE2)
+    {
+        memcpy(Buffer2 + Size2, b, len);
+
+        if (IsSync2)
+        {
+            ProcessTSTiming(Buffer2, BUFF_MAX_SIZE2, &video_pcrpts, &audio_pcrpts, &transmission_delay);
+        }
+        if (sendto(sockfd_ts2, Buffer2, BUFF_MAX_SIZE2, 0, (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr)) < 0)
+        {
+            fprintf(stderr, "Tuner2: UDP send failed\n");
+        }
+        memmove(Buffer2, Buffer2 + BUFF_MAX_SIZE2, Size2 - BUFF_MAX_SIZE2 + len);
+        Size2 += len;
+        Size2 = Size2 - BUFF_MAX_SIZE2;
+    }
+    else
+    {
+        memcpy(Buffer2 + Size2, b, len);
+        Size2 += len;
+    }
+}
+
+void udp_bb_defrag2(u_int8_t *b, int len, bool withheader)
+{
+    static unsigned char BBFrame2[BBFRAME_MAX_LEN];
+    static int offset2 = 0;
+    static int dfl2 = 0;
+    static int count2 = 0;
+
+    if (offset2 + len > BBFRAME_MAX_LEN)
+    {
+        fprintf(stderr, "Tuner2: bbframe overflow! %d/%d\n", offset2, len);
+        offset2 = 0;
+        return;
+    }
+
+    if ((offset2 == 0) && (b[0] != 0x72))
+    {
+        fprintf(stderr, "Tuner2: BBFRAME padding ? %x\n", b[0]);
+        return;
+    }
+    if ((offset2 == 0) && (len >= 10) && (calc_crc8(b, 9) == b[9]))
+    {
+        dfl2 = (((int)b[4] << 8) + (int)b[5]) / 8 + 10;
+    }
+    if (dfl2 == 0)
+    {
+        fprintf(stderr, "Tuner2: wrong dfl size %d\n", len);
+        return;
+    }
+    if (offset2 + len < dfl2)
+    {
+        memcpy(BBFrame2 + offset2, b, len);
+        offset2 += len;
+        return;
+    }
+
+    if (offset2 + len == dfl2)
+    {
+        memcpy(BBFrame2 + offset2, b, len);
+        fprintf(stderr, "Tuner2: Complete bbframe # %d : %d/%d\n", count2, offset2 + len, dfl2);
+        sendto(sockfd_ts2, BBFrame2, dfl2, 0, (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr));
+        offset2 = 0;
+        count2++;
+        return;
+    }
+
+    if (offset2 + len > dfl2)
+    {
+        memcpy(BBFrame2 + offset2, b, dfl2 - offset2);
+        sendto(sockfd_ts2, BBFrame2, dfl2, 0, (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr));
+        fprintf(stderr, "Tuner2: First Complete bbframe # %d : %d/%d\n", count2, offset2 + dfl2 - offset2, dfl2);
+
+        int size = len - (dfl2 - offset2);
+        int oldoffset = offset2;
+        int olddfl = dfl2;
+        offset2 = 0;
+        dfl2 = 0;
+
+        fprintf(stderr, "Tuner2: Recursive with size %d\n", size);
+        udp_bb_defrag2(b + olddfl - oldoffset, size, true);
+    }
+}
+
+uint8_t udp_ts2_write(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_send_normalize2(&buffer[len - remaining_len], write_size);
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_send_normalize2(&buffer[len - remaining_len], write_size);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: Tuner2 UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: Tuner2 UDP socket ts write\n");
+
+    return err;
+}
+
+uint8_t udp_bb2_write(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_bb_defrag2(&buffer[len - remaining_len], write_size, true);
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_bb_defrag2(&buffer[len - remaining_len], write_size, true);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: Tuner2 UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: Tuner2 UDP socket ts write\n");
 
     return err;
 }

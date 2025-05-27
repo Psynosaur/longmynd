@@ -37,6 +37,7 @@
 #define NIM_INPUT_BOTTOM 2
 
 uint8_t nim_init();
+uint8_t nim_init_tuner(uint8_t tuner);
 uint8_t nim_send_d0();
 uint8_t nim_read_tuner (uint8_t,  uint8_t*);
 uint8_t nim_write_tuner(uint8_t,  uint8_t );
@@ -44,5 +45,13 @@ uint8_t nim_read_demod (uint16_t, uint8_t*);
 uint8_t nim_write_demod(uint16_t, uint8_t );
 uint8_t nim_read_lna   (uint8_t,  uint8_t, uint8_t*);
 uint8_t nim_write_lna  (uint8_t,  uint8_t, uint8_t );
+
+// Tuner-aware functions for dual-tuner support
+uint8_t nim_read_demod_tuner (uint8_t tuner, uint16_t reg, uint8_t* val);
+uint8_t nim_write_demod_tuner(uint8_t tuner, uint16_t reg, uint8_t val);
+uint8_t nim_read_tuner_tuner (uint8_t tuner, uint8_t reg,  uint8_t* val);
+uint8_t nim_write_tuner_tuner(uint8_t tuner, uint8_t reg,  uint8_t val);
+uint8_t nim_read_lna_tuner   (uint8_t tuner, uint8_t lna_addr, uint8_t reg, uint8_t* val);
+uint8_t nim_write_lna_tuner  (uint8_t tuner, uint8_t lna_addr, uint8_t reg, uint8_t val);
 
 #endif

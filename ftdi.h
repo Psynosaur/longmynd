@@ -26,6 +26,7 @@
 #include <stdbool.h>
 
 uint8_t ftdi_init(uint8_t, uint8_t);
+uint8_t ftdi_init2(uint8_t, uint8_t);
 uint8_t ftdi_set_polarisation_supply(bool, bool);
 uint8_t ftdi_send_byte(uint8_t);
 uint8_t ftdi_read(uint8_t*,uint8_t*);
@@ -36,5 +37,11 @@ uint8_t ftdi_i2c_read_reg16 (uint8_t, uint16_t, uint8_t*);
 uint8_t ftdi_i2c_read_reg8  (uint8_t, uint8_t,  uint8_t*);
 uint8_t ftdi_i2c_write_reg16(uint8_t, uint16_t, uint8_t );
 uint8_t ftdi_i2c_write_reg8 (uint8_t, uint8_t,  uint8_t );
+
+// Tuner-aware I2C functions (tuner: 1 or 2)
+uint8_t ftdi_i2c_read_reg16_tuner (uint8_t tuner, uint8_t addr, uint16_t reg, uint8_t* val);
+uint8_t ftdi_i2c_read_reg8_tuner  (uint8_t tuner, uint8_t addr, uint8_t reg,  uint8_t* val);
+uint8_t ftdi_i2c_write_reg16_tuner(uint8_t tuner, uint8_t addr, uint16_t reg, uint8_t val);
+uint8_t ftdi_i2c_write_reg8_tuner (uint8_t tuner, uint8_t addr, uint8_t reg,  uint8_t val);
 
 #endif

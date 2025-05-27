@@ -27,11 +27,14 @@
 
 uint8_t udp_status_init(char *udp_ip, int udp_port);
 uint8_t udp_ts_init(char *udp_ip, int udp_port);
+uint8_t udp_ts2_init(char *udp_ip, int udp_port);
 
 uint8_t udp_status_write(uint8_t message, uint32_t data, bool *output_ready);
 uint8_t udp_status_string_write(uint8_t message, char *data, bool *output_ready);
 uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready);
+uint8_t udp_ts2_write(uint8_t *buffer, uint32_t len, bool *output_ready);
 uint8_t udp_bb_write(uint8_t *buffer, uint32_t len, bool *output_ready);
+uint8_t udp_bb2_write(uint8_t *buffer, uint32_t len, bool *output_ready);
 uint8_t udp_close(void);
 
 #endif

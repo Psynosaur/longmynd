@@ -81,6 +81,7 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 uint8_t rx_chunk[FTDI_RX_CHUNK_SIZE];
+uint8_t rx_chunk2[FTDI_RX_CHUNK_SIZE]; // Second tuner RX buffer
 
 /* MPSSE bitbang modes */
 enum ftdi_mpsse_mode
@@ -100,6 +101,12 @@ static libusb_device_handle *usb_device_handle_i2c; // interface 0, endpoints: 0
 static libusb_device_handle *usb_device_handle_ts; // interface 1, endpoints: 0x83, 0x04
 static libusb_context *usb_context_i2c;
 static libusb_context *usb_context_ts;
+
+// Second tuner USB device handles and contexts
+static libusb_device_handle *usb_device_handle_i2c2; // interface 0, endpoints: 0x81, 0x02
+static libusb_device_handle *usb_device_handle_ts2; // interface 1, endpoints: 0x83, 0x04
+static libusb_context *usb_context_i2c2;
+static libusb_context *usb_context_ts2;
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -132,9 +139,35 @@ uint8_t ftdi_usb_i2c_write( uint8_t *buffer, uint8_t len ){
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_i2c_write2( uint8_t *buffer, uint8_t len ){
+/* -------------------------------------------------------------------------------------------------- */
+/* writes data out to the second tuner usb                                                            */
+/* *buffer: the buffer containing the data to be written out                                          */
+/*     len: the number of bytes to send                                                               */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    int sent=0;
+    int res;
+
+    res=libusb_bulk_transfer(usb_device_handle_i2c2, 0x02, buffer, len, &sent, USB_TIMEOUT);
+    if (res<0) {
+        printf("ERROR: Tuner2 USB Cmd Write failure %d\n",res);
+        err=ERROR_FTDI_USB_CMD;
+    }
+
+    if ((err==ERROR_NONE) && (sent!=len)) {
+        printf("ERROR: Tuner2 i2c write incorrect num bytes sent=%i, len=%i\n",sent,len);
+        err=ERROR_FTDI_I2C_WRITE_LEN;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_usb_i2c_read( uint8_t **buffer) {
 /* -------------------------------------------------------------------------------------------------- */
-/* reads one byte from the usb and returns it. Keeping any other data bytes for later                 */ 
+/* reads one byte from the usb and returns it. Keeping any other data bytes for later                 */
 /* Note: we only ever need to read one byte of actual data so we can avoid data copying by using the  */
 /* internal buffers of the usb reads to keep the data                                                 */
 /* *buffer: iretruned as a pointer the the actual data read into the usb                              */
@@ -176,6 +209,50 @@ uint8_t ftdi_usb_i2c_read( uint8_t **buffer) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_i2c_read2( uint8_t **buffer) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads one byte from the second tuner usb and returns it. Keeping any other data bytes for later   */
+/* Note: we only ever need to read one byte of actual data so we can avoid data copying by using the  */
+/* internal buffers of the usb reads to keep the data                                                 */
+/* *buffer: returned as a pointer the the actual data read into the usb                              */
+/*     len: the number of bytes to read                                                               */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    static int rxed2=0;
+    static int posn2=0;
+    int res;
+    int n;
+
+    /* if we have unused characters in the buffer then use them up first */
+    if (posn2!=rxed2) {
+        *buffer=&rx_chunk2[posn2++];
+    } else {
+        /* if we couldn't do it with data we already have then get a new buffer */
+        /* the data may not be available immediatly so try a few times until it appears (or we error) */
+        for (n=0; n<FTDI_USB_READ_RETRIES; n++) {
+            /* we use endpoint 0x81 for the i2c traffic */
+            if ((res=libusb_bulk_transfer(usb_device_handle_i2c2, 0x81, rx_chunk2, FTDI_RX_CHUNK_SIZE, &rxed2, USB_TIMEOUT))<0) {
+                printf("ERROR: Tuner2 USB Cmd Read failure %d\n",res);
+                err=ERROR_FTDI_USB_CMD;
+                break;
+            }
+            /* we always get 2 bytes header from the FTDI, so we only have valid data with more than this */
+            if (rxed2>2) break;
+        }
+        /* check we didn't timeout */
+        if (n==FTDI_USB_READ_RETRIES) err=ERROR_FTDI_I2C_READ_LEN;
+        else if (err==ERROR_NONE) {
+            /* once we have good data, use it to fulfil the request */
+            posn2=2;
+            *buffer=&rx_chunk2[posn2++];
+        }
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 static uint8_t ftdi_usb_set_mpsse_mode(libusb_device_handle *_device_handle){
 /* -------------------------------------------------------------------------------------------------- */
 /* setup the FTDI USB interface and MPSEE mode                                                        */
@@ -192,7 +269,7 @@ static uint8_t ftdi_usb_set_mpsse_mode(libusb_device_handle *_device_handle){
                                             SIO_RESET_PURGE_RX, 1, NULL, 0, USB_TIMEOUT))<0) {
         printf("ERROR: USB RX Purge failed %d",res);
         err=ERROR_MPSSE;
-    }   
+    }
 
     /* clear out the transmit buffers */
     if ((res=libusb_control_transfer(_device_handle, FTDI_DEVICE_OUT_REQTYPE, SIO_RESET_REQUEST,
@@ -242,6 +319,14 @@ uint8_t ftdi_usb_set_mpsse_mode_ts(void){
     return ftdi_usb_set_mpsse_mode(usb_device_handle_ts);
 }
 
+uint8_t ftdi_usb_set_mpsse_mode_i2c2(void){
+    return ftdi_usb_set_mpsse_mode(usb_device_handle_i2c2);
+}
+
+uint8_t ftdi_usb_set_mpsse_mode_ts2(void){
+    return ftdi_usb_set_mpsse_mode(usb_device_handle_ts2);
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 static uint8_t ftdi_usb_init(libusb_context **usb_context_ptr, libusb_device_handle **usb_device_handle_ptr, int interface_num, uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -281,7 +366,7 @@ static uint8_t ftdi_usb_init(libusb_context **usb_context_ptr, libusb_device_han
 
     /* if  we are finding by usb device number then we have to take a look at the IDs to check we are */
     /* being asked to open the right one. sTto do this we get a list of all the USB devices on the system */
-    } else if (err==ERROR_NONE) { 
+    } else if (err==ERROR_NONE) {
         printf("Flow: Searching for bus/device=%i,%i\n",usb_bus,usb_addr);
         count=libusb_get_device_list(*usb_context_ptr, &usb_device_list);
         if (count<=0) {
@@ -350,6 +435,14 @@ uint8_t ftdi_usb_init_ts(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16
     return ftdi_usb_init(&usb_context_ts, &usb_device_handle_ts, 1, usb_bus, usb_addr, vid, pid);
 }
 
+uint8_t ftdi_usb_init_i2c2(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
+    return ftdi_usb_init(&usb_context_i2c2, &usb_device_handle_i2c2, 0, usb_bus, usb_addr, vid, pid);
+}
+
+uint8_t ftdi_usb_init_ts2(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
+    return ftdi_usb_init(&usb_context_ts2, &usb_device_handle_ts2, 1, usb_bus, usb_addr, vid, pid);
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -371,6 +464,31 @@ uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
     } else *len=rxed; /* just type converting */
 
     if (err!=ERROR_NONE) printf("ERROR: FTDI USB ts read\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_ts_read2(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
+/* -------------------------------------------------------------------------------------------------- */
+/* every now and again we check to see if there is any transport stream available from second tuner  */
+/* *buffer: the buffer to collect the ts data into                                                    */
+/*    *len: how many bytes we put into the buffer                                                     */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    int rxed=0;
+    int res=0;
+
+    /* the TS traffic is on endpoint 0x83 */
+    res=libusb_bulk_transfer(usb_device_handle_ts2, 0x83, buffer, frame_size, &rxed, USB_FAST_TIMEOUT);
+
+    if (res<0) {
+        printf("ERROR: Tuner2 USB TS Data Read %i (%s), received %i\n",res,libusb_error_name(res),rxed);
+        err=ERROR_USB_TS_READ;
+    } else *len=rxed; /* just type converting */
+
+    if (err!=ERROR_NONE) printf("ERROR: Tuner2 FTDI USB ts read\n");
 
     return err;
 }

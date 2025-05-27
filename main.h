@@ -38,7 +38,7 @@
 #define STATUS_STATE               1
 #define STATUS_LNA_GAIN            2
 #define STATUS_PUNCTURE_RATE       3
-#define STATUS_POWER_I             4 
+#define STATUS_POWER_I             4
 #define STATUS_POWER_Q             5
 #define STATUS_CARRIER_FREQUENCY   6
 #define STATUS_CONSTELLATION_I     7
@@ -84,11 +84,23 @@ typedef struct {
     uint8_t device_usb_bus;
     uint8_t device_usb_addr;
 
+    // Second tuner device configuration
+    bool dual_tuner_enabled;
+    uint8_t device2_usb_bus;
+    uint8_t device2_usb_addr;
+
     bool ts_use_ip;
     bool ts_reset;
     char ts_fifo_path[128];
     char ts_ip_addr[16];
     int ts_ip_port;
+
+    // Second tuner TS configuration
+    bool ts2_use_ip;
+    bool ts2_reset;
+    char ts2_fifo_path[128];
+    char ts2_ip_addr[16];
+    int ts2_ip_port;
 
     bool status_use_ip;
     bool status_use_mqtt;
@@ -140,11 +152,45 @@ typedef struct {
     uint8_t rolloff;
     uint64_t last_ts_or_reinit_monotonic;
 
+    // Second tuner status
+    uint8_t state2;
+    uint8_t demod_state2;
+    bool lna_ok2;
+    uint16_t lna_gain2;
+    uint16_t agc1_gain2;
+    uint16_t agc2_gain2;
+    uint8_t power_i2;
+    uint8_t power_q2;
+    uint32_t frequency_requested2;
+    int32_t frequency_offset2;
+    uint32_t symbolrate_requested2;
+    uint32_t symbolrate2;
+    uint32_t viterbi_error_rate2;
+    uint32_t bit_error_rate2;
+    int32_t modulation_error_rate2;
+    bool errors_bch_uncorrected2;
+    uint32_t errors_bch_count2;
+    uint32_t errors_ldpc_count2;
+    int8_t constellation2[NUM_CONSTELLATIONS][2];
+    uint8_t puncture_rate2;
+    char service_name2[255]={'\0'};
+    char service_provider_name2[255]={'\0'};
+    uint8_t ts_null_percentage2;
+    uint16_t ts_elementary_streams2[NUM_ELEMENT_STREAMS][2];
+    uint32_t modcod2;
+    uint32_t matype1_2;
+    uint32_t matype2_2;
+    bool short_frame2;
+    bool pilots2;
+    uint8_t rolloff2;
+    uint64_t last_ts_or_reinit_monotonic2;
+
     uint64_t last_updated_monotonic=0;
     pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t signal=PTHREAD_COND_INITIALIZER;
 
     uint32_t ts_packet_count_nolock=0;
+    uint32_t ts2_packet_count_nolock=0;
 } longmynd_status_t;
 
 typedef struct {

@@ -54,9 +54,9 @@ uint8_t stv0910_read_car_freq(uint8_t demod, int32_t *cf) {
     /* first off we read in the carrier offset as a signed number */
                            err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR2 : RSTV0910_P1_CFR2, &val_h); /* high byte*/
-    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR1 : RSTV0910_P1_CFR1, &val_m); /* mid */
-    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ?
                                             RSTV0910_P2_CFR0 : RSTV0910_P1_CFR0, &val_l); /* low */
     /* since this is a 24 bit signed value, we need to build it as a 24 bit value, shift it up to the top
        to get a 32 bit signed value, then convert it to a double */
@@ -295,7 +295,7 @@ uint8_t stv0910_read_mer(uint8_t demod, int32_t *mer) {
         {
             *mer = ((high & 0x01) << 8) | low;
         }
-        
+
     }
     else
     {
@@ -393,7 +393,7 @@ uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *shor
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err;
     uint8_t regval;
-    
+
     err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_DMDMODCOD : RSTV0910_P1_DMDMODCOD, &regval);
 
     *modcod = (regval & 0x7c) >> 2;
@@ -402,9 +402,9 @@ uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *shor
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read MODCOD\n");
 
-    err=stv0910_read_reg_field(demod==STV0910_DEMOD_TOP ? FSTV0910_P2_ROLLOFF_STATUS : FSTV0910_P1_ROLLOFF_STATUS, &regval); 
+    err=stv0910_read_reg_field(demod==STV0910_DEMOD_TOP ? FSTV0910_P2_ROLLOFF_STATUS : FSTV0910_P1_ROLLOFF_STATUS, &regval);
     *rolloff=regval;
-    
+
     return err;
 }
 
@@ -413,13 +413,13 @@ uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) 
 
     uint8_t err;
     uint8_t regval;
-    
+
     err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_MATSTR0-1 : RSTV0910_P1_MATSTR0-1, &regval);
     *matype1 = regval;
-    
+
     err=stv0910_read_reg(demod==STV0910_DEMOD_TOP ? RSTV0910_P2_MATSTR0 : RSTV0910_P1_MATSTR0, &regval);
     *matype2 = regval;
-    
+
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read MATYPE\n");
 
     return err;
@@ -559,7 +559,7 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod, uint32_t halfscan_sr) {
         err = stv0910_write_reg( (demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW0 : RSTV0910_P1_CFRLOW0), (uint8_t) (temp & 0xff));
         err = stv0910_write_reg( (demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW1 : RSTV0910_P1_CFRLOW1), (uint8_t) ((temp >> 8) & 0xff));
     }
- 
+
     return err;
 }
 
@@ -598,7 +598,7 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 /*  return: error state                                                                               */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
-    uint16_t sr_reg; 
+    uint16_t sr_reg;
 
     printf("Flow: Setup timing loop %i\n", demod);
 
@@ -617,25 +617,25 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_ts(uint8_t demod) {
 /* -------------------------------------------------------------------------------------------------- */
-/* format with or without sync and header bytes TSINSDELH                                             */ 
-/*   output rate manual or auto adjust                                                                */ 
-/*   control with TSCFX                                                                               */ 
-/*   serial or paralled TSCFGH.PxTSFIFO_SERIAL (serial is on D7) 2 control bits                       */ 
-/*   configure bus to low impedance (high Z on reset) OUTCFG                                          */ 
-/*   DPN (data valid/parity negated) is high when FEC is outputting data                              */ 
-/*      low when redundant data is out[ut eq parity data or rate regulation stuffing bits)            */ 
-/*   Data is regulated by CLKOUT and DPN: either data valid or envelope.                              */ 
-/*     data valid uses continuous clock and select valid data using DPN                               */ 
-/*     envelope: DPN still indicates valid data and then punctured clock for rate regulation          */ 
-/*     TSCFGH.TSFIFO_DVBCI=1 for data and 0 for envelope.                                             */ 
-/*   CLKOUT polarity bit XOR, OUTCFG2.TS/2_CLKOUT_XOR=0 valid rising (=1 for falling).                */ 
+/* format with or without sync and header bytes TSINSDELH                                             */
+/*   output rate manual or auto adjust                                                                */
+/*   control with TSCFX                                                                               */
+/*   serial or paralled TSCFGH.PxTSFIFO_SERIAL (serial is on D7) 2 control bits                       */
+/*   configure bus to low impedance (high Z on reset) OUTCFG                                          */
+/*   DPN (data valid/parity negated) is high when FEC is outputting data                              */
+/*      low when redundant data is out[ut eq parity data or rate regulation stuffing bits)            */
+/*   Data is regulated by CLKOUT and DPN: either data valid or envelope.                              */
+/*     data valid uses continuous clock and select valid data using DPN                               */
+/*     envelope: DPN still indicates valid data and then punctured clock for rate regulation          */
+/*     TSCFGH.TSFIFO_DVBCI=1 for data and 0 for envelope.                                             */
+/*   CLKOUT polarity bit XOR, OUTCFG2.TS/2_CLKOUT_XOR=0 valid rising (=1 for falling).                */
 /*   TSFIFOMANSPEED controlls data rate (padding). 0x11 manual, 0b00 fully auto. speed is TSSPEE      */
-/*     if need square clock, TSCFGH.TSFIFO_DUTY50.                                                    */ 
-/*   parallel mode is ST back end. CLKOUT held (TSCFGH.TSINFO_DBCI) for unknown data section          */ 
-/*     or DVB-CI: DRN is help (CLKOUTnCFG.CLKOUT_XOR) for unknown data section                        */ 
-/*   in both STRUT is high for first byte of packet                                                   */ 
-/*   rate compensation is TSCFGH.TSFIFO_DVBCI                                                         */ 
-/*                                                                                                    */ 
+/*     if need square clock, TSCFGH.TSFIFO_DUTY50.                                                    */
+/*   parallel mode is ST back end. CLKOUT held (TSCFGH.TSINFO_DBCI) for unknown data section          */
+/*     or DVB-CI: DRN is help (CLKOUTnCFG.CLKOUT_XOR) for unknown data section                        */
+/*   in both STRUT is high for first byte of packet                                                   */
+/*   rate compensation is TSCFGH.TSFIFO_DVBCI                                                         */
+/*                                                                                                    */
 /*   All of this is set in the register init.                                                         */
 /*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator is being read                 */
 /*  return: error state                                                                               */
@@ -685,7 +685,7 @@ uint8_t stv0910_read_scan_state(uint8_t demod, uint8_t *state) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    if (err==ERROR_NONE) err=stv0910_read_reg_field((demod==STV0910_DEMOD_TOP ? 
+    if (err==ERROR_NONE) err=stv0910_read_reg_field((demod==STV0910_DEMOD_TOP ?
                                   FSTV0910_P2_HEADER_MODE : FSTV0910_P1_HEADER_MODE), state);
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read scan state\n");
@@ -718,7 +718,7 @@ uint8_t stv0910_init_regs() {
     /* next we initialise all the registers in the list */
     do {
         if (err==ERROR_NONE) err=stv0910_write_reg(STV0910DefVal[i].reg, STV0910DefVal[i].val);
-    }        
+    }
     while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
 
     /* finally (from ST example code) reset the LDPC decoder */
@@ -773,5 +773,89 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
     if (err!=ERROR_NONE) printf("ERROR: STV0910 init\n");
 
     return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_init_tuner(uint8_t tuner, uint32_t sr, float halfscan_ratio) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Initialize a specific tuner's demodulator                                                          */
+/*     tuner: tuner number (1 or 2)                                                                   */
+/*        sr: symbol rate to initialize                                                               */
+/* halfscan_ratio: halfscan ratio for carrier loop setup                                              */
+/*    return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t demod;
+
+    if (tuner == 1) {
+        demod = STV0910_DEMOD_TOP;
+    } else if (tuner == 2) {
+        demod = STV0910_DEMOD_BOTTOM;
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    printf("Flow: STV0910 init tuner %d (demod %d)\n", tuner, demod);
+
+    /* Stop the demodulator first */
+    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_DMDISTATE : RSTV0910_P1_DMDISTATE), 0x1c);
+
+    /* Initialize the specific demodulator */
+    if (sr != 0) {
+        if (err==ERROR_NONE) err=stv0910_setup_equalisers(demod);
+        if (err==ERROR_NONE) err=stv0910_setup_carrier_loop(demod, sr * halfscan_ratio);
+        if (err==ERROR_NONE) err=stv0910_setup_timing_loop(demod, sr);
+        if (err==ERROR_NONE) err=stv0910_setup_ts(demod);
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: STV0910 init tuner %d\n", tuner);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_start_scan_tuner(uint8_t tuner) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Start scanning on a specific tuner                                                                 */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t demod;
+
+    if (tuner == 1) {
+        demod = STV0910_DEMOD_TOP;
+    } else if (tuner == 2) {
+        demod = STV0910_DEMOD_BOTTOM;
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    printf("Flow: STV0910 start scan tuner %d (demod %d)\n", tuner, demod);
+
+    return stv0910_start_scan(demod);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_scan_state_tuner(uint8_t tuner, uint8_t *state) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Read scan state from a specific tuner                                                              */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/*  state: place to store the scan state                                                              */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t demod;
+
+    if (tuner == 1) {
+        demod = STV0910_DEMOD_TOP;
+    } else if (tuner == 2) {
+        demod = STV0910_DEMOD_BOTTOM;
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    return stv0910_read_scan_state(demod, state);
 }
 

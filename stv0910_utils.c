@@ -34,6 +34,7 @@
 
 /* in order to do bitfields efficiently, we need to keep a shadow register set */
 uint8_t stv0910_shadow_regs[STV0910_END_ADDR - STV0910_START_ADDR + 1];
+uint8_t stv0910_shadow_regs2[STV0910_END_ADDR - STV0910_START_ADDR + 1]; // Second tuner shadow registers
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -107,5 +108,111 @@ uint8_t stv0910_read_reg(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
 
     return nim_read_demod(reg, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t field_val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* changes a bitfield of a register for specific tuner using shadow register array                   */
+/*     tuner: tuner number (1 or 2)                                                                   */
+/*     field: the #define of the bitfield as given in stv0910_regs.h                                 */
+/* field_val: what to set the field to                                                                */
+/*    return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    uint16_t reg;
+    uint8_t val;
+    uint8_t *shadow_regs;
+
+    if (tuner == 1) {
+        shadow_regs = stv0910_shadow_regs;
+    } else if (tuner == 2) {
+        shadow_regs = stv0910_shadow_regs2;
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    /* first we need to work out which register to use */
+    reg=field >> 16;
+    /* now we calculate the new value for this reg by reading the shadow array */
+    val=((shadow_regs[reg-STV0910_START_ADDR] & ~(field & 0xff)) |
+         (field_val << ((field >> 12) & 0x0f))        );
+    /* now we can write the new value back to the demodulator and the shadow registers */
+    if (err==ERROR_NONE) err=nim_write_demod_tuner(tuner, reg, val);
+    if (err==ERROR_NONE) shadow_regs[reg-STV0910_START_ADDR]=val;
+
+    if (err!=ERROR_NONE) printf("ERROR: STV0910 write field tuner %d\n", tuner);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t *field_val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads a bitfield of a register for specific tuner                                                  */
+/*      tuner: tuner number (1 or 2)                                                                  */
+/*      field: the #define of the bitfield as given in stv0910_regs.h                                */
+/* *field_val: the contents of the field once read                                                    */
+/*     return: error code                                                                             */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    uint8_t val;
+
+    if (tuner != 1 && tuner != 2) {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    /* we can read the register value first */
+    if (err==ERROR_NONE) err=nim_read_demod_tuner(tuner, (uint16_t)(field >> 16), &val);
+    /* and then do the masks and shifts to get at the specific bits */
+    *field_val = ((val) & (field & 0xff)) >> ((field >> 12) & 0x0f);
+
+    if (err!=ERROR_NONE) printf("ERROR: STV0910 read field tuner %d\n", tuner);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_reg_tuner(uint8_t tuner, uint16_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* abstracts a hardware register write to the stv0910 for specific tuner                             */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/*    reg: register address                                                                           */
+/*    val: value to write                                                                             */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t *shadow_regs;
+
+    if (tuner == 1) {
+        shadow_regs = stv0910_shadow_regs;
+    } else if (tuner == 2) {
+        shadow_regs = stv0910_shadow_regs2;
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    shadow_regs[reg-STV0910_START_ADDR]=val;
+
+    return nim_write_demod_tuner(tuner, reg, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_reg_tuner(uint8_t tuner, uint16_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* abstracts a hardware register read from the stv0910 for specific tuner                            */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/*    reg: register address                                                                           */
+/*    val: pointer to store read value                                                                */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    if (tuner != 1 && tuner != 2) {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    return nim_read_demod_tuner(tuner, reg, val);
 }
 

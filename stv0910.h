@@ -29,7 +29,7 @@
 #define DEMOD_S2 2
 #define DEMOD_S 3
 
-#define STV0910_PLL_LOCK_TIMEOUT 100 
+#define STV0910_PLL_LOCK_TIMEOUT 100
 
 #define STV0910_SCAN_BLIND_BEST_GUESS 0x15
 
@@ -61,11 +61,16 @@ uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) 
 uint8_t stv0910_init(uint32_t, uint32_t, float, float);
 uint8_t stv0910_init_regs(void);
 uint8_t stv0910_setup_timing_loop(uint8_t, uint32_t);
-uint8_t stv0910_setup_carrier_loop(uint8_t, uint32_t); 
+uint8_t stv0910_setup_carrier_loop(uint8_t, uint32_t);
 uint8_t stv0910_read_scan_state(uint8_t, uint8_t *);
 uint8_t stv0910_start_scan(uint8_t);
 uint8_t stv0910_setup_search_params(uint8_t);
 uint8_t stv0910_setup_clocks();
+
+// Tuner-aware functions for dual-tuner support
+uint8_t stv0910_init_tuner(uint8_t tuner, uint32_t sr, float halfscan_ratio);
+uint8_t stv0910_start_scan_tuner(uint8_t tuner);
+uint8_t stv0910_read_scan_state_tuner(uint8_t tuner, uint8_t *state);
 
 #endif
 

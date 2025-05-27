@@ -62,7 +62,7 @@
 
 static longmynd_config_t longmynd_config;
 /* = {
-    
+
     freq_index : 0,
     sr_index : 0,
     new_config : false,
@@ -182,6 +182,84 @@ void config_set_tsip(char *tsip)
     pthread_mutex_unlock(&longmynd_config.mutex);
 }
 
+/* -------------------------------------------------------------------------------------------------- */
+void tuning_parameter_handler(uint8_t tuner, const char* param, const char* value)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Handles MQTT tuning parameter changes for dual-tuner operation                                     */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/*  param: parameter name (sr, frequency, polar, swport, tsip)                                        */
+/*  value: parameter value as string                                                                  */
+/* -------------------------------------------------------------------------------------------------- */
+    printf("Flow: MQTT tuning parameter change - Tuner %d: %s = %s\n", tuner, param, value);
+
+    if (tuner == 1) {
+        // Handle tuner 1 parameter changes
+        if (strcmp(param, "sr") == 0) {
+            uint32_t symbolrate = (uint32_t)strtol(value, NULL, 10);
+            config_set_symbolrate(symbolrate);
+        }
+        else if (strcmp(param, "frequency") == 0) {
+            uint32_t frequency = (uint32_t)strtol(value, NULL, 10);
+            config_set_frequency(frequency);
+        }
+        else if (strcmp(param, "polar") == 0) {
+            if (strcmp(value, "h") == 0)
+                config_set_lnbv(true, true);
+            else if (strcmp(value, "v") == 0)
+                config_set_lnbv(true, false);
+            else if (strcmp(value, "n") == 0)
+                config_set_lnbv(false, false);
+        }
+        else if (strcmp(param, "swport") == 0) {
+            bool swport = (bool)atoi(value);
+            config_set_swport(swport);
+        }
+        else if (strcmp(param, "tsip") == 0) {
+            config_set_tsip((char*)value);
+        }
+    }
+    else if (tuner == 2) {
+        // Handle tuner 2 parameter changes
+        pthread_mutex_lock(&longmynd_config.mutex);
+
+        if (strcmp(param, "sr") == 0) {
+            uint32_t symbolrate = (uint32_t)strtol(value, NULL, 10);
+            if (symbolrate <= 27500 && symbolrate >= 33) {
+                longmynd_config.sr_requested[0] = symbolrate; // For now, use same array for tuner 2
+                longmynd_config.new_config = true;
+                printf("Flow: Tuner 2 symbol rate set to %d\n", symbolrate);
+            }
+        }
+        else if (strcmp(param, "frequency") == 0) {
+            uint32_t frequency = (uint32_t)strtol(value, NULL, 10);
+            if (frequency <= 2450000 && frequency >= 144000) {
+                longmynd_config.freq_requested[0] = frequency; // For now, use same array for tuner 2
+                longmynd_config.new_config = true;
+                printf("Flow: Tuner 2 frequency set to %d\n", frequency);
+            }
+        }
+        else if (strcmp(param, "polar") == 0) {
+            // Tuner 2 polarization control would need separate implementation
+            printf("Flow: Tuner 2 polarization control: %s\n", value);
+        }
+        else if (strcmp(param, "swport") == 0) {
+            // Tuner 2 switch port control
+            printf("Flow: Tuner 2 switch port control: %s\n", value);
+        }
+        else if (strcmp(param, "tsip") == 0) {
+            // Update tuner 2 TS IP
+            strncpy(longmynd_config.ts2_ip_addr, value, 15);
+            longmynd_config.ts2_ip_addr[15] = '\0';
+            udp_ts2_init(value, longmynd_config.ts2_ip_port);
+            longmynd_config.new_config = true;
+            printf("Flow: Tuner 2 TS IP set to %s\n", value);
+        }
+
+        pthread_mutex_unlock(&longmynd_config.mutex);
+    }
+}
+
 void config_reinit(bool increment_frsr)
 {
     pthread_mutex_lock(&longmynd_config.mutex);
@@ -258,9 +336,16 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->beep_enabled = false;
     config->device_usb_addr = 0;
     config->device_usb_bus = 0;
+    config->dual_tuner_enabled = false;
+    config->device2_usb_addr = 0;
+    config->device2_usb_bus = 0;
     config->ts_use_ip = false;
+    config->ts2_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
+    strcpy(config->ts2_fifo_path, "longmynd_main_ts2");
+    strcpy(config->ts2_ip_addr, "230.0.0.3");
+    config->ts2_ip_port = 1234;
     config->status_use_ip = false;
     strcpy(config->status_fifo_path, "longmynd_main_status");
     config->polarisation_supply = false;
@@ -322,6 +407,22 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'r':
                 config->ts_timeout = strtol(argv[param], NULL, 10);
+                break;
+            case 'D':
+                config->dual_tuner_enabled = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'U':
+                config->device2_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
+                config->device2_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                break;
+            case 'j':
+                strncpy(config->ts2_ip_addr, argv[param++], (16 - 1));
+                config->ts2_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
+                config->ts2_use_ip = true;
+                break;
+            case 'T':
+                strncpy(config->ts2_fifo_path, argv[param], (128 - 1));
                 break;
             }
         }
@@ -1056,13 +1157,84 @@ uint8_t status_all_write(longmynd_status_t *status, uint8_t (*status_write)(uint
     /* Pilots */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_PILOTS, status->pilots, output_ready_ptr);
-    // MATYPE    
+    // MATYPE
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = status_write(STATUS_MATYPE1, status->matype1, output_ready_ptr);    
+        err = status_write(STATUS_MATYPE1, status->matype1, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_MATYPE2, status->matype2, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = status_write(STATUS_ROLLOFF, status->rolloff, output_ready_ptr);        
+        err = status_write(STATUS_ROLLOFF, status->rolloff, output_ready_ptr);
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
+                                     uint8_t (*status_write_func)(uint8_t, uint32_t, bool *),
+                                     uint8_t (*status_string_write_func)(uint8_t, char *, bool *),
+                                     bool *output_ready_ptr)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Publishes all status data for dual-tuner operation via MQTT                                        */
+/*                status: status structure to publish                                                  */
+/*    status_write_func: function pointer for status publishing                                        */
+/* status_string_write_func: function pointer for string status publishing                             */
+/*      output_ready_ptr: output ready flag                                                            */
+/*               return: error code                                                                    */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    // Publish tuner 1 status using tuner-aware MQTT functions
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_STATE, status->state, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_LNA_OK, status->lna_ok, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_LNA_GAIN, status->lna_gain, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_AGC1_GAIN, status->agc1_gain, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_AGC2_GAIN, status->agc2_gain, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MER, status->modulation_error_rate, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MODCOD, status->modcod, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_SYMBOL_RATE, status->symbolrate, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_CARRIER_FREQUENCY,
+                                      (uint32_t)(status->frequency_requested + (status->frequency_offset / 1000)),
+                                      output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(1, STATUS_SERVICE_NAME, status->service_name, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(1, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name, output_ready_ptr);
+
+    // Publish tuner 2 status using tuner-aware MQTT functions
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_STATE, status->state2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_LNA_OK, status->lna_ok2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_LNA_GAIN, status->lna_gain2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_AGC1_GAIN, status->agc1_gain2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_AGC2_GAIN, status->agc2_gain2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_MER, status->modulation_error_rate2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_MODCOD, status->modcod2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_SYMBOL_RATE, status->symbolrate2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(2, STATUS_CARRIER_FREQUENCY,
+                                      (uint32_t)(status->frequency_requested2 + (status->frequency_offset2 / 1000)),
+                                      output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_NAME, status->service_name2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name2, output_ready_ptr);
+
     return err;
 }
 
@@ -1115,9 +1287,20 @@ int main(int argc, char *argv[])
     {
         if (err == ERROR_NONE)
             err = mqttinit(longmynd_config.status_ip_addr);
-        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");    
+        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");
+
+        // Register tuning parameter callback for dual-tuner MQTT control
+        mqtt_set_tuning_callback(tuning_parameter_handler);
+
         status_write = mqtt_status_write;
         status_string_write = mqtt_status_string_write;
+
+        // Publish initial configuration status for both tuners if dual-tuner mode is enabled
+        if (longmynd_config.dual_tuner_enabled) {
+            printf("Flow: Publishing initial dual-tuner MQTT configuration\n");
+            mqtt_publish_config_status(1);
+            mqtt_publish_config_status(2);
+        }
     }
     else
     {
@@ -1129,6 +1312,24 @@ int main(int argc, char *argv[])
 
     if (err == ERROR_NONE)
         err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+
+    // Initialize second FTDI device if dual-tuner mode is enabled
+    if (err == ERROR_NONE && longmynd_config.dual_tuner_enabled) {
+        printf("Flow: Initializing second FTDI device for dual-tuner mode\n");
+        err = ftdi_init2(longmynd_config.device2_usb_bus, longmynd_config.device2_usb_addr);
+        if (err == ERROR_NONE) {
+            printf("Flow: Second FTDI device initialized successfully\n");
+
+            // Initialize second tuner UDP streaming if configured
+            if (longmynd_config.ts2_use_ip) {
+                udp_ts2_init(longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+                printf("Flow: Second tuner UDP streaming to %s:%d\n",
+                       longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+            }
+        } else {
+            printf("ERROR: Failed to initialize second FTDI device\n");
+        }
+    }
 
     thread_vars_t thread_vars_ts;
         thread_vars_ts.main_err_ptr = &err;
@@ -1150,7 +1351,7 @@ int main(int argc, char *argv[])
     }
 
     thread_vars_t thread_vars_ts_parse;
-     
+
         thread_vars_ts_parse.main_err_ptr = &err;
         thread_vars_ts_parse.thread_err = ERROR_NONE;
         thread_vars_ts_parse.config = &longmynd_config;
@@ -1170,7 +1371,7 @@ int main(int argc, char *argv[])
     }
 
     thread_vars_t thread_vars_i2c;
-    
+
         thread_vars_i2c.main_err_ptr = &err;
         thread_vars_i2c.thread_err = ERROR_NONE;
         thread_vars_i2c.config = &longmynd_config;
@@ -1233,7 +1434,13 @@ int main(int argc, char *argv[])
             if (longmynd_config.status_use_ip || status_output_ready)
             {
                 /* Send all status via configured output interface from local copy */
-                err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
+                if (longmynd_config.status_use_mqtt && longmynd_config.dual_tuner_enabled) {
+                    /* Use dual-tuner MQTT status publishing */
+                    err = status_all_write_dual_tuner(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
+                } else {
+                    /* Use standard single-tuner status publishing */
+                    err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
+                }
             }
             else if (!longmynd_config.status_use_ip && !status_output_ready)
             {
@@ -1279,6 +1486,12 @@ int main(int argc, char *argv[])
     pthread_join(thread_beep, NULL);
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
+
+    /* Clean up MQTT connection if it was used */
+    if (longmynd_config.status_use_mqtt) {
+        printf("Flow: Cleaning up MQTT connection\n");
+        mqttend();
+    }
 
     return err;
 }
