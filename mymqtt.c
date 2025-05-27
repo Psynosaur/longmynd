@@ -246,10 +246,6 @@ int mqttinit(char *MqttBroker)
 	return 0;
 }
 
-int mqttend()
-{
-	return (mosquitto_lib_cleanup());
-}
 
 const char StatusString[30][255] = {"", "rx_state", "lna_gain", "puncrate", "poweri", "powerq", "carrier_frequency", "constel_i", "constel_q",
 									"symbolrate", "viterbi_error", "ber", "mer", "service_name", "provider_name", "ts_null", "es_pid", "es_type", "modcod", "short_frame", "pilots",
