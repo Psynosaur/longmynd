@@ -1241,53 +1241,246 @@ uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
 
-    // Publish tuner 1 status using tuner-aware MQTT functions
+    // ========== TUNER 1 STATUS ==========
+    /* Main status */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_STATE, status->state, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(1, STATUS_LNA_GAIN, status->lna_gain, output_ready_ptr);
+
+    /* LNAs if present */
+    if (status->lna_ok)
+    {
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(1, STATUS_LNA_GAIN, status->lna_gain, output_ready_ptr);
+    }
+
+    /* AGC1 Gain */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_AGC1_GAIN, status->agc1_gain, output_ready_ptr);
+
+    /* AGC2 Gain */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_AGC2_GAIN, status->agc2_gain, output_ready_ptr);
+
+    /* I,Q powers */
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(1, STATUS_MER, status->modulation_error_rate, output_ready_ptr);
+        err = mqtt_status_write_tuner(1, STATUS_POWER_I, status->power_i, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(1, STATUS_MODCOD, status->modcod, output_ready_ptr);
+        err = mqtt_status_write_tuner(1, STATUS_POWER_Q, status->power_q, output_ready_ptr);
+
+    /* constellations */
+    for (uint8_t count = 0; count < NUM_CONSTELLATIONS; count++)
+    {
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(1, STATUS_CONSTELLATION_I, status->constellation[count][0], output_ready_ptr);
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(1, STATUS_CONSTELLATION_Q, status->constellation[count][1], output_ready_ptr);
+    }
+
+    /* symbol rate */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(1, STATUS_SYMBOL_RATE, status->symbolrate, output_ready_ptr);
+
+    /* viterbi error rate */
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(1, STATUS_CARRIER_FREQUENCY,
-                                      (uint32_t)(status->frequency_requested + (status->frequency_offset / 1000)),
-                                      output_ready_ptr);
+        err = mqtt_status_write_tuner(1, STATUS_VITERBI_ERROR_RATE, status->viterbi_error_rate, output_ready_ptr);
+
+    /* BER */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_BER, status->bit_error_rate, output_ready_ptr);
+
+    /* MER */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MER, status->modulation_error_rate, output_ready_ptr);
+
+    /* service name */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(1, STATUS_SERVICE_NAME, status->service_name, output_ready_ptr);
+
+    /* service provider name */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(1, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name, output_ready_ptr);
 
-    // Publish tuner 2 status using tuner-aware MQTT functions (only if initialized)
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_STATE, status->state2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_LNA_GAIN, status->lna_gain2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_AGC1_GAIN, status->agc1_gain2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_AGC2_GAIN, status->agc2_gain2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_MER, status->modulation_error_rate2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_MODCOD, status->modcod2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_SYMBOL_RATE, status->symbolrate2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(2, STATUS_CARRIER_FREQUENCY,
-                                      (uint32_t)(status->frequency_requested2 + (status->frequency_offset2 / 1000)),
-                                      output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_NAME, status->service_name2, output_ready_ptr);
-    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name2, output_ready_ptr);
+    /* puncture rate */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_PUNCTURE_RATE, status->puncture_rate, output_ready_ptr);
+
+    /* carrier frequency offset we are trying */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_CARRIER_FREQUENCY, (uint32_t)(status->frequency_requested + (status->frequency_offset / 1000)), output_ready_ptr);
+
+    /* LNB Voltage Supply Enabled: true / false */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_LNB_SUPPLY, status->polarisation_supply, output_ready_ptr);
+
+    /* LNB Voltage Supply is Horizontal Polarisation: true / false */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_LNB_POLARISATION_H, status->polarisation_horizontal, output_ready_ptr);
+
+    /* LDPC Error Count */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_ERRORS_LDPC_COUNT, status->errors_ldpc_count, output_ready_ptr);
+
+    /* BCH Error Count */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_ERRORS_BCH_COUNT, status->errors_bch_count, output_ready_ptr);
+
+    /* BCH Uncorrected Flag */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_ERRORS_BCH_UNCORRECTED, status->errors_bch_uncorrected, output_ready_ptr);
+
+    /* TS Null Percentage */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_TS_NULL_PERCENTAGE, status->ts_null_percentage, output_ready_ptr);
+
+    /* TS Elementary Stream PIDs */
+    for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
+    {
+        if (status->ts_elementary_streams[count][0] > 0)
+        {
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(1, STATUS_ES_PID, status->ts_elementary_streams[count][0], output_ready_ptr);
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(1, STATUS_ES_TYPE, status->ts_elementary_streams[count][1], output_ready_ptr);
+        }
+    }
+
+    /* MODCOD */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MODCOD, status->modcod, output_ready_ptr);
+
+    /* Short Frames */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_SHORT_FRAME, status->short_frame, output_ready_ptr);
+
+    /* Pilots */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_PILOTS, status->pilots, output_ready_ptr);
+
+    // MATYPE
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MATYPE1, status->matype1, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_MATYPE2, status->matype2, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(1, STATUS_ROLLOFF, status->rolloff, output_ready_ptr);
+
+    // ========== TUNER 2 STATUS (only if initialized) ==========
+    if (second_ftdi_initialized)
+    {
+        /* Main status */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_STATE, status->state2, output_ready_ptr);
+
+        /* LNAs if present */
+        if (status->lna_ok2)
+        {
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(2, STATUS_LNA_GAIN, status->lna_gain2, output_ready_ptr);
+        }
+
+        /* AGC1 Gain */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_AGC1_GAIN, status->agc1_gain2, output_ready_ptr);
+
+        /* AGC2 Gain */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_AGC2_GAIN, status->agc2_gain2, output_ready_ptr);
+
+        /* I,Q powers */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_POWER_I, status->power_i2, output_ready_ptr);
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_POWER_Q, status->power_q2, output_ready_ptr);
+
+        /* constellations */
+        for (uint8_t count = 0; count < NUM_CONSTELLATIONS; count++)
+        {
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(2, STATUS_CONSTELLATION_I, status->constellation2[count][0], output_ready_ptr);
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(2, STATUS_CONSTELLATION_Q, status->constellation2[count][1], output_ready_ptr);
+        }
+
+        /* symbol rate */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_SYMBOL_RATE, status->symbolrate2, output_ready_ptr);
+
+        /* viterbi error rate */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_VITERBI_ERROR_RATE, status->viterbi_error_rate2, output_ready_ptr);
+
+        /* BER */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_BER, status->bit_error_rate2, output_ready_ptr);
+
+        /* MER */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_MER, status->modulation_error_rate2, output_ready_ptr);
+
+        /* service name */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_NAME, status->service_name2, output_ready_ptr);
+
+        /* service provider name */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name2, output_ready_ptr);
+
+        /* puncture rate */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_PUNCTURE_RATE, status->puncture_rate2, output_ready_ptr);
+
+        /* carrier frequency offset we are trying */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_CARRIER_FREQUENCY, (uint32_t)(status->frequency_requested2 + (status->frequency_offset2 / 1000)), output_ready_ptr);
+
+        /* LDPC Error Count */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_ERRORS_LDPC_COUNT, status->errors_ldpc_count2, output_ready_ptr);
+
+        /* BCH Error Count */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_ERRORS_BCH_COUNT, status->errors_bch_count2, output_ready_ptr);
+
+        /* BCH Uncorrected Flag */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_ERRORS_BCH_UNCORRECTED, status->errors_bch_uncorrected2, output_ready_ptr);
+
+        /* TS Null Percentage */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_TS_NULL_PERCENTAGE, status->ts_null_percentage2, output_ready_ptr);
+
+        /* TS Elementary Stream PIDs */
+        for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
+        {
+            if (status->ts_elementary_streams2[count][0] > 0)
+            {
+                if (err == ERROR_NONE && *output_ready_ptr)
+                    err = mqtt_status_write_tuner(2, STATUS_ES_PID, status->ts_elementary_streams2[count][0], output_ready_ptr);
+                if (err == ERROR_NONE && *output_ready_ptr)
+                    err = mqtt_status_write_tuner(2, STATUS_ES_TYPE, status->ts_elementary_streams2[count][1], output_ready_ptr);
+            }
+        }
+
+        /* MODCOD */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_MODCOD, status->modcod2, output_ready_ptr);
+
+        /* Short Frames */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_SHORT_FRAME, status->short_frame2, output_ready_ptr);
+
+        /* Pilots */
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_PILOTS, status->pilots2, output_ready_ptr);
+
+        // MATYPE
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_MATYPE1, status->matype1_2, output_ready_ptr);
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_MATYPE2, status->matype2_2, output_ready_ptr);
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(2, STATUS_ROLLOFF, status->rolloff2, output_ready_ptr);
+    }
 
     return err;
 }

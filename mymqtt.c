@@ -493,6 +493,26 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner, uint8_t message, uint32_t data, b
 		sprintf(status_topic, "dt/longmynd2/tuner%d/set/tsip", tuner);
 		sprintf(status_message, "%s", tsip);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		// Publish video and audio buffer status (same as single tuner for now)
+		extern size_t video_pcrpts;
+		extern size_t audio_pcrpts;
+		extern long transmission_delay;
+
+		sprintf(status_topic, "dt/longmynd2/tuner%d/videobuffer", tuner);
+		sprintf(status_message, "%d", video_pcrpts);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "dt/longmynd2/tuner%d/audiobuffer", tuner);
+		sprintf(status_message, "%d", audio_pcrpts);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		if(transmission_delay!=0)
+		{
+			sprintf(status_topic, "dt/longmynd2/tuner%d/transdelay", tuner);
+			sprintf(status_message, "%ld", transmission_delay);
+			mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+		}
 	}
 	else if (message == STATUS_SYMBOL_RATE)
 	{
