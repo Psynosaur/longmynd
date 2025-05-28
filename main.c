@@ -33,6 +33,8 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
+#include <errno.h>
 #include "main.h"
 #include "ftdi.h"
 #include "stv0910.h"
@@ -840,12 +842,25 @@ void *loop_i2c(void *arg)
 
                             if (thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
                                 pthread_mutex_lock(thread_vars->dual_sync_mutex);
-                                while (!*thread_vars->top_demod_ready) {
+
+                                /* Wait with timeout to prevent infinite hanging */
+                                struct timespec timeout;
+                                clock_gettime(CLOCK_REALTIME, &timeout);
+                                timeout.tv_sec += 10; /* 10 second timeout */
+
+                                int wait_result = 0;
+                                while (!*thread_vars->top_demod_ready && wait_result == 0) {
                                     printf("      Status: Waiting for TOP demodulator initialization...\n");
-                                    pthread_cond_wait(thread_vars->dual_sync_cond, thread_vars->dual_sync_mutex);
+                                    wait_result = pthread_cond_timedwait(thread_vars->dual_sync_cond, thread_vars->dual_sync_mutex, &timeout);
                                 }
+
+                                if (wait_result == ETIMEDOUT) {
+                                    printf("      WARNING: Timeout waiting for TOP demodulator - proceeding anyway\n");
+                                } else if (*thread_vars->top_demod_ready) {
+                                    printf("      Status: TOP demodulator ready - proceeding with BOTTOM demodulator\n");
+                                }
+
                                 pthread_mutex_unlock(thread_vars->dual_sync_mutex);
-                                printf("      Status: TOP demodulator ready - proceeding with BOTTOM demodulator\n");
                             } else {
                                 /* Fallback to time-based delay if synchronization not available */
                                 printf("      Status: Using fallback delay for TOP demodulator stability\n");
@@ -1508,6 +1523,31 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Create main I2C thread first (critical for dual-tuner synchronization)
+    thread_vars_t thread_vars_i2c;
+        thread_vars_i2c.main_err_ptr = &err;
+        thread_vars_i2c.thread_err = ERROR_NONE;
+        thread_vars_i2c.config = &longmynd_config;
+        thread_vars_i2c.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
+        thread_vars_i2c.tuner_id = 1;
+        thread_vars_i2c.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
+        thread_vars_i2c.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
+        thread_vars_i2c.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
+
+    if (err == ERROR_NONE)
+    {
+        if (0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)&thread_vars_i2c))
+        {
+            //pthread_setname_np(thread_i2c, "Receiver 1");
+            printf("Flow: Created tuner 1 I2C thread (TOP demodulator)\n");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_i2c pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+    }
+
     // Create second tuner threads if dual-tuner mode is enabled
     thread_vars_t thread_vars_ts_tuner2;
     thread_vars_t thread_vars_ts_parse_tuner2;
@@ -1565,6 +1605,7 @@ int main(int argc, char *argv[])
 
             if (0 == pthread_create(&thread_i2c_tuner2, NULL, loop_i2c, (void *)&thread_vars_i2c_tuner2)) {
                 //pthread_setname_np(thread_i2c_tuner2, "Receiver 2");
+                printf("Flow: Created tuner 2 I2C thread (BOTTOM demodulator)\n");
             } else {
                 fprintf(stderr, "Error creating loop_i2c tuner2 pthread\n");
                 err = ERROR_THREAD_ERROR;
@@ -1572,28 +1613,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_i2c;
-        thread_vars_i2c.main_err_ptr = &err;
-        thread_vars_i2c.thread_err = ERROR_NONE;
-        thread_vars_i2c.config = &longmynd_config;
-        thread_vars_i2c.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
-        thread_vars_i2c.tuner_id = 1;
-        thread_vars_i2c.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
-        thread_vars_i2c.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
-        thread_vars_i2c.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
 
-    if (err == ERROR_NONE)
-    {
-        if (0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)&thread_vars_i2c))
-        {
-            //pthread_setname_np(thread_i2c, "Receiver 1");
-        }
-        else
-        {
-            fprintf(stderr, "Error creating loop_i2c pthread\n");
-            err = ERROR_THREAD_ERROR;
-        }
-    }
 
     thread_vars_t thread_vars_beep;
         thread_vars_beep.main_err_ptr = &err;
