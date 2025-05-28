@@ -186,5 +186,12 @@ void config_set_tsip(char *tsip);
 /* Dual-tuner aware reporting functions */
 uint8_t do_report_dual(longmynd_status_t *status, uint8_t demod);
 
+/* MQTT dual-tuner functions */
+extern bool dual_tuner_mqtt_enabled;
+void mqtt_set_dual_tuner_mode(bool enabled);
+void mqtt_process_dual_command(const char *topic, const char *payload);
+uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data, bool *output_ready);
+uint8_t mqtt_status_string_write_tuner(uint8_t tuner_id, uint8_t message, char *data, bool *output_ready);
+
 #endif
 

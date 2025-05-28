@@ -6,6 +6,12 @@
 #include "errors.h"
 #include "main.h"
 
+/* Dual-tuner MQTT globals */
+bool dual_tuner_mqtt_enabled = false;
+
+/* Forward declarations */
+void mqtt_process_dual_command(const char *topic, const char *payload);
+
 /* Callback called when the client receives a CONNACK message from the broker. */
 void on_connect(struct mosquitto *mosq, void *obj, int reason_code)
 {
@@ -127,9 +133,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 // extern void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg);
 
 static struct mosquitto *mosq;
-
-/* Dual-tuner MQTT globals */
-bool dual_tuner_mqtt_enabled = false;
 
 int mqttinit(char *MqttBroker)
 {
