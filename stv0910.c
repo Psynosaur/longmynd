@@ -798,8 +798,8 @@ uint8_t stv0910_init_tuner(uint8_t tuner, uint32_t sr, float halfscan_ratio) {
 
     printf("Flow: STV0910 init tuner %d (demod %d)\n", tuner, demod);
 
-    /* Stop the demodulator first */
-    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_DMDISTATE : RSTV0910_P1_DMDISTATE), 0x1c);
+    /* Stop the demodulator first - use tuner-aware function */
+    if (err==ERROR_NONE) err=stv0910_write_reg_tuner(tuner, RSTV0910_P2_DMDISTATE, 0x1c);
 
     /* Initialize the specific demodulator */
     if (sr != 0) {

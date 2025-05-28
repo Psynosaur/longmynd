@@ -101,6 +101,126 @@ uint8_t stv0910_write_reg(uint16_t reg, uint8_t val) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_reg_tuner(uint8_t tuner, uint16_t base_reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* tuner-aware register write that automatically selects TOP/BOTTOM register addresses               */
+/* tuner: 1 for TOP demodulator, 2 for BOTTOM demodulator                                            */
+/* base_reg: base register address (will be adjusted for tuner)                                      */
+/* val: value to write                                                                               */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint16_t actual_reg;
+
+    if (tuner == 1) {
+        // Tuner 1 uses TOP demodulator (P2 registers)
+        actual_reg = base_reg;
+    } else if (tuner == 2) {
+        // Tuner 2 uses BOTTOM demodulator (P1 registers)
+        // Convert P2 register to P1 register by adjusting address
+        if ((base_reg & 0xFF00) == 0xF200) {
+            actual_reg = (base_reg & 0x00FF) | 0xF100;
+        } else {
+            actual_reg = base_reg;
+        }
+    } else {
+        return ERROR_ARGS_INPUT;
+    }
+
+    return stv0910_write_reg(actual_reg, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_reg_tuner(uint8_t tuner, uint16_t base_reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* tuner-aware register read that automatically selects TOP/BOTTOM register addresses                */
+/* tuner: 1 for TOP demodulator, 2 for BOTTOM demodulator                                            */
+/* base_reg: base register address (will be adjusted for tuner)                                      */
+/* val: pointer to store read value                                                                  */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint16_t actual_reg;
+
+    if (tuner == 1) {
+        // Tuner 1 uses TOP demodulator (P2 registers)
+        actual_reg = base_reg;
+    } else if (tuner == 2) {
+        // Tuner 2 uses BOTTOM demodulator (P1 registers)
+        // Convert P2 register to P1 register by adjusting address
+        if ((base_reg & 0xFF00) == 0xF200) {
+            actual_reg = (base_reg & 0x00FF) | 0xF100;
+        } else {
+            actual_reg = base_reg;
+        }
+    } else {
+        return ERROR_ARGS_INPUT;
+    }
+
+    return stv0910_read_reg(actual_reg, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* tuner-aware register field write that automatically selects TOP/BOTTOM register addresses         */
+/* tuner: 1 for TOP demodulator, 2 for BOTTOM demodulator                                            */
+/* field: register field definition (includes register address and bit field info)                  */
+/* val: value to write to the field                                                                  */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint32_t actual_field;
+    uint16_t base_reg = (uint16_t)(field >> 16);
+
+    if (tuner == 1) {
+        // Tuner 1 uses TOP demodulator (P2 registers)
+        actual_field = field;
+    } else if (tuner == 2) {
+        // Tuner 2 uses BOTTOM demodulator (P1 registers)
+        // Convert P2 register to P1 register in the field definition
+        if ((base_reg & 0xFF00) == 0xF200) {
+            uint16_t new_reg = (base_reg & 0x00FF) | 0xF100;
+            actual_field = (field & 0x0000FFFF) | ((uint32_t)new_reg << 16);
+        } else {
+            actual_field = field;
+        }
+    } else {
+        return ERROR_ARGS_INPUT;
+    }
+
+    return stv0910_write_reg_field(actual_field, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* tuner-aware register field read that automatically selects TOP/BOTTOM register addresses          */
+/* tuner: 1 for TOP demodulator, 2 for BOTTOM demodulator                                            */
+/* field: register field definition (includes register address and bit field info)                  */
+/* val: pointer to store read value                                                                  */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint32_t actual_field;
+    uint16_t base_reg = (uint16_t)(field >> 16);
+
+    if (tuner == 1) {
+        // Tuner 1 uses TOP demodulator (P2 registers)
+        actual_field = field;
+    } else if (tuner == 2) {
+        // Tuner 2 uses BOTTOM demodulator (P1 registers)
+        // Convert P2 register to P1 register in the field definition
+        if ((base_reg & 0xFF00) == 0xF200) {
+            uint16_t new_reg = (base_reg & 0x00FF) | 0xF100;
+            actual_field = (field & 0x0000FFFF) | ((uint32_t)new_reg << 16);
+        } else {
+            actual_field = field;
+        }
+    } else {
+        return ERROR_ARGS_INPUT;
+    }
+
+    return stv0910_read_reg_field(actual_field, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_read_reg(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
 /* abstracts a hardware register read from the stv0910                                                */

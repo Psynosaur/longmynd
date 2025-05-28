@@ -420,6 +420,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
     strcpy(config->ts2_fifo_path, "longmynd_main_ts2");
+    strcpy(config->ts_ip_addr, "230.0.0.2");
+    config->ts_ip_port = 1234;
     strcpy(config->ts2_ip_addr, "230.0.0.3");
     config->ts2_ip_port = 1234;
     config->status_use_ip = false;
@@ -1334,7 +1336,7 @@ void *loop_i2c_tuner2(void *arg)
             /* now start the whole thing scanning for the signal */
             if (*err == ERROR_NONE)
             {
-                *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
+                *err = stv0910_start_scan_tuner(2);
                 status_cpy.state2 = STATE_DEMOD_HUNTING;
             }
 
@@ -1349,7 +1351,7 @@ void *loop_i2c_tuner2(void *arg)
                 *err = do_report_tuner2(&status_cpy);
             /* process state changes */
             if (*err == ERROR_NONE)
-                *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+                *err = stv0910_read_scan_state_tuner(2, &status_cpy.demod_state2);
             if (status_cpy.demod_state2 == DEMOD_FOUND_HEADER)
             {
                 status_cpy.state2 = STATE_DEMOD_FOUND_HEADER;
@@ -1373,7 +1375,7 @@ void *loop_i2c_tuner2(void *arg)
             if (*err == ERROR_NONE)
                 *err = do_report_tuner2(&status_cpy);
             /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            *err = stv0910_read_scan_state_tuner(2, &status_cpy.demod_state2);
             if (status_cpy.demod_state2 == DEMOD_HUNTING)
             {
                 status_cpy.state2 = STATE_DEMOD_HUNTING;
@@ -1397,7 +1399,7 @@ void *loop_i2c_tuner2(void *arg)
             if (*err == ERROR_NONE)
                 *err = do_report_tuner2(&status_cpy);
             /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            *err = stv0910_read_scan_state_tuner(2, &status_cpy.demod_state2);
             if (status_cpy.demod_state2 == DEMOD_HUNTING)
             {
                 status_cpy.state2 = STATE_DEMOD_HUNTING;
@@ -1421,7 +1423,7 @@ void *loop_i2c_tuner2(void *arg)
             if (*err == ERROR_NONE)
                 *err = do_report_tuner2(&status_cpy);
             /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            *err = stv0910_read_scan_state_tuner(2, &status_cpy.demod_state2);
             if (status_cpy.demod_state2 == DEMOD_HUNTING)
             {
                 status_cpy.state2 = STATE_DEMOD_HUNTING;

@@ -30,7 +30,7 @@ uint8_t stv0910_read_reg_field(uint32_t, uint8_t *);
 uint8_t stv0910_write_reg(uint16_t, uint8_t);
 uint8_t stv0910_read_reg(uint16_t, uint8_t *);
 
-// Tuner-aware utility functions
+// Tuner-aware utility functions for dual-tuner support
 uint8_t stv0910_write_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t val);
 uint8_t stv0910_read_reg_field_tuner(uint8_t tuner, uint32_t field, uint8_t *val);
 uint8_t stv0910_write_reg_tuner(uint8_t tuner, uint16_t reg, uint8_t val);
