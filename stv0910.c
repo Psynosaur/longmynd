@@ -999,7 +999,7 @@ uint8_t stv0910_read_status_dual(uint8_t demod, uint8_t *scan_state, uint32_t *s
 
     /* Read symbol rate */
     if (err == ERROR_NONE && symbol_rate != NULL) {
-        err = stv0910_read_symbol_rate(demod, symbol_rate);
+        err = stv0910_read_sr(demod, symbol_rate);
     }
 
     /* Read modulation and coding information */
