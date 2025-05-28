@@ -859,36 +859,36 @@ uint8_t stv0910_read_scan_state_tuner(uint8_t tuner, uint8_t *state) {
     return stv0910_read_scan_state(demod, state);
 }
 
-/* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_init_tuner(uint8_t tuner, uint32_t sr, float halfscan_ratio) {
-/* -------------------------------------------------------------------------------------------------- */
-/* Initializes a specific tuner's demodulator                                                         */
-/*      tuner: tuner number (1 or 2)                                                                 */
-/*         sr: symbol rate                                                                            */
-/* halfscan_ratio: scan ratio                                                                         */
-/*     return: error code                                                                             */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t demod;
+// /* -------------------------------------------------------------------------------------------------- */
+// uint8_t stv0910_init_tuner(uint8_t tuner, uint32_t sr, float halfscan_ratio) {
+// /* -------------------------------------------------------------------------------------------------- */
+// /* Initializes a specific tuner's demodulator                                                         */
+// /*      tuner: tuner number (1 or 2)                                                                 */
+// /*         sr: symbol rate                                                                            */
+// /* halfscan_ratio: scan ratio                                                                         */
+// /*     return: error code                                                                             */
+// /* -------------------------------------------------------------------------------------------------- */
+//     uint8_t demod;
 
-    if (tuner == 1) {
-        demod = STV0910_DEMOD_TOP;
-    } else if (tuner == 2) {
-        demod = STV0910_DEMOD_BOTTOM;
-    } else {
-        printf("ERROR: Invalid tuner number %d\n", tuner);
-        return ERROR_ARGS_INPUT;
-    }
+//     if (tuner == 1) {
+//         demod = STV0910_DEMOD_TOP;
+//     } else if (tuner == 2) {
+//         demod = STV0910_DEMOD_BOTTOM;
+//     } else {
+//         printf("ERROR: Invalid tuner number %d\n", tuner);
+//         return ERROR_ARGS_INPUT;
+//     }
 
-    printf("Flow: STV0910 init tuner %d (demod %d)\n", tuner, demod);
+//     printf("Flow: STV0910 init tuner %d (demod %d)\n", tuner, demod);
 
-    // For tuner 2, we need to initialize the second demodulator path
-    // Use the existing stv0910_init function but with appropriate parameters
-    if (tuner == 2) {
-        // Initialize second demodulator with sr for tuner 2, 0 for tuner 1 (turn it off temporarily)
-        return stv0910_init(0, sr, halfscan_ratio, 0.0);
-    } else {
-        // Initialize first demodulator with sr for tuner 1, 0 for tuner 2 (turn it off temporarily)
-        return stv0910_init(sr, 0, halfscan_ratio, 0.0);
-    }
-}
+//     // For tuner 2, we need to initialize the second demodulator path
+//     // Use the existing stv0910_init function but with appropriate parameters
+//     if (tuner == 2) {
+//         // Initialize second demodulator with sr for tuner 2, 0 for tuner 1 (turn it off temporarily)
+//         return stv0910_init(0, sr, halfscan_ratio, 0.0);
+//     } else {
+//         // Initialize first demodulator with sr for tuner 1, 0 for tuner 2 (turn it off temporarily)
+//         return stv0910_init(sr, 0, halfscan_ratio, 0.0);
+//     }
+// }
 
