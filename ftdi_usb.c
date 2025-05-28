@@ -101,6 +101,11 @@ static libusb_device_handle *usb_device_handle_ts; // interface 1, endpoints: 0x
 static libusb_context *usb_context_i2c;
 static libusb_context *usb_context_ts;
 
+// Dual tuner support - second device
+static libusb_device_handle *usb_device_handle_ts2; // second device TS interface
+static libusb_context *usb_context_ts2;
+static bool dual_tuner_initialized = false;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -134,7 +139,7 @@ uint8_t ftdi_usb_i2c_write( uint8_t *buffer, uint8_t len ){
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_usb_i2c_read( uint8_t **buffer) {
 /* -------------------------------------------------------------------------------------------------- */
-/* reads one byte from the usb and returns it. Keeping any other data bytes for later                 */ 
+/* reads one byte from the usb and returns it. Keeping any other data bytes for later                 */
 /* Note: we only ever need to read one byte of actual data so we can avoid data copying by using the  */
 /* internal buffers of the usb reads to keep the data                                                 */
 /* *buffer: iretruned as a pointer the the actual data read into the usb                              */
@@ -192,7 +197,7 @@ static uint8_t ftdi_usb_set_mpsse_mode(libusb_device_handle *_device_handle){
                                             SIO_RESET_PURGE_RX, 1, NULL, 0, USB_TIMEOUT))<0) {
         printf("ERROR: USB RX Purge failed %d",res);
         err=ERROR_MPSSE;
-    }   
+    }
 
     /* clear out the transmit buffers */
     if ((res=libusb_control_transfer(_device_handle, FTDI_DEVICE_OUT_REQTYPE, SIO_RESET_REQUEST,
@@ -281,7 +286,7 @@ static uint8_t ftdi_usb_init(libusb_context **usb_context_ptr, libusb_device_han
 
     /* if  we are finding by usb device number then we have to take a look at the IDs to check we are */
     /* being asked to open the right one. sTto do this we get a list of all the USB devices on the system */
-    } else if (err==ERROR_NONE) { 
+    } else if (err==ERROR_NONE) {
         printf("Flow: Searching for bus/device=%i,%i\n",usb_bus,usb_addr);
         count=libusb_get_device_list(*usb_context_ptr, &usb_device_list);
         if (count<=0) {
@@ -371,6 +376,227 @@ uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
     } else *len=rxed; /* just type converting */
 
     if (err!=ERROR_NONE) printf("ERROR: FTDI USB ts read\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_detect_devices(uint8_t *count, uint8_t *bus_list,
+                                uint8_t *addr_list, uint8_t max_devices,
+                                uint16_t vid, uint16_t pid) {
+/* -------------------------------------------------------------------------------------------------- */
+/* detect available FTDI devices matching VID/PID with FT2232H validation                            */
+/* *count: returns the number of devices found                                                        */
+/* *bus_list: array to store bus numbers of found devices                                             */
+/* *addr_list: array to store device addresses of found devices                                       */
+/* max_devices: maximum number of devices to detect                                                   */
+/* vid, pid: vendor and product IDs to match                                                          */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    libusb_context *temp_context = NULL;
+    ssize_t device_count;
+    libusb_device **device_list;
+    struct libusb_device_descriptor descriptor;
+    uint8_t found_count = 0;
+    libusb_device_handle *temp_handle = NULL;
+
+    printf("Flow: FTDI USB device detection with FT2232H validation\n");
+
+    *count = 0;
+
+    if (libusb_init(&temp_context) < 0) {
+        printf("ERROR: Unable to initialise LIBUSB for detection\n");
+        return ERROR_FTDI_USB_INIT_LIBUSB;
+    }
+
+    device_count = libusb_get_device_list(temp_context, &device_list);
+    if (device_count <= 0) {
+        printf("ERROR: Failed to get device list\n");
+        libusb_exit(temp_context);
+        return ERROR_FTDI_USB_DEVICE_LIST;
+    }
+
+    printf("      Status: Scanning %ld USB devices\n", device_count);
+
+    for (ssize_t i = 0; i < device_count && found_count < max_devices; i++) {
+        if (libusb_get_device_descriptor(device_list[i], &descriptor) == 0) {
+            if (descriptor.idVendor == vid && descriptor.idProduct == pid) {
+
+                /* Validate device type - open_tuner pattern: check for FT2232H */
+                if (libusb_open(device_list[i], &temp_handle) == 0) {
+                    /* Check device class and type - FT2232H devices have specific characteristics */
+                    if (descriptor.bcdDevice >= 0x0700) { /* FT2232H has bcdDevice >= 0x0700 */
+                        bus_list[found_count] = libusb_get_bus_number(device_list[i]);
+                        addr_list[found_count] = libusb_get_device_address(device_list[i]);
+
+                        printf("      Status: Found valid FT2232H device at bus %d, device %d (bcdDevice: 0x%04x)\n",
+                               bus_list[found_count], addr_list[found_count], descriptor.bcdDevice);
+                        found_count++;
+                    } else {
+                        printf("      Status: Skipping non-FT2232H device at bus %d, device %d (bcdDevice: 0x%04x)\n",
+                               libusb_get_bus_number(device_list[i]),
+                               libusb_get_device_address(device_list[i]),
+                               descriptor.bcdDevice);
+                    }
+                    libusb_close(temp_handle);
+                    temp_handle = NULL;
+                }
+            }
+        }
+    }
+
+    *count = found_count;
+    printf("      Status: Total valid FT2232H devices found: %d\n", found_count);
+
+    libusb_free_device_list(device_list, 1);
+    libusb_exit(temp_context);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_init_dual(uint8_t usb_bus1, uint8_t usb_addr1,
+                           uint8_t usb_bus2, uint8_t usb_addr2,
+                           uint16_t vid, uint16_t pid) {
+/* -------------------------------------------------------------------------------------------------- */
+/* initialize dual FTDI devices following open_tuner hw_init pattern                                  */
+/* usb_bus1, usb_addr1: first device (I2C + TS1)                                                     */
+/* usb_bus2, usb_addr2: second device (TS2 only)                                                     */
+/* vid, pid: vendor and product IDs                                                                   */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    printf("Flow: FTDI USB dual init (open_tuner pattern)\n");
+    printf("      Device 1: bus %d, addr %d (I2C + TS1)\n", usb_bus1, usb_addr1);
+    printf("      Device 2: bus %d, addr %d (TS2)\n", usb_bus2, usb_addr2);
+
+    /* Step 1: Initialize first device (I2C + TS1) following open_tuner sequence */
+    printf("      Status: Initializing primary device interfaces\n");
+    err = ftdi_usb_init(&usb_context_i2c, &usb_device_handle_i2c, 0, usb_bus1, usb_addr1, vid, pid);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to initialize first device I2C interface\n");
+        dual_tuner_initialized = false;
+        return err;
+    }
+
+    err = ftdi_usb_init(&usb_context_ts, &usb_device_handle_ts, 1, usb_bus1, usb_addr1, vid, pid);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to initialize first device TS interface\n");
+        /* Cleanup I2C interface */
+        libusb_close(usb_device_handle_i2c);
+        libusb_exit(usb_context_i2c);
+        dual_tuner_initialized = false;
+        return err;
+    }
+
+    /* Step 2: Initialize second device (TS2 only) */
+    printf("      Status: Initializing secondary device TS interface\n");
+    err = ftdi_usb_init(&usb_context_ts2, &usb_device_handle_ts2, 1, usb_bus2, usb_addr2, vid, pid);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to initialize second device TS interface\n");
+        printf("       Cleaning up and falling back to single tuner mode\n");
+
+        /* Cleanup first device interfaces */
+        libusb_close(usb_device_handle_ts);
+        libusb_exit(usb_context_ts);
+        libusb_close(usb_device_handle_i2c);
+        libusb_exit(usb_context_i2c);
+
+        dual_tuner_initialized = false;
+        return err;
+    }
+
+    /* Step 3: Set MPSSE modes for all interfaces following open_tuner pattern */
+    printf("      Status: Setting MPSSE modes for all interfaces\n");
+
+    /* I2C interface MPSSE mode first */
+    err = ftdi_usb_set_mpsse_mode(usb_device_handle_i2c);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to set MPSSE mode for I2C interface\n");
+        goto cleanup_dual_init;
+    }
+
+    /* First device TS interface MPSSE mode */
+    err = ftdi_usb_set_mpsse_mode(usb_device_handle_ts);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to set MPSSE mode for first TS interface\n");
+        goto cleanup_dual_init;
+    }
+
+    /* Second device TS interface MPSSE mode */
+    err = ftdi_usb_set_mpsse_mode(usb_device_handle_ts2);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to set MPSSE mode for second TS interface\n");
+        goto cleanup_dual_init;
+    }
+
+    dual_tuner_initialized = true;
+    printf("      Status: Dual tuner USB initialization successful\n");
+    return err;
+
+cleanup_dual_init:
+    printf("      Status: Cleaning up failed dual initialization\n");
+    if (usb_device_handle_ts2) {
+        libusb_close(usb_device_handle_ts2);
+        libusb_exit(usb_context_ts2);
+    }
+    if (usb_device_handle_ts) {
+        libusb_close(usb_device_handle_ts);
+        libusb_exit(usb_context_ts);
+    }
+    if (usb_device_handle_i2c) {
+        libusb_close(usb_device_handle_i2c);
+        libusb_exit(usb_context_i2c);
+    }
+    dual_tuner_initialized = false;
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_set_mpsse_mode_ts2(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* setup MPSSE mode for second tuner TS interface                                                     */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    if (!dual_tuner_initialized) {
+        printf("ERROR: Second tuner not initialized\n");
+        return ERROR_FTDI_USB_INIT_LIBUSB;
+    }
+    return ftdi_usb_set_mpsse_mode(usb_device_handle_ts2);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_ts_read_tuner2(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
+/* -------------------------------------------------------------------------------------------------- */
+/* read transport stream data from second tuner                                                       */
+/* *buffer: the buffer to collect the ts data into                                                    */
+/* *len: how many bytes we put into the buffer                                                        */
+/* frame_size: maximum frame size to read                                                             */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    int rxed = 0;
+    int res = 0;
+
+    if (!dual_tuner_initialized) {
+        printf("ERROR: Second tuner not initialized\n");
+        *len = 0;
+        return ERROR_FTDI_USB_INIT_LIBUSB;
+    }
+
+    /* the TS traffic is on endpoint 0x83 for second device */
+    res = libusb_bulk_transfer(usb_device_handle_ts2, 0x83, buffer, frame_size, &rxed, USB_FAST_TIMEOUT);
+
+    if (res < 0) {
+        printf("ERROR: USB TS2 Data Read %i (%s), received %i\n", res, libusb_error_name(res), rxed);
+        err = ERROR_USB_TS_READ;
+    } else {
+        *len = rxed; /* just type converting */
+    }
+
+    if (err != ERROR_NONE) printf("ERROR: FTDI USB ts2 read\n");
 
     return err;
 }

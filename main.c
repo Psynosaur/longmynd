@@ -62,7 +62,7 @@
 
 static longmynd_config_t longmynd_config;
 /* = {
-    
+
     freq_index : 0,
     sr_index : 0,
     new_config : false,
@@ -79,10 +79,20 @@ static longmynd_status_t longmynd_status;
     .signal = PTHREAD_COND_INITIALIZER,
     .ts_packet_count_nolock = 0};
 */
+
+/* Dual-tuner status structures */
+static longmynd_status_t longmynd_status_tuner1;
+static longmynd_status_t longmynd_status_tuner2;
+
 static pthread_t thread_ts_parse;
 static pthread_t thread_ts;
 static pthread_t thread_i2c;
 static pthread_t thread_beep;
+
+/* Dual-tuner threads */
+static pthread_t thread_ts_tuner2;
+static pthread_t thread_ts_parse_tuner2;
+static pthread_t thread_i2c_tuner2;
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -258,6 +268,15 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->beep_enabled = false;
     config->device_usb_addr = 0;
     config->device_usb_bus = 0;
+
+    // Dual-tuner defaults
+    config->dual_tuner_enabled = false;
+    config->device2_usb_bus = 0;
+    config->device2_usb_addr = 0;
+    config->auto_detect_second_device = false;
+    strcpy(config->ts2_ip_addr, "230.0.0.3");
+    config->ts2_ip_port = 1234;
+
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
@@ -322,6 +341,25 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'r':
                 config->ts_timeout = strtol(argv[param], NULL, 10);
+                break;
+            case 'd':
+                config->dual_tuner_enabled = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'D':
+                config->dual_tuner_enabled = true;
+                config->auto_detect_second_device = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'U':
+                config->device2_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
+                config->device2_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                config->dual_tuner_enabled = true;
+                break;
+            case 'j':
+                strncpy(config->ts2_ip_addr, argv[param++], (16 - 1));
+                config->ts2_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
+                config->dual_tuner_enabled = true;
                 break;
             }
         }
@@ -558,6 +596,20 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              Using First Minitiouner detected on USB\n");
             else
                 printf("              USB bus/device=%i,%i\n", config->device_usb_bus, config->device_usb_addr);
+
+            // Dual-tuner configuration display
+            if (config->dual_tuner_enabled) {
+                printf("              Dual-tuner mode enabled\n");
+                if (config->auto_detect_second_device) {
+                    printf("              Second device: auto-detect\n");
+                } else if (config->device2_usb_bus != 0 || config->device2_usb_addr != 0) {
+                    printf("              Second device: USB bus/device=%i,%i\n",
+                           config->device2_usb_bus, config->device2_usb_addr);
+                }
+                printf("              Tuner 2 TS output to IP=%s:%i\n",
+                       config->ts2_ip_addr, config->ts2_ip_port);
+            }
+
             if (!config->ts_use_ip)
                 printf("              Main TS output to FIFO=%s\n", config->ts_fifo_path);
             else
@@ -596,8 +648,20 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 uint8_t do_report(longmynd_status_t *status)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /* interrogates the demodulator to find the interesting info to report                                */
+    /* interrogates the demodulator to find the interesting info to report (single tuner mode)          */
     /*  status: the state struct                                                                          */
+    /* return: error code                                                                                 */
+    /* -------------------------------------------------------------------------------------------------- */
+    return do_report_dual(status, STV0910_DEMOD_TOP);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t do_report_dual(longmynd_status_t *status, uint8_t demod)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* interrogates the demodulator to find the interesting info to report (dual-tuner aware)           */
+    /*  status: the state struct                                                                          */
+    /*  demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to read                      */
     /* return: error code                                                                                 */
     /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
@@ -606,72 +670,75 @@ uint8_t do_report(longmynd_status_t *status)
     if (status->lna_ok)
     {
         uint8_t lna_gain, lna_vgo;
-        if (err == ERROR_NONE)
-            stvvglna_read_agc(NIM_INPUT_TOP, &lna_gain, &lna_vgo);
+        if (err == ERROR_NONE) {
+            /* Use appropriate LNA input based on demodulator */
+            uint8_t lna_input = (demod == STV0910_DEMOD_TOP) ? NIM_INPUT_TOP : NIM_INPUT_BOTTOM;
+            stvvglna_read_agc(lna_input, &lna_gain, &lna_vgo);
+        }
         status->lna_gain = (lna_gain << 5) | lna_vgo;
     }
 
     /* AGC1 Gain */
     if (err == ERROR_NONE)
-        err = stv0910_read_agc1_gain(STV0910_DEMOD_TOP, &status->agc1_gain);
+        err = stv0910_read_agc1_gain(demod, &status->agc1_gain);
 
     /* AGC2 Gain */
     if (err == ERROR_NONE)
-        err = stv0910_read_agc2_gain(STV0910_DEMOD_TOP, &status->agc2_gain);
+        err = stv0910_read_agc2_gain(demod, &status->agc2_gain);
 
     /* I,Q powers */
     if (err == ERROR_NONE)
-        err = stv0910_read_power(STV0910_DEMOD_TOP, &status->power_i, &status->power_q);
+        err = stv0910_read_power(demod, &status->power_i, &status->power_q);
 
     /* constellations */
     if (err == ERROR_NONE)
     {
         for (uint8_t count = 0; (err == ERROR_NONE && count < NUM_CONSTELLATIONS); count++)
         {
-            err = stv0910_read_constellation(STV0910_DEMOD_TOP, &status->constellation[count][0], &status->constellation[count][1]);
+            err = stv0910_read_constellation(demod, &status->constellation[count][0], &status->constellation[count][1]);
         }
     }
 
     /* puncture rate */
     if (err == ERROR_NONE)
-        err = stv0910_read_puncture_rate(STV0910_DEMOD_TOP, &status->puncture_rate);
+        err = stv0910_read_puncture_rate(demod, &status->puncture_rate);
 
     /* carrier frequency offset we are trying */
     if (err == ERROR_NONE)
-        err = stv0910_read_car_freq(STV0910_DEMOD_TOP, &status->frequency_offset);
+        err = stv0910_read_car_freq(demod, &status->frequency_offset);
 
     /* symbol rate we are trying */
     if (err == ERROR_NONE)
-        err = stv0910_read_sr(STV0910_DEMOD_TOP, &status->symbolrate);
+        err = stv0910_read_sr(demod, &status->symbolrate);
 
     /* viterbi error rate */
     if (err == ERROR_NONE)
-        err = stv0910_read_err_rate(STV0910_DEMOD_TOP, &status->viterbi_error_rate);
+        err = stv0910_read_err_rate(demod, &status->viterbi_error_rate);
 
     /* BER */
     if (err == ERROR_NONE)
-        err = stv0910_read_ber(STV0910_DEMOD_TOP, &status->bit_error_rate);
+        err = stv0910_read_ber(demod, &status->bit_error_rate);
 
     /* BCH Uncorrected Flag */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_bch_uncorrected(STV0910_DEMOD_TOP, &status->errors_bch_uncorrected);
+        err = stv0910_read_errors_bch_uncorrected(demod, &status->errors_bch_uncorrected);
 
     /* BCH Error Count */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_bch_count(STV0910_DEMOD_TOP, &status->errors_bch_count);
+        err = stv0910_read_errors_bch_count(demod, &status->errors_bch_count);
 
     /* LDPC Error Count */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_ldpc_count(STV0910_DEMOD_TOP, &status->errors_ldpc_count);
+        err = stv0910_read_errors_ldpc_count(demod, &status->errors_ldpc_count);
 
     if (err == ERROR_NONE)
-        err = stv0910_read_matype(STV0910_DEMOD_TOP, &status->matype1,&status->matype2);
+        err = stv0910_read_matype(demod, &status->matype1,&status->matype2);
 
     /* MER */
     if (status->state == STATE_DEMOD_S || status->state == STATE_DEMOD_S2)
     {
         if (err == ERROR_NONE)
-            err = stv0910_read_mer(STV0910_DEMOD_TOP, &status->modulation_error_rate);
+            err = stv0910_read_mer(demod, &status->modulation_error_rate);
     }
     else
     {
@@ -680,7 +747,7 @@ uint8_t do_report(longmynd_status_t *status)
 
     /* MODCOD, Short Frames, Pilots */
     if (err == ERROR_NONE)
-        err = stv0910_read_modcod_and_type(STV0910_DEMOD_TOP, &status->modcod, &status->short_frame, &status->pilots,&status->rolloff);
+        err = stv0910_read_modcod_and_type(demod, &status->modcod, &status->short_frame, &status->pilots,&status->rolloff);
     if (status->state != STATE_DEMOD_S2)
     {
         /* short frames & pilots only valid for S2 DEMOD state */
@@ -746,12 +813,46 @@ void *loop_i2c(void *arg)
                 /* init all the modules */
                 if (*err == ERROR_NONE)
                     *err = nim_init();
-                /* we are only using the one demodulator so set the other to 0 to turn it off */
-                if (*err == ERROR_NONE)
-                    *err = stv0910_init(config_cpy.sr_requested[config_cpy.sr_index], 0, config_cpy.halfscan_ratio, 0.0);
-                /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
-                if (*err == ERROR_NONE)
-                    tuner_err = stv6120_init(config_cpy.freq_requested[config_cpy.freq_index], 0, config_cpy.port_swap);
+
+                /* CRITICAL: Use dual-tuner initialization sequence if enabled */
+                if (*err == ERROR_NONE) {
+                    if (config_cpy.dual_tuner_enabled) {
+                        /* CRITICAL: Use open_tuner TOP-first initialization sequence */
+                        printf("Flow: Using CRITICAL dual-tuner initialization sequence (tuner %d)\n", thread_vars->tuner_id);
+
+                        if (thread_vars->tuner_id == 1) {
+                            /* Tuner 1 (TOP demodulator) - initialize with both symbol rates */
+                            printf("      Status: Initializing dual demodulators with TOP-first sequence\n");
+                            *err = stv0910_init_dual_sequence(config_cpy.sr_requested[config_cpy.sr_index],
+                                                             config_cpy.sr_requested[config_cpy.sr_index]);
+                        } else {
+                            /* Tuner 2 (BOTTOM demodulator) - wait for TOP to be initialized first */
+                            printf("      Status: Tuner 2 waiting for TOP demodulator to be stable\n");
+                            /* Small delay to ensure TOP demodulator is fully initialized */
+                            usleep(50000); /* 50ms delay */
+                            /* No additional STV0910 initialization needed for tuner 2 */
+                        }
+                    } else {
+                        /* Single tuner mode - original initialization */
+                        *err = stv0910_init(config_cpy.sr_requested[config_cpy.sr_index], 0, config_cpy.halfscan_ratio, 0.0);
+                    }
+                }
+
+                /* Initialize tuners - dual-tuner aware */
+                if (*err == ERROR_NONE) {
+                    if (config_cpy.dual_tuner_enabled) {
+                        if (thread_vars->tuner_id == 1) {
+                            /* Tuner 1: use first frequency, turn off tuner 2 for now */
+                            tuner_err = stv6120_init(config_cpy.freq_requested[config_cpy.freq_index], 0, config_cpy.port_swap);
+                        } else {
+                            /* Tuner 2: use first frequency, turn off tuner 1 for this instance */
+                            tuner_err = stv6120_init(0, config_cpy.freq_requested[config_cpy.freq_index], config_cpy.port_swap);
+                        }
+                    } else {
+                        /* Single tuner mode - original behavior */
+                        tuner_err = stv6120_init(config_cpy.freq_requested[config_cpy.freq_index], 0, config_cpy.port_swap);
+                    }
+                }
 
                 /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
                 if (*err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
@@ -790,7 +891,19 @@ void *loop_i2c(void *arg)
             /* now start the whole thing scanning for the signal */
             if (*err == ERROR_NONE)
             {
-                *err = stv0910_start_scan(STV0910_DEMOD_TOP);
+                if (config_cpy.dual_tuner_enabled) {
+                    /* CRITICAL: Use dual-tuner scan start with proper demodulator selection */
+                    if (thread_vars->tuner_id == 1) {
+                        printf("      Status: Starting TOP demodulator scan (tuner 1)\n");
+                        *err = stv0910_start_scan_dual(STV0910_DEMOD_TOP);
+                    } else {
+                        printf("      Status: Starting BOTTOM demodulator scan (tuner 2)\n");
+                        *err = stv0910_start_scan_dual(STV0910_DEMOD_BOTTOM);
+                    }
+                } else {
+                    /* Single tuner mode - original behavior */
+                    *err = stv0910_start_scan(STV0910_DEMOD_TOP);
+                }
                 status_cpy.state = STATE_DEMOD_HUNTING;
             }
 
@@ -801,11 +914,24 @@ void *loop_i2c(void *arg)
         switch (status_cpy.state)
         {
         case STATE_DEMOD_HUNTING:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            if (*err == ERROR_NONE)
-                *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            /* Use dual-tuner aware reporting */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled) {
+                    uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                    *err = do_report_dual(&status_cpy, demod);
+                } else {
+                    *err = do_report(&status_cpy);
+                }
+            }
+            /* process state changes - use correct demodulator for dual-tuner mode */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled) {
+                    uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                    *err = stv0910_read_scan_state(demod, &status_cpy.demod_state);
+                } else {
+                    *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+                }
+            }
             if (status_cpy.demod_state == DEMOD_FOUND_HEADER)
             {
                 status_cpy.state = STATE_DEMOD_FOUND_HEADER;
@@ -826,10 +952,22 @@ void *loop_i2c(void *arg)
             break;
 
         case STATE_DEMOD_FOUND_HEADER:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            /* Use dual-tuner aware reporting */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled) {
+                    uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                    *err = do_report_dual(&status_cpy, demod);
+                } else {
+                    *err = do_report(&status_cpy);
+                }
+            }
+            /* process state changes - use correct demodulator for dual-tuner mode */
+            if (config_cpy.dual_tuner_enabled) {
+                uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                *err = stv0910_read_scan_state(demod, &status_cpy.demod_state);
+            } else {
+                *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            }
             if (status_cpy.demod_state == DEMOD_HUNTING)
             {
                 status_cpy.state = STATE_DEMOD_HUNTING;
@@ -850,10 +988,22 @@ void *loop_i2c(void *arg)
             break;
 
         case STATE_DEMOD_S2:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            /* Use dual-tuner aware reporting */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled) {
+                    uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                    *err = do_report_dual(&status_cpy, demod);
+                } else {
+                    *err = do_report(&status_cpy);
+                }
+            }
+            /* process state changes - use correct demodulator for dual-tuner mode */
+            if (config_cpy.dual_tuner_enabled) {
+                uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                *err = stv0910_read_scan_state(demod, &status_cpy.demod_state);
+            } else {
+                *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            }
             if (status_cpy.demod_state == DEMOD_HUNTING)
             {
                 status_cpy.state = STATE_DEMOD_HUNTING;
@@ -874,10 +1024,22 @@ void *loop_i2c(void *arg)
             break;
 
         case STATE_DEMOD_S:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            /* Use dual-tuner aware reporting */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled) {
+                    uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                    *err = do_report_dual(&status_cpy, demod);
+                } else {
+                    *err = do_report(&status_cpy);
+                }
+            }
+            /* process state changes - use correct demodulator for dual-tuner mode */
+            if (config_cpy.dual_tuner_enabled) {
+                uint8_t demod = (thread_vars->tuner_id == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
+                *err = stv0910_read_scan_state(demod, &status_cpy.demod_state);
+            } else {
+                *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
+            }
             if (status_cpy.demod_state == DEMOD_HUNTING)
             {
                 status_cpy.state = STATE_DEMOD_HUNTING;
@@ -1056,13 +1218,67 @@ uint8_t status_all_write(longmynd_status_t *status, uint8_t (*status_write)(uint
     /* Pilots */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_PILOTS, status->pilots, output_ready_ptr);
-    // MATYPE    
+    // MATYPE
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = status_write(STATUS_MATYPE1, status->matype1, output_ready_ptr);    
+        err = status_write(STATUS_MATYPE1, status->matype1, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_MATYPE2, status->matype2, output_ready_ptr);
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = status_write(STATUS_ROLLOFF, status->rolloff, output_ready_ptr);        
+        err = status_write(STATUS_ROLLOFF, status->rolloff, output_ready_ptr);
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool *output_ready_ptr)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Writes status for a specific tuner via MQTT with tuner-specific topics                            */
+    /*  tuner_id: 1 for tuner 1, 2 for tuner 2                                                          */
+    /*  status: status structure to write                                                                */
+    /*  output_ready_ptr: output ready flag                                                              */
+    /*  Returns: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    /* Main status */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_STATE, status->state, output_ready_ptr);
+    /* LNAs if present */
+    if (status->lna_ok)
+    {
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(tuner_id, STATUS_LNA_GAIN, status->lna_gain, output_ready_ptr);
+    }
+    /* AGC1 Gain */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_AGC1_GAIN, status->agc1_gain, output_ready_ptr);
+    /* AGC2 Gain */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_AGC2_GAIN, status->agc2_gain, output_ready_ptr);
+    /* I,Q powers */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_POWER_I, status->power_i, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_POWER_Q, status->power_q, output_ready_ptr);
+    /* symbol rate we are trying */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_SYMBOL_RATE, status->symbolrate, output_ready_ptr);
+    /* BER */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_BER, status->bit_error_rate, output_ready_ptr);
+    /* MER */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_MER, status->modulation_error_rate, output_ready_ptr);
+    /* MODCOD */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_MODCOD, status->modcod, output_ready_ptr);
+    /* Service Name */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(tuner_id, STATUS_SERVICE_NAME, status->service_name, output_ready_ptr);
+    /* Service Provider Name */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_string_write_tuner(tuner_id, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name, output_ready_ptr);
+
     return err;
 }
 
@@ -1115,7 +1331,7 @@ int main(int argc, char *argv[])
     {
         if (err == ERROR_NONE)
             err = mqttinit(longmynd_config.status_ip_addr);
-        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");    
+        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");
         status_write = mqtt_status_write;
         status_string_write = mqtt_status_string_write;
     }
@@ -1127,20 +1343,69 @@ int main(int argc, char *argv[])
         status_string_write = fifo_status_string_write;
     }
 
-    if (err == ERROR_NONE)
-        err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+    // Initialize FTDI devices (single or dual-tuner mode)
+    if (err == ERROR_NONE) {
+        if (longmynd_config.dual_tuner_enabled) {
+            printf("Flow: Initializing dual-tuner mode\n");
+            err = ftdi_init_dual(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr,
+                                longmynd_config.device2_usb_bus, longmynd_config.device2_usb_addr,
+                                longmynd_config.auto_detect_second_device);
+        } else {
+            printf("Flow: Initializing single-tuner mode\n");
+            err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+        }
+    }
+
+    // Initialize UDP streaming (single or dual-tuner mode)
+    if (err == ERROR_NONE && longmynd_config.ts_use_ip) {
+        if (longmynd_config.dual_tuner_enabled) {
+            printf("Flow: Initializing dual UDP streaming\n");
+            printf("      Tuner 1: %s:%d\n", longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port);
+            printf("      Tuner 2: %s:%d\n", longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+            err = udp_ts_init_dual(longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port,
+                                  longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+        } else {
+            printf("Flow: Initializing single UDP streaming\n");
+            printf("      TS output: %s:%d\n", longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port);
+            err = udp_ts_init(longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port);
+        }
+    }
+
+    // Initialize MQTT (enable dual-tuner mode if configured)
+    if (err == ERROR_NONE && longmynd_config.status_use_ip) {
+        if (longmynd_config.dual_tuner_enabled) {
+            printf("Flow: Enabling MQTT dual-tuner mode\n");
+            mqtt_set_dual_tuner_mode(true);
+        }
+        printf("Flow: Initializing MQTT broker: %s\n", longmynd_config.status_ip_addr);
+        err = mqttinit(longmynd_config.status_ip_addr);
+    }
+
+    // Initialize status structures for dual-tuner mode
+    if (longmynd_config.dual_tuner_enabled) {
+        printf("Flow: Initializing dual-tuner status structures\n");
+        memcpy(&longmynd_status_tuner1, &longmynd_status, sizeof(longmynd_status_t));
+        memcpy(&longmynd_status_tuner2, &longmynd_status, sizeof(longmynd_status_t));
+
+        // Initialize mutexes and condition variables for dual status structures
+        pthread_mutex_init(&longmynd_status_tuner1.mutex, NULL);
+        pthread_cond_init(&longmynd_status_tuner1.signal, NULL);
+        pthread_mutex_init(&longmynd_status_tuner2.mutex, NULL);
+        pthread_cond_init(&longmynd_status_tuner2.signal, NULL);
+    }
 
     thread_vars_t thread_vars_ts;
         thread_vars_ts.main_err_ptr = &err;
         thread_vars_ts.thread_err = ERROR_NONE;
         thread_vars_ts.config = &longmynd_config;
-        thread_vars_ts.status = &longmynd_status;
+        thread_vars_ts.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
+        thread_vars_ts.tuner_id = 1;
 
     if (err == ERROR_NONE)
     {
         if (0 == pthread_create(&thread_ts, NULL, loop_ts, (void *)&thread_vars_ts))
         {
-            //pthread_setname_np(thread_ts, "TS Transport");
+            //pthread_setname_np(thread_ts, "TS Transport 1");
         }
         else
         {
@@ -1150,17 +1415,17 @@ int main(int argc, char *argv[])
     }
 
     thread_vars_t thread_vars_ts_parse;
-     
         thread_vars_ts_parse.main_err_ptr = &err;
         thread_vars_ts_parse.thread_err = ERROR_NONE;
         thread_vars_ts_parse.config = &longmynd_config;
-        thread_vars_ts_parse.status = &longmynd_status;
+        thread_vars_ts_parse.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
+        thread_vars_ts_parse.tuner_id = 1;
 
     if (err == ERROR_NONE)
     {
         if (0 == pthread_create(&thread_ts_parse, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse))
         {
-            //pthread_setname_np(thread_ts_parse, "TS Parse");
+            //pthread_setname_np(thread_ts_parse, "TS Parse 1");
         }
         else
         {
@@ -1169,18 +1434,73 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Create second tuner threads if dual-tuner mode is enabled
+    thread_vars_t thread_vars_ts_tuner2;
+    thread_vars_t thread_vars_ts_parse_tuner2;
+    thread_vars_t thread_vars_i2c_tuner2;
+
+    if (err == ERROR_NONE && longmynd_config.dual_tuner_enabled) {
+        printf("Flow: Creating dual-tuner threads\n");
+
+        // Second tuner TS thread
+        thread_vars_ts_tuner2.main_err_ptr = &err;
+        thread_vars_ts_tuner2.thread_err = ERROR_NONE;
+        thread_vars_ts_tuner2.config = &longmynd_config;
+        thread_vars_ts_tuner2.status = &longmynd_status_tuner2;
+        thread_vars_ts_tuner2.tuner_id = 2;
+
+        if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts, (void *)&thread_vars_ts_tuner2)) {
+            //pthread_setname_np(thread_ts_tuner2, "TS Transport 2");
+        } else {
+            fprintf(stderr, "Error creating loop_ts tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+
+        // Second tuner TS parse thread
+        if (err == ERROR_NONE) {
+            thread_vars_ts_parse_tuner2.main_err_ptr = &err;
+            thread_vars_ts_parse_tuner2.thread_err = ERROR_NONE;
+            thread_vars_ts_parse_tuner2.config = &longmynd_config;
+            thread_vars_ts_parse_tuner2.status = &longmynd_status_tuner2;
+            thread_vars_ts_parse_tuner2.tuner_id = 2;
+
+            if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse_tuner2)) {
+                //pthread_setname_np(thread_ts_parse_tuner2, "TS Parse 2");
+            } else {
+                fprintf(stderr, "Error creating loop_ts_parse tuner2 pthread\n");
+                err = ERROR_THREAD_ERROR;
+            }
+        }
+
+        // Second tuner I2C thread
+        if (err == ERROR_NONE) {
+            thread_vars_i2c_tuner2.main_err_ptr = &err;
+            thread_vars_i2c_tuner2.thread_err = ERROR_NONE;
+            thread_vars_i2c_tuner2.config = &longmynd_config;
+            thread_vars_i2c_tuner2.status = &longmynd_status_tuner2;
+            thread_vars_i2c_tuner2.tuner_id = 2;
+
+            if (0 == pthread_create(&thread_i2c_tuner2, NULL, loop_i2c, (void *)&thread_vars_i2c_tuner2)) {
+                //pthread_setname_np(thread_i2c_tuner2, "Receiver 2");
+            } else {
+                fprintf(stderr, "Error creating loop_i2c tuner2 pthread\n");
+                err = ERROR_THREAD_ERROR;
+            }
+        }
+    }
+
     thread_vars_t thread_vars_i2c;
-    
         thread_vars_i2c.main_err_ptr = &err;
         thread_vars_i2c.thread_err = ERROR_NONE;
         thread_vars_i2c.config = &longmynd_config;
-        thread_vars_i2c.status = &longmynd_status;
+        thread_vars_i2c.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
+        thread_vars_i2c.tuner_id = 1;
 
     if (err == ERROR_NONE)
     {
         if (0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)&thread_vars_i2c))
         {
-            //pthread_setname_np(thread_i2c, "Receiver");
+            //pthread_setname_np(thread_i2c, "Receiver 1");
         }
         else
         {
@@ -1209,64 +1529,139 @@ int main(int argc, char *argv[])
     }
 
     uint64_t last_status_sent_monotonic = 0;
+    uint64_t last_status_sent_monotonic_tuner1 = 0;
+    uint64_t last_status_sent_monotonic_tuner2 = 0;
     longmynd_status_t longmynd_status_cpy;
+    longmynd_status_t longmynd_status_tuner1_cpy;
+    longmynd_status_t longmynd_status_tuner2_cpy;
 
     if (err == ERROR_NONE)
     {
         /* Initialise TS data re-init timer to prevent immediate reset */
-        pthread_mutex_lock(&longmynd_status.mutex);
-        longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
-        pthread_mutex_unlock(&longmynd_status.mutex);
+        if (longmynd_config.dual_tuner_enabled) {
+            pthread_mutex_lock(&longmynd_status_tuner1.mutex);
+            longmynd_status_tuner1.last_ts_or_reinit_monotonic = monotonic_ms();
+            pthread_mutex_unlock(&longmynd_status_tuner1.mutex);
+
+            pthread_mutex_lock(&longmynd_status_tuner2.mutex);
+            longmynd_status_tuner2.last_ts_or_reinit_monotonic = monotonic_ms();
+            pthread_mutex_unlock(&longmynd_status_tuner2.mutex);
+        } else {
+            pthread_mutex_lock(&longmynd_status.mutex);
+            longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
+            pthread_mutex_unlock(&longmynd_status.mutex);
+        }
     }
     while (err == ERROR_NONE)
     {
-        /* Test if new status data is available */
-        if (longmynd_status.last_updated_monotonic != last_status_sent_monotonic)
-        {
-            /* Acquire lock on global status struct */
-            pthread_mutex_lock(&longmynd_status.mutex);
-            /* Clone status struct locally */
-            memcpy(&longmynd_status_cpy, &longmynd_status, sizeof(longmynd_status_t));
-            /* Release lock on global status struct */
-            pthread_mutex_unlock(&longmynd_status.mutex);
+        bool status_updated = false;
 
-            if (longmynd_config.status_use_ip || status_output_ready)
-            {
-                /* Send all status via configured output interface from local copy */
-                err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
-            }
-            else if (!longmynd_config.status_use_ip && !status_output_ready)
-            {
-                /* Try opening the fifo again */
-                err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
+        if (longmynd_config.dual_tuner_enabled) {
+            /* Handle dual-tuner status publishing */
+
+            /* Check tuner 1 status */
+            if (longmynd_status_tuner1.last_updated_monotonic != last_status_sent_monotonic_tuner1) {
+                pthread_mutex_lock(&longmynd_status_tuner1.mutex);
+                memcpy(&longmynd_status_tuner1_cpy, &longmynd_status_tuner1, sizeof(longmynd_status_t));
+                pthread_mutex_unlock(&longmynd_status_tuner1.mutex);
+
+                if (longmynd_config.status_use_mqtt) {
+                    /* Send tuner 1 status via MQTT with tuner-specific topics */
+                    err = status_all_write_tuner(1, &longmynd_status_tuner1_cpy, &status_output_ready);
+                } else if (longmynd_config.status_use_ip || status_output_ready) {
+                    /* Send tuner 1 status via UDP/FIFO (backward compatibility) */
+                    err = status_all_write(&longmynd_status_tuner1_cpy, status_write, status_string_write, &status_output_ready);
+                }
+
+                last_status_sent_monotonic_tuner1 = longmynd_status_tuner1_cpy.last_updated_monotonic;
+                status_updated = true;
             }
 
-            /* Update monotonic timestamp last sent */
-            last_status_sent_monotonic = longmynd_status_cpy.last_updated_monotonic;
+            /* Check tuner 2 status */
+            if (err == ERROR_NONE && longmynd_status_tuner2.last_updated_monotonic != last_status_sent_monotonic_tuner2) {
+                pthread_mutex_lock(&longmynd_status_tuner2.mutex);
+                memcpy(&longmynd_status_tuner2_cpy, &longmynd_status_tuner2, sizeof(longmynd_status_t));
+                pthread_mutex_unlock(&longmynd_status_tuner2.mutex);
+
+                if (longmynd_config.status_use_mqtt) {
+                    /* Send tuner 2 status via MQTT with tuner-specific topics */
+                    err = status_all_write_tuner(2, &longmynd_status_tuner2_cpy, &status_output_ready);
+                }
+
+                last_status_sent_monotonic_tuner2 = longmynd_status_tuner2_cpy.last_updated_monotonic;
+                status_updated = true;
+            }
+        } else {
+            /* Handle single-tuner status publishing (backward compatibility) */
+            if (longmynd_status.last_updated_monotonic != last_status_sent_monotonic) {
+                pthread_mutex_lock(&longmynd_status.mutex);
+                memcpy(&longmynd_status_cpy, &longmynd_status, sizeof(longmynd_status_t));
+                pthread_mutex_unlock(&longmynd_status.mutex);
+
+                if (longmynd_config.status_use_ip || status_output_ready) {
+                    err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
+                } else if (!longmynd_config.status_use_ip && !status_output_ready) {
+                    err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
+                }
+
+                last_status_sent_monotonic = longmynd_status_cpy.last_updated_monotonic;
+                status_updated = true;
+            }
         }
-        else
-        {
+
+        if (!status_updated) {
             /* Sleep 10ms */
             usleep(100 * 1000);
         }
         /* Check for errors on threads */
-        if (err == ERROR_NONE &&
-            (thread_vars_ts.thread_err != ERROR_NONE || thread_vars_ts_parse.thread_err != ERROR_NONE || thread_vars_beep.thread_err != ERROR_NONE || thread_vars_i2c.thread_err != ERROR_NONE))
-        {
-            err = ERROR_THREAD_ERROR;
+        if (err == ERROR_NONE) {
+            bool thread_error = false;
+
+            /* Check main threads */
+            if (thread_vars_ts.thread_err != ERROR_NONE ||
+                thread_vars_ts_parse.thread_err != ERROR_NONE ||
+                thread_vars_beep.thread_err != ERROR_NONE ||
+                thread_vars_i2c.thread_err != ERROR_NONE) {
+                thread_error = true;
+            }
+
+            /* Check dual-tuner threads if enabled */
+            if (longmynd_config.dual_tuner_enabled) {
+                if (thread_vars_ts_tuner2.thread_err != ERROR_NONE ||
+                    thread_vars_ts_parse_tuner2.thread_err != ERROR_NONE ||
+                    thread_vars_i2c_tuner2.thread_err != ERROR_NONE) {
+                    thread_error = true;
+                }
+            }
+
+            if (thread_error) {
+                err = ERROR_THREAD_ERROR;
+            }
         }
 
-        if (longmynd_config.ts_timeout != -1 && monotonic_ms() > (longmynd_status.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout))
-        {
-            /* Had a while with no TS data, reinit config to pull NIM search loops back in, or fix -S fascination */
-
-            //printf("Flow: No-data timeout, re-init config.\n");
-            //config_reinit(true); // !!!!!!!!!!!! FIXME IF DONT WORK
-
-            /* We've queued up a reinit so reset the timer */
-            pthread_mutex_lock(&longmynd_status.mutex);
-            longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
-            pthread_mutex_unlock(&longmynd_status.mutex);
+        /* Handle TS timeout for dual-tuner mode */
+        if (longmynd_config.ts_timeout != -1) {
+            if (longmynd_config.dual_tuner_enabled) {
+                /* Check timeout for both tuners */
+                uint64_t current_time = monotonic_ms();
+                if (current_time > (longmynd_status_tuner1.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout)) {
+                    pthread_mutex_lock(&longmynd_status_tuner1.mutex);
+                    longmynd_status_tuner1.last_ts_or_reinit_monotonic = current_time;
+                    pthread_mutex_unlock(&longmynd_status_tuner1.mutex);
+                }
+                if (current_time > (longmynd_status_tuner2.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout)) {
+                    pthread_mutex_lock(&longmynd_status_tuner2.mutex);
+                    longmynd_status_tuner2.last_ts_or_reinit_monotonic = current_time;
+                    pthread_mutex_unlock(&longmynd_status_tuner2.mutex);
+                }
+            } else {
+                /* Single-tuner timeout handling */
+                if (monotonic_ms() > (longmynd_status.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout)) {
+                    pthread_mutex_lock(&longmynd_status.mutex);
+                    longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
+                    pthread_mutex_unlock(&longmynd_status.mutex);
+                }
+            }
         }
     }
 
@@ -1277,6 +1672,20 @@ int main(int argc, char *argv[])
     pthread_join(thread_ts, NULL);
     pthread_join(thread_i2c, NULL);
     pthread_join(thread_beep, NULL);
+
+    /* Join dual-tuner threads if they were created */
+    if (longmynd_config.dual_tuner_enabled) {
+        printf("Flow: Waiting for dual-tuner threads.\n");
+        pthread_join(thread_ts_parse_tuner2, NULL);
+        pthread_join(thread_ts_tuner2, NULL);
+        pthread_join(thread_i2c_tuner2, NULL);
+
+        /* Cleanup dual-tuner mutexes and condition variables */
+        pthread_mutex_destroy(&longmynd_status_tuner1.mutex);
+        pthread_cond_destroy(&longmynd_status_tuner1.signal);
+        pthread_mutex_destroy(&longmynd_status_tuner2.mutex);
+        pthread_cond_destroy(&longmynd_status_tuner2.signal);
+    }
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
 

@@ -25,6 +25,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Single tuner functions (existing)
 uint8_t ftdi_init(uint8_t, uint8_t);
 uint8_t ftdi_set_polarisation_supply(bool, bool);
 uint8_t ftdi_send_byte(uint8_t);
@@ -36,5 +37,15 @@ uint8_t ftdi_i2c_read_reg16 (uint8_t, uint16_t, uint8_t*);
 uint8_t ftdi_i2c_read_reg8  (uint8_t, uint8_t,  uint8_t*);
 uint8_t ftdi_i2c_write_reg16(uint8_t, uint16_t, uint8_t );
 uint8_t ftdi_i2c_write_reg8 (uint8_t, uint8_t,  uint8_t );
+
+// Dual tuner functions
+uint8_t ftdi_init_dual(uint8_t usb_bus1, uint8_t usb_addr1,
+                       uint8_t usb_bus2, uint8_t usb_addr2,
+                       bool auto_detect_second);
+uint8_t ftdi_detect_devices(uint8_t *detected_count,
+                           uint8_t *bus_list, uint8_t *addr_list,
+                           uint8_t max_devices);
+uint8_t ftdi_get_device_count(void);
+bool ftdi_is_dual_tuner_available(void);
 
 #endif

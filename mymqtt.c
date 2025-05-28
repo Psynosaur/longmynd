@@ -31,8 +31,20 @@ void on_connect(struct mosquitto *mosq, void *obj, int reason_code)
 	if (rc != MOSQ_ERR_SUCCESS)
 	{
 		fprintf(stderr, "Error subscribing: %s\n", mosquitto_strerror(rc));
-
 		mosquitto_disconnect(mosq);
+	}
+
+	/* Subscribe to dual-tuner specific topics if enabled */
+	if (dual_tuner_mqtt_enabled) {
+		rc = mosquitto_subscribe(mosq, NULL, "cmd/longmynd/tuner1/#", 1);
+		if (rc != MOSQ_ERR_SUCCESS) {
+			fprintf(stderr, "Error subscribing to tuner1 topics: %s\n", mosquitto_strerror(rc));
+		}
+
+		rc = mosquitto_subscribe(mosq, NULL, "cmd/longmynd/tuner2/#", 1);
+		if (rc != MOSQ_ERR_SUCCESS) {
+			fprintf(stderr, "Error subscribing to tuner2 topics: %s\n", mosquitto_strerror(rc));
+		}
 	}
 }
 
@@ -72,10 +84,15 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	char *key = msg->topic;
 	char *svalue = (char *)msg->payload;
 
+	/* Handle dual-tuner commands first */
+	if (dual_tuner_mqtt_enabled) {
+		mqtt_process_dual_command(key, svalue);
+	}
+
+	/* Backward compatibility: existing commands control tuner 1 */
 	if (strcmp(key, "cmd/longmynd/sr") == 0)
 	{
 		Symbolrate = atol(svalue);
-
 		config_set_symbolrate(Symbolrate);
 	}
 	if (strcmp(key, "cmd/longmynd/frequency") == 0)
@@ -110,6 +127,9 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 // extern void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg);
 
 static struct mosquitto *mosq;
+
+/* Dual-tuner MQTT globals */
+static bool dual_tuner_mqtt_enabled = false;
 
 int mqttinit(char *MqttBroker)
 {
@@ -256,7 +276,7 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 		strcpy(fec, TabFec[modcod]);
 		mosquitto_publish(mosq, NULL, "dt/longmynd/modulation", strlen(modulation), modulation, 2, false);
 		mosquitto_publish(mosq, NULL, "dt/longmynd/fec", strlen(fec), fec, 2, false);
-		
+
 	}
 	else if (message == STATUS_MATYPE2)
 	{
@@ -344,6 +364,167 @@ uint8_t mqtt_status_string_write(uint8_t message, char *data, bool *output_ready
 	char status_topic[255];
 
 	sprintf(status_topic, "dt/longmynd/%s", StatusString[message]);
+	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
+
+	return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* Dual-tuner MQTT functions                                                                          */
+/* -------------------------------------------------------------------------------------------------- */
+
+void mqtt_set_dual_tuner_mode(bool enabled)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Enable or disable dual-tuner MQTT mode                                                            */
+	/*   enabled: true to enable dual-tuner MQTT topics                                                 */
+	/* -------------------------------------------------------------------------------------------------- */
+	dual_tuner_mqtt_enabled = enabled;
+	printf("Flow: MQTT dual-tuner mode %s\n", enabled ? "enabled" : "disabled");
+}
+
+void mqtt_process_dual_command(const char *topic, const char *payload)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Process dual-tuner specific MQTT commands                                                         */
+	/*   topic: MQTT topic string                                                                        */
+	/*   payload: MQTT payload string                                                                    */
+	/* -------------------------------------------------------------------------------------------------- */
+
+	/* Tuner 1 commands */
+	if (strcmp(topic, "cmd/longmynd/tuner1/sr") == 0) {
+		uint32_t symbolrate = atol(payload);
+		printf("MQTT: Tuner 1 symbol rate = %d\n", symbolrate);
+		config_set_symbolrate(symbolrate);  // For now, use existing function
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner1/frequency") == 0) {
+		uint32_t frequency = atol(payload);
+		printf("MQTT: Tuner 1 frequency = %d\n", frequency);
+		config_set_frequency(frequency);  // For now, use existing function
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner1/polar") == 0) {
+		printf("MQTT: Tuner 1 polarization = %s\n", payload);
+		if (strcmp(payload, "h") == 0)
+			config_set_lnbv(true, true);
+		else if (strcmp(payload, "v") == 0)
+			config_set_lnbv(true, false);
+		else if (strcmp(payload, "n") == 0)
+			config_set_lnbv(false, false);
+	}
+
+	/* Tuner 2 commands */
+	else if (strcmp(topic, "cmd/longmynd/tuner2/sr") == 0) {
+		uint32_t symbolrate = atol(payload);
+		printf("MQTT: Tuner 2 symbol rate = %d\n", symbolrate);
+		// TODO: Implement tuner 2 specific symbol rate control
+		// config_set_symbolrate_tuner2(symbolrate);
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner2/frequency") == 0) {
+		uint32_t frequency = atol(payload);
+		printf("MQTT: Tuner 2 frequency = %d\n", frequency);
+		// TODO: Implement tuner 2 specific frequency control
+		// config_set_frequency_tuner2(frequency);
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner2/polar") == 0) {
+		printf("MQTT: Tuner 2 polarization = %s\n", payload);
+		// TODO: Implement tuner 2 specific polarization control
+		// config_set_lnbv_tuner2(enabled, horizontal);
+	}
+}
+
+uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data, bool *output_ready)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Write status for a specific tuner to MQTT                                                         */
+	/*   tuner_id: 1 for tuner 1, 2 for tuner 2                                                         */
+	/*   message: status message type                                                                    */
+	/*   data: status data                                                                               */
+	/*   output_ready: output ready flag                                                                 */
+	/*   return: error code                                                                              */
+	/* -------------------------------------------------------------------------------------------------- */
+	(void)output_ready;
+	uint8_t err = ERROR_NONE;
+	char status_topic[255];
+	char status_message[255];
+	static int latest_modcod_t1 = 0;
+	static int latest_modcod_t2 = 0;
+
+	if (tuner_id != 1 && tuner_id != 2) {
+		printf("ERROR: Invalid tuner ID: %d\n", tuner_id);
+		return ERROR_ARGS_INPUT;
+	}
+
+	/* Build tuner-specific topic */
+	sprintf(status_topic, "dt/longmynd/tuner%d/%s", tuner_id, StatusString[message]);
+
+	if (message == STATUS_STATE) {
+		sprintf(status_message, "%s", StateString[data]);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		/* Publish current configuration for this tuner */
+		sprintf(status_topic, "dt/longmynd/tuner%d/set/sr", tuner_id);
+		sprintf(status_message, "%d", Symbolrate);  // TODO: Use tuner-specific values
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "dt/longmynd/tuner%d/set/frequency", tuner_id);
+		sprintf(status_message, "%d", Frequency);  // TODO: Use tuner-specific values
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_SYMBOL_RATE) {
+		data = (data + 500) / 1000; // SR in KS
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_MER) {
+		int TheoricMER[] = {0, -24, -12, 0, 10, 22, 32, 40, 46, 52, 62, 65, 55, 66, 79, 94, 106, 110, 90, 102, 110, 116, 129, 131, 126, 136, 143, 157, 161};
+		sprintf(status_message, "%0.1f", ((int)data) / 10.0);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		char smargin[50];
+		int latest_modcod = (tuner_id == 1) ? latest_modcod_t1 : latest_modcod_t2;
+		if (latest_modcod != 0) {
+			int Margin = (int)data - TheoricMER[latest_modcod];
+			sprintf(smargin, "%d", Margin / 10);
+			sprintf(status_topic, "dt/longmynd/tuner%d/margin_db", tuner_id);
+			mosquitto_publish(mosq, NULL, status_topic, strlen(smargin), smargin, 2, false);
+		}
+	}
+	else if (message == STATUS_MODCOD) {
+		if (tuner_id == 1) latest_modcod_t1 = data;
+		else latest_modcod_t2 = data;
+
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else {
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+
+	return err;
+}
+
+uint8_t mqtt_status_string_write_tuner(uint8_t tuner_id, uint8_t message, char *data, bool *output_ready)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Write string status for a specific tuner to MQTT                                                  */
+	/*   tuner_id: 1 for tuner 1, 2 for tuner 2                                                         */
+	/*   message: status message type                                                                    */
+	/*   data: status string data                                                                        */
+	/*   output_ready: output ready flag                                                                 */
+	/*   return: error code                                                                              */
+	/* -------------------------------------------------------------------------------------------------- */
+	(void)output_ready;
+	uint8_t err = ERROR_NONE;
+	char status_topic[255];
+
+	if (tuner_id != 1 && tuner_id != 2) {
+		printf("ERROR: Invalid tuner ID: %d\n", tuner_id);
+		return ERROR_ARGS_INPUT;
+	}
+
+	/* Build tuner-specific topic */
+	sprintf(status_topic, "dt/longmynd/tuner%d/%s", tuner_id, StatusString[message]);
 	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
 
 	return err;

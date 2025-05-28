@@ -38,7 +38,7 @@
 #define STATUS_STATE               1
 #define STATUS_LNA_GAIN            2
 #define STATUS_PUNCTURE_RATE       3
-#define STATUS_POWER_I             4 
+#define STATUS_POWER_I             4
 #define STATUS_POWER_Q             5
 #define STATUS_CARRIER_FREQUENCY   6
 #define STATUS_CONSTELLATION_I     7
@@ -71,6 +71,15 @@
 
 #define NUM_ELEMENT_STREAMS 16
 
+/* Dual UDP configuration structure as specified in implementation plan */
+typedef struct {
+    char tuner1_ip[16];
+    uint16_t tuner1_port;
+    char tuner2_ip[16];
+    uint16_t tuner2_port;
+    bool dual_tuner_enabled;
+} dual_udp_config_t;
+
 typedef struct {
     bool port_swap;
     uint8_t port;
@@ -84,11 +93,21 @@ typedef struct {
     uint8_t device_usb_bus;
     uint8_t device_usb_addr;
 
+    // Dual-tuner support
+    bool dual_tuner_enabled;
+    uint8_t device2_usb_bus;
+    uint8_t device2_usb_addr;
+    bool auto_detect_second_device;
+
     bool ts_use_ip;
     bool ts_reset;
     char ts_fifo_path[128];
     char ts_ip_addr[16];
     int ts_ip_port;
+
+    // Second tuner TS output
+    char ts2_ip_addr[16];
+    int ts2_ip_port;
 
     bool status_use_ip;
     bool status_use_mqtt;
@@ -153,6 +172,7 @@ typedef struct {
     uint8_t thread_err;
     longmynd_config_t *config;
     longmynd_status_t *status;
+    uint8_t tuner_id;  // 1 for tuner 1, 2 for tuner 2 (dual-tuner support)
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);
@@ -162,6 +182,9 @@ void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
 void config_set_swport(bool sport);
 void config_set_tsip(char *tsip);
+
+/* Dual-tuner aware reporting functions */
+uint8_t do_report_dual(longmynd_status_t *status, uint8_t demod);
 
 #endif
 

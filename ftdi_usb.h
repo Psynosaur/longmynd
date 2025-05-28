@@ -30,6 +30,7 @@
 #define USB_TIMEOUT 5000
 #define USB_FAST_TIMEOUT 500
 
+// Single tuner USB functions (existing)
 uint8_t ftdi_usb_i2c_write( uint8_t *, uint8_t);
 uint8_t ftdi_usb_i2c_read( uint8_t **);
 uint8_t ftdi_usb_set_mpsse_mode_i2c(void);
@@ -37,6 +38,16 @@ uint8_t ftdi_usb_set_mpsse_mode_ts(void);
 uint8_t ftdi_usb_ts_read(uint8_t *, uint16_t *, uint32_t);
 uint8_t ftdi_usb_init_i2c(uint8_t, uint8_t, uint16_t, uint16_t);
 uint8_t ftdi_usb_init_ts(uint8_t, uint8_t, uint16_t, uint16_t);
+
+// Dual tuner USB functions
+uint8_t ftdi_usb_init_dual(uint8_t usb_bus1, uint8_t usb_addr1,
+                          uint8_t usb_bus2, uint8_t usb_addr2,
+                          uint16_t vid, uint16_t pid);
+uint8_t ftdi_usb_ts_read_tuner2(uint8_t *, uint16_t *, uint32_t);
+uint8_t ftdi_usb_set_mpsse_mode_ts2(void);
+uint8_t ftdi_usb_detect_devices(uint8_t *count, uint8_t *bus_list,
+                               uint8_t *addr_list, uint8_t max_devices,
+                               uint16_t vid, uint16_t pid);
 
 #endif
 

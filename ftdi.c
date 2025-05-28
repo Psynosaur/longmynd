@@ -81,6 +81,10 @@ static uint8_t ftdi_gpio_value = 0x6f;
 /* Default GPIO direction 0xf1 = 0b11110001 = LNB pins, NIM Reset are outputs, TS2SYNC is input (0 for in and 1 for out) */
 static uint8_t ftdi_gpio_direction = 0xf1;
 
+/* Dual tuner support globals */
+static bool dual_tuner_mode = false;
+static uint8_t detected_device_count = 0;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -250,7 +254,7 @@ int ftdi_i2c_read_byte_send_nak(uint8_t *b ) {
     out_buffer[num_bytes_to_send++] = 0x13;
     out_buffer[num_bytes_to_send++] = 0x80;
     out_buffer[num_bytes_to_send++] = 0x00;
-    out_buffer[num_bytes_to_send++] = 0x11; 
+    out_buffer[num_bytes_to_send++] = 0x11;
     out_buffer[num_bytes_to_send++] = 0x25;
     out_buffer[num_bytes_to_send++] = 0x00;
     out_buffer[num_bytes_to_send++] = 0x00;
@@ -520,8 +524,163 @@ uint8_t ftdi_init(uint8_t usb_bus, uint8_t usb_addr) {
     if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_ts();
     if (err==ERROR_NONE) err=ftdi_setup_ftdi_io();
     if (err==ERROR_NONE) err=ftdi_nim_reset();
-    
+
     if (err!=ERROR_NONE) printf("ERROR: FTDI init\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_detect_devices(uint8_t *detected_count,
+                           uint8_t *bus_list, uint8_t *addr_list,
+                           uint8_t max_devices) {
+/* -------------------------------------------------------------------------------------------------- */
+/* detect available FTDI devices                                                                      */
+/* *detected_count: returns the number of devices found                                               */
+/* *bus_list: array to store bus numbers of found devices                                             */
+/* *addr_list: array to store device addresses of found devices                                       */
+/* max_devices: maximum number of devices to detect                                                   */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err;
+
+    printf("Flow: FTDI device detection\n");
+
+    err = ftdi_usb_detect_devices(detected_count, bus_list, addr_list, max_devices, FTDI_VID, FTDI_PID);
+
+    if (err == ERROR_NONE) {
+        detected_device_count = *detected_count;
+        printf("      Status: Detected %d FTDI devices\n", detected_device_count);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_get_device_count(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* get the number of detected FTDI devices                                                            */
+/* return: number of detected devices                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    return detected_device_count;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+bool ftdi_is_dual_tuner_available(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* check if dual tuner mode is available                                                              */
+/* return: true if dual tuner is available and initialized                                            */
+/* -------------------------------------------------------------------------------------------------- */
+    return dual_tuner_mode;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_init_dual(uint8_t usb_bus1, uint8_t usb_addr1,
+                       uint8_t usb_bus2, uint8_t usb_addr2,
+                       bool auto_detect_second) {
+/* -------------------------------------------------------------------------------------------------- */
+/* initializes dual FTDI devices following open_tuner critical initialization sequence               */
+/* usb_bus1, usb_addr1: first device (I2C + TS1)                                                     */
+/* usb_bus2, usb_addr2: second device (TS2 only)                                                     */
+/* auto_detect_second: if true, automatically detect second device                                    */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t device_count = 0;
+    uint8_t bus_list[4], addr_list[4];
+
+    printf("Flow: FTDI dual init (open_tuner critical sequence)\n");
+
+    // If auto-detection is requested, find available devices
+    if (auto_detect_second && (usb_bus2 == 0 && usb_addr2 == 0)) {
+        printf("      Status: Auto-detecting second FTDI device\n");
+
+        err = ftdi_detect_devices(&device_count, bus_list, addr_list, 4);
+        if (err != ERROR_NONE) {
+            printf("ERROR: Device detection failed\n");
+            return err;
+        }
+
+        if (device_count < 2) {
+            printf("ERROR: Insufficient FTDI devices for dual-tuner mode (found %d, need 2)\n", device_count);
+            printf("       Falling back to single tuner mode\n");
+            dual_tuner_mode = false;
+            return ftdi_init(usb_bus1, usb_addr1);
+        }
+
+        // Use first device for primary, second for secondary
+        // If specific first device was requested, find it in the list
+        if (usb_bus1 != 0 || usb_addr1 != 0) {
+            bool found_primary = false;
+            for (int i = 0; i < device_count; i++) {
+                if (bus_list[i] == usb_bus1 && addr_list[i] == usb_addr1) {
+                    found_primary = true;
+                    // Use the other device as secondary
+                    for (int j = 0; j < device_count; j++) {
+                        if (j != i) {
+                            usb_bus2 = bus_list[j];
+                            usb_addr2 = addr_list[j];
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            if (!found_primary) {
+                printf("ERROR: Specified primary device not found\n");
+                return ERROR_FTDI_USB_BAD_DEVICE_NUM;
+            }
+        } else {
+            // Use first two detected devices
+            usb_bus1 = bus_list[0];
+            usb_addr1 = addr_list[0];
+            usb_bus2 = bus_list[1];
+            usb_addr2 = addr_list[1];
+        }
+
+        printf("      Status: Auto-detected devices - Primary: %d,%d Secondary: %d,%d\n",
+               usb_bus1, usb_addr1, usb_bus2, usb_addr2);
+    }
+
+    /* CRITICAL: Follow open_tuner hw_init sequence exactly */
+    printf("      Status: Following open_tuner critical initialization sequence\n");
+
+    /* Step 1: Initialize dual USB devices with MPSSE modes (done in ftdi_usb_init_dual) */
+    err = ftdi_usb_init_dual(usb_bus1, usb_addr1, usb_bus2, usb_addr2, FTDI_VID, FTDI_PID);
+    if (err != ERROR_NONE) {
+        printf("ERROR: Dual USB initialization failed, falling back to single tuner\n");
+        dual_tuner_mode = false;
+        return ftdi_init(usb_bus1, usb_addr1);
+    }
+
+    /* Step 2: Setup FTDI I/O configuration (open_tuner: ftdi_set_ftdi_io) */
+    printf("      Status: Setting up FTDI I/O configuration\n");
+    if (err == ERROR_NONE) err = ftdi_setup_ftdi_io();
+    if (err != ERROR_NONE) {
+        printf("ERROR: FTDI I/O setup failed, falling back to single tuner\n");
+        dual_tuner_mode = false;
+        return ftdi_init(usb_bus1, usb_addr1);
+    }
+
+    /* Step 3: NIM reset (open_tuner: ftdi_nim_reset) */
+    printf("      Status: Performing NIM reset\n");
+    if (err == ERROR_NONE) err = ftdi_nim_reset();
+    if (err != ERROR_NONE) {
+        printf("ERROR: NIM reset failed, falling back to single tuner\n");
+        dual_tuner_mode = false;
+        return ftdi_init(usb_bus1, usb_addr1);
+    }
+
+    /* Step 4: Mark dual tuner mode as successfully initialized */
+    if (err == ERROR_NONE) {
+        dual_tuner_mode = true;
+        printf("      Status: Dual tuner FTDI initialization successful\n");
+        printf("      Status: Ready for TOP demodulator initialization first\n");
+    } else {
+        printf("ERROR: Dual tuner FTDI setup failed, falling back to single tuner\n");
+        dual_tuner_mode = false;
+        return ftdi_init(usb_bus1, usb_addr1);
+    }
 
     return err;
 }
