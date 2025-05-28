@@ -218,3 +218,236 @@ uint8_t nim_send_d0() {
     printf("Flow: NIM send D0 (placeholder)\n");
     return ERROR_NONE;
 }
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_init_tuner(uint8_t tuner) {
+/* -------------------------------------------------------------------------------------------------- */
+/* initializes a specific tuner (1 or 2) - minimal init for tuner 2                                  */
+/*   tuner: tuner number (1 or 2)                                                                     */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    printf("Flow: NIM init tuner %d\n", tuner);
+
+    if (tuner == 1) {
+        // Tuner 1 uses the standard nim_init() function
+        err = nim_init();
+    } else if (tuner == 2) {
+        // Tuner 2 minimal initialization - just reset repeater state
+        // The actual demodulator and tuner hardware is shared, so no full init needed
+        repeater_on2 = false;
+        printf("Flow: Tuner 2 initialized (minimal - uses shared hardware)\n");
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        err = ERROR_ARGS_INPUT;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_read_demod_tuner(uint8_t tuner, uint16_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads a demodulator register for specific tuner, handling repeater state                           */
+/*   tuner: tuner number (1 or 2)                                                                     */
+/*     reg: which demod register to read                                                              */
+/*     val: where to put the result                                                                   */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function with repeater_on
+        if (repeater_on) {
+            repeater_on = false;
+            err = nim_write_demod(0xf12a, 0x38);
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (repeater_on2) {
+            repeater_on2 = false;
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0x38);
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_read_reg16(NIM_DEMOD_ADDR, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: demod read tuner %d reg 0x%.4x\n", tuner, reg);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_demod_tuner(uint8_t tuner, uint16_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to a demodulator register for specific tuner, handling repeater state                       */
+/*   tuner: tuner number (1 or 2)                                                                     */
+/*     reg: which demod register to write to                                                          */
+/*     val: what to write to it                                                                       */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function with repeater_on
+        if (repeater_on) {
+            repeater_on = false;
+            err = nim_write_demod(0xf12a, 0x38);
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (repeater_on2) {
+            repeater_on2 = false;
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0x38);
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: demod write tuner %d reg 0x%.4x, val 0x%.2x\n", tuner, reg, val);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_read_tuner_tuner(uint8_t tuner, uint8_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads from the tuner for specific tuner, handling repeater state                                   */
+/*   tuner: tuner number (1 or 2)                                                                     */
+/*     reg: which tuner register to read from                                                         */
+/*     val: where to put the result                                                                   */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function
+        if (!repeater_on) {
+            err = nim_write_demod(0xf12a, 0xb8);
+            repeater_on = true;
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (!repeater_on2) {
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+            repeater_on2 = true;
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_read_reg8(NIM_TUNER_ADDR, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: tuner read tuner %d reg 0x%.2x\n", tuner, reg);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_tuner_tuner(uint8_t tuner, uint8_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to the tuner for specific tuner, handling repeater state                                    */
+/*   tuner: tuner number (1 or 2)                                                                     */
+/*     reg: which tuner register to write to                                                          */
+/*     val: what to write to it                                                                       */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function
+        if (!repeater_on) {
+            err = nim_write_demod(0xf12a, 0xb8);
+            repeater_on = true;
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (!repeater_on2) {
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+            repeater_on2 = true;
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_write_reg8(NIM_TUNER_ADDR, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: tuner write tuner %d reg %d, val %d\n", tuner, reg, val);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_read_lna_tuner(uint8_t tuner, uint8_t lna_addr, uint8_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads from the specified lna for specific tuner, handling repeater state                           */
+/*    tuner: tuner number (1 or 2)                                                                    */
+/* lna_addr: i2c address of the lna to access                                                         */
+/*      reg: which lna register to read                                                               */
+/*      val: where to put the result                                                                  */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function
+        if (!repeater_on) {
+            err = nim_write_demod(0xf12a, 0xb8);
+            repeater_on = true;
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (!repeater_on2) {
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+            repeater_on2 = true;
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_read_reg8(lna_addr, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: lna read tuner %d addr 0x%.2x, reg 0x%.2x\n", tuner, lna_addr, reg);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_lna_tuner(uint8_t tuner, uint8_t lna_addr, uint8_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to the specified lna for specific tuner, handling repeater state                            */
+/*    tuner: tuner number (1 or 2)                                                                    */
+/* lna_addr: i2c address of the lna to access                                                         */
+/*      reg: which lna register to write to                                                           */
+/*      val: what to write to it                                                                      */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner == 1) {
+        // Tuner 1 uses standard function
+        if (!repeater_on) {
+            err = nim_write_demod(0xf12a, 0xb8);
+            repeater_on = true;
+        }
+    } else if (tuner == 2) {
+        // Tuner 2 uses repeater_on2 but same I2C connection
+        if (!repeater_on2) {
+            err = ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+            repeater_on2 = true;
+        }
+    } else {
+        printf("ERROR: Invalid tuner number %d\n", tuner);
+        return ERROR_ARGS_INPUT;
+    }
+
+    if (err == ERROR_NONE) err = ftdi_i2c_write_reg8(lna_addr, reg, val);
+    if (err != ERROR_NONE) printf("ERROR: lna write tuner %d addr 0x%.2x, reg 0x%.2x, val 0x%.2x\n", tuner, lna_addr, reg, val);
+
+    return err;
+}
