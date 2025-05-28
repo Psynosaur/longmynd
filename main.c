@@ -61,6 +61,7 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 static longmynd_config_t longmynd_config;
+static bool second_ftdi_initialized = false;
 /* = {
 
     freq_index : 0,
@@ -183,6 +184,51 @@ void config_set_tsip(char *tsip)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t init_second_ftdi_if_needed(void)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Initializes the second FTDI device if not already initialized                                       */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (!second_ftdi_initialized && longmynd_config.dual_tuner_enabled) {
+        printf("Flow: Initializing second FTDI device for tuner 2 (on-demand)\n");
+        err = ftdi_init2(longmynd_config.device2_usb_bus, longmynd_config.device2_usb_addr);
+        if (err == ERROR_NONE) {
+            second_ftdi_initialized = true;
+            printf("Flow: Second FTDI device initialized successfully\n");
+
+            // Initialize second tuner UDP streaming if configured
+            if (longmynd_config.ts2_use_ip) {
+                udp_ts2_init(longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+                printf("Flow: Second tuner UDP streaming to %s:%d\n",
+                       longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
+            }
+
+            // Initialize second tuner NIM
+            err = nim_init_tuner(2);
+            if (err == ERROR_NONE) {
+                printf("Flow: Second tuner NIM initialized successfully\n");
+
+                // Publish tuner 2 configuration status now that it's available
+                if (longmynd_config.status_use_mqtt) {
+                    printf("Flow: Publishing MQTT configuration for tuner 2\n");
+                    mqtt_publish_config_status(2);
+                }
+            } else {
+                printf("ERROR: Failed to initialize second tuner NIM\n");
+                second_ftdi_initialized = false; // Reset flag on failure
+            }
+        } else {
+            printf("ERROR: Failed to initialize second FTDI device\n");
+        }
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 void tuning_parameter_handler(uint8_t tuner, const char* param, const char* value)
 {
 /* -------------------------------------------------------------------------------------------------- */
@@ -220,10 +266,22 @@ void tuning_parameter_handler(uint8_t tuner, const char* param, const char* valu
         }
     }
     else if (tuner == 2) {
+        // Initialize second FTDI device if not already done
+        uint8_t init_err = init_second_ftdi_if_needed();
+        if (init_err != ERROR_NONE) {
+            printf("ERROR: Cannot control tuner 2 - initialization failed\n");
+            return;
+        }
+
         // Handle tuner 2 parameter changes
         pthread_mutex_lock(&longmynd_config.mutex);
 
-        if (strcmp(param, "sr") == 0) {
+        if (strcmp(param, "init") == 0) {
+            // Manual initialization command for tuner 2
+            printf("Flow: Manual initialization requested for tuner 2\n");
+            // Initialization already handled above, just confirm
+        }
+        else if (strcmp(param, "sr") == 0) {
             uint32_t symbolrate = (uint32_t)strtol(value, NULL, 10);
             if (symbolrate <= 27500 && symbolrate >= 33) {
                 longmynd_config.sr_requested[0] = symbolrate; // For now, use same array for tuner 2
@@ -1207,28 +1265,28 @@ uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(1, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name, output_ready_ptr);
 
-    // Publish tuner 2 status using tuner-aware MQTT functions
-    if (err == ERROR_NONE && *output_ready_ptr)
+    // Publish tuner 2 status using tuner-aware MQTT functions (only if initialized)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_STATE, status->state2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_LNA_GAIN, status->lna_gain2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_AGC1_GAIN, status->agc1_gain2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_AGC2_GAIN, status->agc2_gain2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_MER, status->modulation_error_rate2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_MODCOD, status->modcod2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_SYMBOL_RATE, status->symbolrate2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(2, STATUS_CARRIER_FREQUENCY,
                                       (uint32_t)(status->frequency_requested2 + (status->frequency_offset2 / 1000)),
                                       output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_NAME, status->service_name2, output_ready_ptr);
-    if (err == ERROR_NONE && *output_ready_ptr)
+    if (second_ftdi_initialized && err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(2, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name2, output_ready_ptr);
 
     return err;
@@ -1291,12 +1349,11 @@ int main(int argc, char *argv[])
         status_write = mqtt_status_write;
         status_string_write = mqtt_status_string_write;
 
-        // Publish initial configuration status for both tuners if dual-tuner mode is enabled
-        if (longmynd_config.dual_tuner_enabled) {
-            printf("Flow: Publishing initial dual-tuner MQTT configuration\n");
-            mqtt_publish_config_status(1);
-            mqtt_publish_config_status(2);
-        }
+        // Publish initial configuration status for tuner 1 (always available)
+        printf("Flow: Publishing initial MQTT configuration for tuner 1\n");
+        mqtt_publish_config_status(1);
+
+        // Tuner 2 configuration will be published when it's initialized on-demand
     }
     else
     {
@@ -1309,23 +1366,9 @@ int main(int argc, char *argv[])
     if (err == ERROR_NONE)
         err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
 
-    // Initialize second FTDI device if dual-tuner mode is enabled
-    if (err == ERROR_NONE && longmynd_config.dual_tuner_enabled) {
-        printf("Flow: Initializing second FTDI device for dual-tuner mode\n");
-        err = ftdi_init2(longmynd_config.device2_usb_bus, longmynd_config.device2_usb_addr);
-        if (err == ERROR_NONE) {
-            printf("Flow: Second FTDI device initialized successfully\n");
-
-            // Initialize second tuner UDP streaming if configured
-            if (longmynd_config.ts2_use_ip) {
-                udp_ts2_init(longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
-                printf("Flow: Second tuner UDP streaming to %s:%d\n",
-                       longmynd_config.ts2_ip_addr, longmynd_config.ts2_ip_port);
-            }
-        } else {
-            printf("ERROR: Failed to initialize second FTDI device\n");
-        }
-    }
+    // Note: Second FTDI device initialization will be handled by MQTT commands or manual control
+    // This ensures TOP demodulator is always initialized first and second tuner is only
+    // initialized when explicitly requested
 
     thread_vars_t thread_vars_ts;
         thread_vars_ts.main_err_ptr = &err;
