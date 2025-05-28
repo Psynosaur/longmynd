@@ -966,19 +966,20 @@ void *loop_i2c(void *arg)
             if (*err == ERROR_NONE)
             {
                 if (config_cpy.dual_tuner_enabled) {
-                    /* CRITICAL: Use dual-tuner scan start with proper demodulator selection */
+                    /* In dual-tuner mode, scan start is already handled by stv0910_init_dual_sequence */
+                    /* Only tuner 1 should set the state since both demodulators are already scanning */
                     if (thread_vars->tuner_id == 1) {
-                        printf("      Status: Starting TOP demodulator scan (tuner 1)\n");
-                        *err = stv0910_start_scan_dual(STV0910_DEMOD_TOP);
+                        printf("      Status: Dual-tuner scan already initiated by init sequence\n");
+                        status_cpy.state = STATE_DEMOD_HUNTING;
                     } else {
-                        printf("      Status: Starting BOTTOM demodulator scan (tuner 2)\n");
-                        *err = stv0910_start_scan_dual(STV0910_DEMOD_BOTTOM);
+                        printf("      Status: Tuner 2 scan already initiated - monitoring BOTTOM demodulator\n");
+                        status_cpy.state = STATE_DEMOD_HUNTING;
                     }
                 } else {
                     /* Single tuner mode - original behavior */
                     *err = stv0910_start_scan(STV0910_DEMOD_TOP);
+                    status_cpy.state = STATE_DEMOD_HUNTING;
                 }
-                status_cpy.state = STATE_DEMOD_HUNTING;
             }
 
             status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();
