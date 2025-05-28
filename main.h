@@ -173,6 +173,11 @@ typedef struct {
     longmynd_config_t *config;
     longmynd_status_t *status;
     uint8_t tuner_id;  // 1 for tuner 1, 2 for tuner 2 (dual-tuner support)
+
+    /* Dual-tuner synchronization */
+    pthread_mutex_t *dual_sync_mutex;
+    pthread_cond_t *dual_sync_cond;
+    bool *top_demod_ready;
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);

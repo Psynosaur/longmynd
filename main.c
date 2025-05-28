@@ -825,11 +825,32 @@ void *loop_i2c(void *arg)
                             printf("      Status: Initializing dual demodulators with TOP-first sequence\n");
                             *err = stv0910_init_dual_sequence(config_cpy.sr_requested[config_cpy.sr_index],
                                                              config_cpy.sr_requested[config_cpy.sr_index]);
+
+                            /* Signal that TOP demodulator is ready */
+                            if (*err == ERROR_NONE && thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
+                                pthread_mutex_lock(thread_vars->dual_sync_mutex);
+                                *thread_vars->top_demod_ready = true;
+                                pthread_cond_broadcast(thread_vars->dual_sync_cond);
+                                pthread_mutex_unlock(thread_vars->dual_sync_mutex);
+                                printf("      Status: TOP demodulator initialization complete - signaling BOTTOM demodulator\n");
+                            }
                         } else {
                             /* Tuner 2 (BOTTOM demodulator) - wait for TOP to be initialized first */
                             printf("      Status: Tuner 2 waiting for TOP demodulator to be stable\n");
-                            /* Small delay to ensure TOP demodulator is fully initialized */
-                            usleep(50000); /* 50ms delay */
+
+                            if (thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
+                                pthread_mutex_lock(thread_vars->dual_sync_mutex);
+                                while (!*thread_vars->top_demod_ready) {
+                                    printf("      Status: Waiting for TOP demodulator initialization...\n");
+                                    pthread_cond_wait(thread_vars->dual_sync_cond, thread_vars->dual_sync_mutex);
+                                }
+                                pthread_mutex_unlock(thread_vars->dual_sync_mutex);
+                                printf("      Status: TOP demodulator ready - proceeding with BOTTOM demodulator\n");
+                            } else {
+                                /* Fallback to time-based delay if synchronization not available */
+                                printf("      Status: Using fallback delay for TOP demodulator stability\n");
+                                usleep(100000); /* 100ms delay */
+                            }
                             /* No additional STV0910 initialization needed for tuner 2 */
                         }
                     } else {
@@ -1420,6 +1441,10 @@ int main(int argc, char *argv[])
     }
 
     // Initialize status structures for dual-tuner mode
+    pthread_mutex_t dual_sync_mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t dual_sync_cond = PTHREAD_COND_INITIALIZER;
+    bool top_demod_ready = false;
+
     if (longmynd_config.dual_tuner_enabled) {
         printf("Flow: Initializing dual-tuner status structures\n");
         memcpy(&longmynd_status_tuner1, &longmynd_status, sizeof(longmynd_status_t));
@@ -1430,6 +1455,11 @@ int main(int argc, char *argv[])
         pthread_cond_init(&longmynd_status_tuner1.signal, NULL);
         pthread_mutex_init(&longmynd_status_tuner2.mutex, NULL);
         pthread_cond_init(&longmynd_status_tuner2.signal, NULL);
+
+        // Initialize dual-tuner synchronization
+        pthread_mutex_init(&dual_sync_mutex, NULL);
+        pthread_cond_init(&dual_sync_cond, NULL);
+        printf("Flow: Dual-tuner synchronization initialized\n");
     }
 
     thread_vars_t thread_vars_ts;
@@ -1438,6 +1468,9 @@ int main(int argc, char *argv[])
         thread_vars_ts.config = &longmynd_config;
         thread_vars_ts.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
         thread_vars_ts.tuner_id = 1;
+        thread_vars_ts.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
+        thread_vars_ts.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
+        thread_vars_ts.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -1458,6 +1491,9 @@ int main(int argc, char *argv[])
         thread_vars_ts_parse.config = &longmynd_config;
         thread_vars_ts_parse.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
         thread_vars_ts_parse.tuner_id = 1;
+        thread_vars_ts_parse.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
+        thread_vars_ts_parse.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
+        thread_vars_ts_parse.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -1486,6 +1522,9 @@ int main(int argc, char *argv[])
         thread_vars_ts_tuner2.config = &longmynd_config;
         thread_vars_ts_tuner2.status = &longmynd_status_tuner2;
         thread_vars_ts_tuner2.tuner_id = 2;
+        thread_vars_ts_tuner2.dual_sync_mutex = &dual_sync_mutex;
+        thread_vars_ts_tuner2.dual_sync_cond = &dual_sync_cond;
+        thread_vars_ts_tuner2.top_demod_ready = &top_demod_ready;
 
         if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts, (void *)&thread_vars_ts_tuner2)) {
             //pthread_setname_np(thread_ts_tuner2, "TS Transport 2");
@@ -1501,6 +1540,9 @@ int main(int argc, char *argv[])
             thread_vars_ts_parse_tuner2.config = &longmynd_config;
             thread_vars_ts_parse_tuner2.status = &longmynd_status_tuner2;
             thread_vars_ts_parse_tuner2.tuner_id = 2;
+            thread_vars_ts_parse_tuner2.dual_sync_mutex = &dual_sync_mutex;
+            thread_vars_ts_parse_tuner2.dual_sync_cond = &dual_sync_cond;
+            thread_vars_ts_parse_tuner2.top_demod_ready = &top_demod_ready;
 
             if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse_tuner2)) {
                 //pthread_setname_np(thread_ts_parse_tuner2, "TS Parse 2");
@@ -1517,6 +1559,9 @@ int main(int argc, char *argv[])
             thread_vars_i2c_tuner2.config = &longmynd_config;
             thread_vars_i2c_tuner2.status = &longmynd_status_tuner2;
             thread_vars_i2c_tuner2.tuner_id = 2;
+            thread_vars_i2c_tuner2.dual_sync_mutex = &dual_sync_mutex;
+            thread_vars_i2c_tuner2.dual_sync_cond = &dual_sync_cond;
+            thread_vars_i2c_tuner2.top_demod_ready = &top_demod_ready;
 
             if (0 == pthread_create(&thread_i2c_tuner2, NULL, loop_i2c, (void *)&thread_vars_i2c_tuner2)) {
                 //pthread_setname_np(thread_i2c_tuner2, "Receiver 2");
@@ -1533,6 +1578,9 @@ int main(int argc, char *argv[])
         thread_vars_i2c.config = &longmynd_config;
         thread_vars_i2c.status = longmynd_config.dual_tuner_enabled ? &longmynd_status_tuner1 : &longmynd_status;
         thread_vars_i2c.tuner_id = 1;
+        thread_vars_i2c.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
+        thread_vars_i2c.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
+        thread_vars_i2c.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -1723,6 +1771,10 @@ int main(int argc, char *argv[])
         pthread_cond_destroy(&longmynd_status_tuner1.signal);
         pthread_mutex_destroy(&longmynd_status_tuner2.mutex);
         pthread_cond_destroy(&longmynd_status_tuner2.signal);
+
+        /* Cleanup dual-tuner synchronization */
+        pthread_mutex_destroy(&dual_sync_mutex);
+        pthread_cond_destroy(&dual_sync_cond);
     }
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
