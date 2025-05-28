@@ -648,6 +648,41 @@ uint8_t stv0910_setup_ts(uint8_t demod) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_setup_search_params(uint8_t demod) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Setup search parameters for demodulator                                                           */
+/*   Set symbol rate search ratios (SFRUPRATIO, SFRLOWRATIO)                                         */
+/*   Enable auto mode for symbol rate search (AUTO_GUP, AUTO_GLOW)                                   */
+/*   Configure search step parameters                                                                 */
+/*                                                                                                    */
+/*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to configure                 */
+/*  return: error state                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    printf("Flow: STV0910 setup search params demod %d\n", demod);
+
+    /* Set symbol rate search ratios - auto mode will be +/- these ratios from SFRINIT */
+    /* SFRUPRATIO: upper ratio for symbol rate search (default 0x20 = 12.5% above) */
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_SFRUPRATIO : RSTV0910_P1_SFRUPRATIO), 0x20);
+
+    /* SFRLOWRATIO: lower ratio for symbol rate search (default 0xd0 = 18.75% below) */
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_SFRLOWRATIO : RSTV0910_P1_SFRLOWRATIO), 0xd0);
+
+    /* Enable auto mode for symbol rate search: AUTO_GUP=1 and AUTO_GLOW=1 */
+    /* TMGCFG3: AUTO_GUP (bit 2) and AUTO_GLOW (bit 1) enable automatic symbol rate search */
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_TMGCFG3 : RSTV0910_P1_TMGCFG3), 0x06);
+
+    /* Set search step parameters */
+    /* SFRSTEP: scan step and center step for symbol rate search */
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_SFRSTEP : RSTV0910_P1_SFRSTEP), 0x88);
+
+    if (err != ERROR_NONE) printf("ERROR: STV0910 setup search params\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_start_scan(uint8_t demod) {
 /* -------------------------------------------------------------------------------------------------- */
 /* demodulator search sequence is:                                                                    */
