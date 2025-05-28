@@ -60,7 +60,7 @@ uint8_t stvvglna_read_agc(uint8_t input, uint8_t *gain, uint8_t *vgo) {
     /* variable part of the gain for us. Note, it is ok to write 0 to the other bitfields */
     if (err==ERROR_NONE) err=stvvglna_write_reg(lna_addr, STVVGLNA_REG1,
                               STVVGLNA_REG1_GETAGC_START << STVVGLNA_REG1_GETAGC_SHIFT);
-    
+
     do {
         err=stvvglna_read_reg(lna_addr, STVVGLNA_REG1, &status);  /* read out the status */
         timeout++;
@@ -109,13 +109,25 @@ uint8_t stvvglna_init(uint8_t input, uint8_t state, bool *lna_ok) {
        /* otherwise, lna is there so we go on to us it */
         printf("      Status: found new NIM with LNAs\n");
         *lna_ok=true;
- 
+
         /* now check it has a good ID */
-        if ((val & STVVGLNA_REG0_IDENT_MASK) != STVVGLNA_REG0_IDENT_DEFAULT) {
-            printf("ERROR: failed to recognise LNA ID %i %i\n",input,val);
-            err=ERROR_LNA_ID;
+        uint8_t lna_id = (val & STVVGLNA_REG0_IDENT_MASK);
+        if (lna_id != STVVGLNA_REG0_IDENT_DEFAULT) {
+            printf("WARNING: Unexpected LNA ID %i: expected 0x%02x, got 0x%02x (full reg=0x%02x)\n",
+                   input, STVVGLNA_REG0_IDENT_DEFAULT, lna_id, val);
+
+            /* For dual-tuner setups, allow graceful degradation if second LNA has different ID */
+            if (input == NIM_INPUT_BOTTOM && (lna_id == 0x80 || lna_id == 0x00 || lna_id == 0xf0)) {
+                printf("      Status: Dual-tuner mode - treating as older NIM without second LNA\n");
+                *lna_ok = false; /* treat as no LNA available */
+                err = ERROR_NONE; /* don't fail, just disable this LNA */
+                return err;
+            } else {
+                printf("ERROR: failed to recognise LNA ID %i %i\n",input,val);
+                err=ERROR_LNA_ID;
+            }
         }
-  
+
         if (state==STVVGLNA_ON) {
             /* set up the defaults. We are going to use fully automatic mode */
             if (err==ERROR_NONE) err=stvvglna_write_reg(lna_addr,STVVGLNA_REG0,
@@ -162,4 +174,4 @@ void stvvglna_read_regs(uint8_t addr) {
        stvvglna_read_reg(addr,i,&val);
        printf(" 0x%.2x = 0x%.2x\n",i,val);
     }
-} 
+}

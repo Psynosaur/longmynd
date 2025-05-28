@@ -871,10 +871,48 @@ void *loop_i2c(void *arg)
                 *err = tuner_err;
 
             /* we turn on the LNA we want and turn the other off (if they exist) */
-            if (*err == ERROR_NONE)
-                *err = stvvglna_init(NIM_INPUT_TOP, (config_cpy.port_swap) ? STVVGLNA_OFF : STVVGLNA_ON, &status_cpy.lna_ok);
-            if (*err == ERROR_NONE)
-                *err = stvvglna_init(NIM_INPUT_BOTTOM, (config_cpy.port_swap) ? STVVGLNA_ON : STVVGLNA_OFF, &status_cpy.lna_ok);
+            /* Dual-tuner aware LNA initialization with graceful degradation */
+            uint8_t lna_top_err = ERROR_NONE;
+            uint8_t lna_bottom_err = ERROR_NONE;
+            bool lna_top_ok = false;
+            bool lna_bottom_ok = false;
+
+            if (*err == ERROR_NONE) {
+                lna_top_err = stvvglna_init(NIM_INPUT_TOP, (config_cpy.port_swap) ? STVVGLNA_OFF : STVVGLNA_ON, &lna_top_ok);
+                if (lna_top_err != ERROR_NONE) {
+                    printf("WARNING: TOP LNA initialization failed (error %d)\n", lna_top_err);
+                }
+            }
+
+            if (*err == ERROR_NONE) {
+                lna_bottom_err = stvvglna_init(NIM_INPUT_BOTTOM, (config_cpy.port_swap) ? STVVGLNA_ON : STVVGLNA_OFF, &lna_bottom_ok);
+                if (lna_bottom_err != ERROR_NONE) {
+                    if (config_cpy.dual_tuner_enabled) {
+                        printf("WARNING: BOTTOM LNA initialization failed (error %d) - dual-tuner mode may operate with reduced functionality\n", lna_bottom_err);
+                        /* In dual-tuner mode, allow graceful degradation if second LNA fails */
+                        lna_bottom_err = ERROR_NONE;
+                    } else {
+                        printf("WARNING: BOTTOM LNA initialization failed (error %d)\n", lna_bottom_err);
+                    }
+                }
+            }
+
+            /* Set overall LNA status based on available LNAs */
+            status_cpy.lna_ok = lna_top_ok || lna_bottom_ok;
+
+            /* Only fail if both LNAs fail in single-tuner mode, or if TOP LNA fails in dual-tuner mode */
+            if (config_cpy.dual_tuner_enabled) {
+                /* In dual-tuner mode, we need at least the TOP LNA working */
+                if (lna_top_err != ERROR_NONE) {
+                    *err = lna_top_err;
+                    printf("ERROR: TOP LNA initialization failed in dual-tuner mode - cannot continue\n");
+                }
+            } else {
+                /* In single-tuner mode, fail if any critical LNA fails */
+                if (lna_top_err != ERROR_NONE || lna_bottom_err != ERROR_NONE) {
+                    *err = (lna_top_err != ERROR_NONE) ? lna_top_err : lna_bottom_err;
+                }
+            }
 
             if (*err != ERROR_NONE)
                 printf("ERROR: failed to init a device - is the NIM powered on?\n");
