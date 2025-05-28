@@ -61,7 +61,7 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 static longmynd_config_t longmynd_config;
-static bool second_ftdi_initialized = false;
+bool second_ftdi_initialized = false;
 /* = {
 
     freq_index : 0,
@@ -327,7 +327,7 @@ void tuning_parameter_handler(uint8_t tuner, const char* param, const char* valu
             // Update tuner 2 TS IP
             strncpy(longmynd_config.ts2_ip_addr, value, 15);
             longmynd_config.ts2_ip_addr[15] = '\0';
-            udp_ts2_init(value, longmynd_config.ts2_ip_port);
+            udp_ts2_init((char*)value, longmynd_config.ts2_ip_port);
             longmynd_config.new_config = true;
             printf("Flow: Tuner 2 TS IP set to %s\n", value);
         }

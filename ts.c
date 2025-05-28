@@ -20,6 +20,7 @@
 */
 
 #include <string.h>
+#include <unistd.h>
 
 #include "main.h"
 #include "errors.h"
@@ -183,6 +184,7 @@ static inline void timespec_add_ns(struct timespec *ts, int32_t ns)
 }
 
 static longmynd_status_t *ts_longmynd_status;
+static longmynd_status_t *ts_longmynd_status2;
 
 static void ts_callback_sdt_service(
     uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
@@ -362,7 +364,7 @@ void *loop_ts_tuner2(void *arg) {
             status->service_name2[0] = '\0';
             status->service_provider_name2[0] = '\0';
             status->ts_null_percentage2 = 100;
-            status->ts_packet_count_nolock2 = 0;
+            status->ts2_packet_count_nolock = 0;
 
             for (int j=0; j<NUM_ELEMENT_STREAMS; j++) {
                 status->ts_elementary_streams2[j][0] = 0;
@@ -407,7 +409,7 @@ void *loop_ts_tuner2(void *arg) {
                 pthread_mutex_unlock(&longmynd_ts_parse_buffer2.mutex);
             }
 
-            status->ts_packet_count_nolock2 += (len-2);
+            status->ts2_packet_count_nolock += (len-2);
         }
     }
 
@@ -501,7 +503,6 @@ void *loop_ts_parse_tuner2(void *arg) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Second tuner TS callback functions                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
-static longmynd_status_t *ts_longmynd_status2;
 
 static void ts_callback_sdt_service2(
     uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
