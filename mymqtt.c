@@ -129,7 +129,7 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 static struct mosquitto *mosq;
 
 /* Dual-tuner MQTT globals */
-static bool dual_tuner_mqtt_enabled = false;
+bool dual_tuner_mqtt_enabled = false;
 
 int mqttinit(char *MqttBroker)
 {

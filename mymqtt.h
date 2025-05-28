@@ -13,4 +13,8 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data
 uint8_t mqtt_status_string_write_tuner(uint8_t tuner_id, uint8_t message, char *data, bool *output_ready);
 void mqtt_set_dual_tuner_mode(bool enabled);
 void mqtt_process_dual_command(const char *topic, const char *payload);
+
+/* Dual-tuner MQTT global variable */
+extern bool dual_tuner_mqtt_enabled;
+
 #endif
