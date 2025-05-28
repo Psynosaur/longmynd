@@ -925,10 +925,11 @@ uint8_t stv0910_setup_receive_dual(uint8_t demod, uint32_t symbol_rate) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_start_scan_dual(uint8_t demod) {
+uint8_t stv0910_start_scan_dual_controlled(uint8_t demod, bool skip_top_check) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Start scan for a specific demodulator following open_tuner sequence                               */
 /*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to start scanning            */
+/*   skip_top_check: if true, skip the TOP demodulator state check (for controlled sequences)        */
 /*   return: error code                                                                               */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
@@ -941,13 +942,18 @@ uint8_t stv0910_start_scan_dual(uint8_t demod) {
         return ERROR_DEMOD_INIT;
     }
 
-    /* CRITICAL: Ensure TOP demodulator is started before BOTTOM */
-    if (demod == STV0910_DEMOD_BOTTOM) {
+    /* CRITICAL: Ensure TOP demodulator is started before BOTTOM (unless in controlled sequence) */
+    if (demod == STV0910_DEMOD_BOTTOM && !skip_top_check) {
         uint8_t top_state = 0;
         err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &top_state);
         if (err == ERROR_NONE && top_state == 0) {
-            printf("WARNING: Starting BOTTOM demodulator before TOP is initialized\n");
-            printf("         This may cause I2C communication errors\n");
+            /* Give TOP demodulator a moment to transition from initialization to scanning */
+            usleep(5000); /* 5ms delay */
+            err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &top_state);
+            if (err == ERROR_NONE && top_state == 0) {
+                printf("WARNING: Starting BOTTOM demodulator before TOP is initialized\n");
+                printf("         This may cause I2C communication errors\n");
+            }
         }
     }
 
@@ -956,6 +962,16 @@ uint8_t stv0910_start_scan_dual(uint8_t demod) {
     if (err != ERROR_NONE) printf("ERROR: STV0910 dual start scan\n");
 
     return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_start_scan_dual(uint8_t demod) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Start scan for a specific demodulator following open_tuner sequence                               */
+/*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to start scanning            */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    return stv0910_start_scan_dual_controlled(demod, false);
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -980,7 +996,7 @@ uint8_t stv0910_init_dual_sequence(uint32_t sr1, uint32_t sr2) {
     /* Step 2: Start TOP demodulator first if enabled */
     if (sr1 > 0) {
         printf("      Status: Starting TOP demodulator scan (first)\n");
-        err = stv0910_start_scan_dual(STV0910_DEMOD_TOP);
+        err = stv0910_start_scan_dual_controlled(STV0910_DEMOD_TOP, true);
         if (err != ERROR_NONE) {
             printf("ERROR: TOP demodulator scan start failed\n");
             return err;
@@ -993,7 +1009,7 @@ uint8_t stv0910_init_dual_sequence(uint32_t sr1, uint32_t sr2) {
     /* Step 3: Start BOTTOM demodulator second if enabled */
     if (sr2 > 0) {
         printf("      Status: Starting BOTTOM demodulator scan (second, after TOP stable)\n");
-        err = stv0910_start_scan_dual(STV0910_DEMOD_BOTTOM);
+        err = stv0910_start_scan_dual_controlled(STV0910_DEMOD_BOTTOM, true);
         if (err != ERROR_NONE) {
             printf("ERROR: BOTTOM demodulator scan start failed\n");
             return err;

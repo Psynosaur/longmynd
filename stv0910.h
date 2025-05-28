@@ -73,6 +73,7 @@ uint8_t stv0910_setup_receive(uint8_t, uint32_t);
 uint8_t stv0910_init_dual(uint32_t sr1, uint32_t sr2);
 uint8_t stv0910_setup_receive_dual(uint8_t demod, uint32_t symbol_rate);
 uint8_t stv0910_start_scan_dual(uint8_t demod);
+uint8_t stv0910_start_scan_dual_controlled(uint8_t demod, bool skip_top_check);
 uint8_t stv0910_init_dual_sequence(uint32_t sr1, uint32_t sr2);
 uint8_t stv0910_read_status_dual(uint8_t demod, uint8_t *scan_state, uint32_t *symbol_rate, uint32_t *modcod, bool *short_frame, bool *pilots);
 
