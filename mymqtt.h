@@ -23,4 +23,7 @@ uint8_t mqtt_publish_tuning_status(uint8_t tuner);
 // Configuration publishing
 uint8_t mqtt_publish_config_status(uint8_t tuner);
 
+// Initialization status publishing
+uint8_t mqtt_publish_init_status(uint8_t tuner, bool success);
+
 #endif

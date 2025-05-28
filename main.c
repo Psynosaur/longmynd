@@ -279,7 +279,20 @@ void tuning_parameter_handler(uint8_t tuner, const char* param, const char* valu
         if (strcmp(param, "init") == 0) {
             // Manual initialization command for tuner 2
             printf("Flow: Manual initialization requested for tuner 2\n");
-            // Initialization already handled above, just confirm
+            // Initialization already handled above by init_second_ftdi_if_needed()
+            if (second_ftdi_initialized) {
+                printf("Flow: Tuner 2 initialization successful\n");
+                // Publish confirmation status
+                if (longmynd_config.status_use_mqtt) {
+                    mqtt_publish_init_status(2, true);
+                }
+            } else {
+                printf("ERROR: Tuner 2 initialization failed\n");
+                // Publish failure status
+                if (longmynd_config.status_use_mqtt) {
+                    mqtt_publish_init_status(2, false);
+                }
+            }
         }
         else if (strcmp(param, "sr") == 0) {
             uint32_t symbolrate = (uint32_t)strtol(value, NULL, 10);

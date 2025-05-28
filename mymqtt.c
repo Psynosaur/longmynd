@@ -164,7 +164,11 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 	{
 		char *param = key + 21; // Skip "cmd/longmynd2/tuner2/"
 
-		if (strcmp(param, "sr") == 0)
+		if (strcmp(param, "init") == 0)
+		{
+			if (tuning_callback) tuning_callback(2, "init", svalue);
+		}
+		else if (strcmp(param, "sr") == 0)
 		{
 			Symbolrate2 = atol(svalue);
 			if (tuning_callback) tuning_callback(2, "sr", svalue);
@@ -714,6 +718,31 @@ uint8_t mqtt_publish_config_status(uint8_t tuner)
 
 	// Publish current configuration
 	mqtt_publish_tuning_status(tuner);
+
+	return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t mqtt_publish_init_status(uint8_t tuner, bool success)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Publishes tuner initialization status                                                              */
+/*  tuner: tuner number (1 or 2)                                                                      */
+/* success: true if initialization was successful, false otherwise                                    */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+	uint8_t err = ERROR_NONE;
+	char status_topic[255];
+	char status_message[255];
+
+	if (tuner != 1 && tuner != 2) {
+		printf("ERROR: Invalid tuner number %d\n", tuner);
+		return ERROR_ARGS_INPUT;
+	}
+
+	sprintf(status_topic, "dt/longmynd2/tuner%d/status/initialized", tuner);
+	sprintf(status_message, "%s", success ? "true" : "false");
+	mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 	return err;
 }
