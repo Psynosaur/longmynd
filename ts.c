@@ -224,6 +224,16 @@ static void ts_callback_ts_stats(uint32_t *ts_packet_total_count_ptr, uint32_t *
     }
 }
 
+/* Second tuner callback function declarations */
+static void ts_callback_sdt_service2(
+    uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
+    uint8_t *service_name_ptr, uint32_t *service_name_length_ptr
+);
+
+static void ts_callback_pmt_pids2(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es_pid, uint32_t *ts_pmt_es_type);
+
+static void ts_callback_ts_stats2(uint32_t *ts_packet_total_count_ptr, uint32_t *ts_null_percentage_ptr);
+
 /* -------------------------------------------------------------------------------------------------- */
 void *loop_ts_parse(void *arg) {
 /* -------------------------------------------------------------------------------------------------- */
