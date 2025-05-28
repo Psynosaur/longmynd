@@ -484,8 +484,16 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 param--; /* there is no data for this so go back */
                 break;
             case 'U':
-                config->device2_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
-                config->device2_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                // Check if next argument exists and is not another flag
+                if (param < argc - 2 && argv[param][0] != '-') {
+                    config->device2_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
+                    config->device2_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                } else {
+                    // Auto-detect second FTDI device (use 0,0 to indicate auto-detection)
+                    config->device2_usb_bus = 0;
+                    config->device2_usb_addr = 0;
+                    param--; // No parameters consumed, go back
+                }
                 break;
             case 'j':
                 strncpy(config->ts2_ip_addr, argv[param++], (16 - 1));
