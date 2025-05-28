@@ -46,5 +46,8 @@ uint8_t stv6120_cal_lowpass(uint8_t);
 void stv6120_print_settings();
 uint8_t stv6120_powerdown_both_paths(void);
 
+// Dual-tuner function
+uint8_t stv6120_init_tuner(uint8_t tuner, uint32_t frequency, bool swap);
+
 #endif
 

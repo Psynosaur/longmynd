@@ -79,6 +79,8 @@ typedef struct {
     uint8_t sr_index=0;
     uint32_t freq_requested[4];
     uint32_t sr_requested[4];
+    uint8_t freq_count=1;
+    uint8_t sr_count=1;
     bool beep_enabled;
 
     uint8_t device_usb_bus;
@@ -88,6 +90,15 @@ typedef struct {
     bool dual_tuner_enabled;
     uint8_t device2_usb_bus;
     uint8_t device2_usb_addr;
+    bool port_swap2;
+    uint8_t port2;
+    float halfscan_ratio2;
+    uint8_t freq_index2=0;
+    uint8_t sr_index2=0;
+    uint32_t freq_requested2[4];
+    uint32_t sr_requested2[4];
+    uint8_t freq_count2=1;
+    uint8_t sr_count2=1;
 
     bool ts_use_ip;
     bool ts_reset;
@@ -114,6 +125,7 @@ typedef struct {
     int ts_timeout;
 
     bool new_config=false;
+    bool new_config2=false;
     pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 } longmynd_config_t;
 
@@ -208,6 +220,18 @@ void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
 void config_set_swport(bool sport);
 void config_set_tsip(char *tsip);
+
+// Dual-tuner functions
+void *loop_i2c_tuner2(void *arg);
+uint8_t do_report_tuner2(longmynd_status_t *status);
+uint8_t init_second_ftdi_if_needed(void);
+uint8_t status_all_write_dual_tuner(longmynd_status_t *status,
+                                    uint8_t (*status_write_func)(uint8_t, uint32_t, bool *),
+                                    uint8_t (*status_string_write_func)(uint8_t, char *, bool *),
+                                    bool *output_ready_ptr);
+
+// External variables
+extern bool second_ftdi_initialized;
 
 #endif
 

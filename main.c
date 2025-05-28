@@ -85,6 +85,11 @@ static pthread_t thread_ts;
 static pthread_t thread_i2c;
 static pthread_t thread_beep;
 
+// Second tuner threads
+static pthread_t thread_i2c_tuner2;
+static pthread_t thread_ts_tuner2;
+static pthread_t thread_ts_parse_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -872,6 +877,105 @@ uint8_t do_report(longmynd_status_t *status)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t do_report_tuner2(longmynd_status_t *status)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* interrogates the second tuner demodulator to find the interesting info to report                   */
+    /*  status: the state struct                                                                          */
+    /* return: error code                                                                                 */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    /* LNAs if present */
+    if (status->lna_ok2)
+    {
+        uint8_t lna_gain, lna_vgo;
+        if (err == ERROR_NONE)
+            stvvglna_read_agc(NIM_INPUT_BOTTOM, &lna_gain, &lna_vgo);
+        status->lna_gain2 = (lna_gain << 5) | lna_vgo;
+    }
+
+    /* AGC1 Gain */
+    if (err == ERROR_NONE)
+        err = stv0910_read_agc1_gain(STV0910_DEMOD_BOTTOM, &status->agc1_gain2);
+
+    /* AGC2 Gain */
+    if (err == ERROR_NONE)
+        err = stv0910_read_agc2_gain(STV0910_DEMOD_BOTTOM, &status->agc2_gain2);
+
+    /* I,Q powers */
+    if (err == ERROR_NONE)
+        err = stv0910_read_power(STV0910_DEMOD_BOTTOM, &status->power_i2, &status->power_q2);
+
+    /* constellations */
+    if (err == ERROR_NONE)
+    {
+        for (uint8_t count = 0; (err == ERROR_NONE && count < NUM_CONSTELLATIONS); count++)
+        {
+            err = stv0910_read_constellation(STV0910_DEMOD_BOTTOM, &status->constellation2[count][0], &status->constellation2[count][1]);
+        }
+    }
+
+    /* puncture rate */
+    if (err == ERROR_NONE)
+        err = stv0910_read_puncture_rate(STV0910_DEMOD_BOTTOM, &status->puncture_rate2);
+
+    /* carrier frequency offset we are trying */
+    if (err == ERROR_NONE)
+        err = stv0910_read_car_freq(STV0910_DEMOD_BOTTOM, &status->frequency_offset2);
+
+    /* symbol rate we are trying */
+    if (err == ERROR_NONE)
+        err = stv0910_read_sr(STV0910_DEMOD_BOTTOM, &status->symbolrate2);
+
+    /* viterbi error rate */
+    if (err == ERROR_NONE)
+        err = stv0910_read_err_rate(STV0910_DEMOD_BOTTOM, &status->viterbi_error_rate2);
+
+    /* BER */
+    if (err == ERROR_NONE)
+        err = stv0910_read_ber(STV0910_DEMOD_BOTTOM, &status->bit_error_rate2);
+
+    /* BCH Uncorrected Flag */
+    if (err == ERROR_NONE)
+        err = stv0910_read_errors_bch_uncorrected(STV0910_DEMOD_BOTTOM, &status->errors_bch_uncorrected2);
+
+    /* BCH Error Count */
+    if (err == ERROR_NONE)
+        err = stv0910_read_errors_bch_count(STV0910_DEMOD_BOTTOM, &status->errors_bch_count2);
+
+    /* LDPC Error Count */
+    if (err == ERROR_NONE)
+        err = stv0910_read_errors_ldpc_count(STV0910_DEMOD_BOTTOM, &status->errors_ldpc_count2);
+
+    if (err == ERROR_NONE)
+        err = stv0910_read_matype(STV0910_DEMOD_BOTTOM, &status->matype1_2, &status->matype2_2);
+
+    /* MER */
+    if (status->state2 == STATE_DEMOD_S || status->state2 == STATE_DEMOD_S2)
+    {
+        if (err == ERROR_NONE)
+            err = stv0910_read_mer(STV0910_DEMOD_BOTTOM, &status->modulation_error_rate2);
+    }
+    else
+    {
+        status->modulation_error_rate2 = 0;
+    }
+
+    /* MODCOD, Short Frames, Pilots */
+    if (err == ERROR_NONE)
+        err = stv0910_read_modcod_and_type(STV0910_DEMOD_BOTTOM, &status->modcod2, &status->short_frame2, &status->pilots2, &status->rolloff2);
+    if (status->state2 != STATE_DEMOD_S2)
+    {
+        /* short frames & pilots only valid for S2 DEMOD state */
+        status->short_frame2 = 0;
+        status->pilots2 = 0;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 void *loop_i2c(void *arg)
 {
     /* -------------------------------------------------------------------------------------------------- */
@@ -1133,6 +1237,265 @@ void *loop_i2c(void *arg)
 
         last_i2c_loop = monotonic_ms();
     }
+    return NULL;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void *loop_i2c_tuner2(void *arg)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Runs a loop to configure and monitor the second tuner (identical to first tuner implementation)   */
+    /*  Configuration is read from the configuration struct                                               */
+    /*  Status is written to the status struct                                                            */
+    /* -------------------------------------------------------------------------------------------------- */
+    thread_vars_t *thread_vars = (thread_vars_t *)arg;
+    longmynd_status_t *status = (longmynd_status_t *)thread_vars->status;
+    uint8_t *err = &thread_vars->thread_err;
+
+    *err = ERROR_NONE;
+
+    longmynd_config_t config_cpy;
+    longmynd_status_t status_cpy;
+
+    uint32_t last_ts_packet_count = 0;
+
+    uint64_t last_i2c_loop = monotonic_ms();
+    while (*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE)
+    {
+        /* Only proceed if second tuner is enabled and initialized */
+        if (!second_ftdi_initialized)
+        {
+            usleep(100 * 1000);
+            continue;
+        }
+
+        /* Receiver State Machine Loop Timer */
+        do
+        {
+            /* Sleep for at least 10ms */
+            usleep(100 * 1000);
+        } while (monotonic_ms() < (last_i2c_loop + I2C_LOOP_MS));
+
+        status_cpy.last_ts_or_reinit_monotonic2 = 0;
+
+        /* Check if there's a new config for tuner 2 */
+        if (thread_vars->config->new_config2)
+        {
+            fprintf(stderr,"New Config for Tuner 2 !!!!!!!!!\n");
+            /* Lock config struct */
+            pthread_mutex_lock(&thread_vars->config->mutex);
+            /* Clone config struct locally */
+            memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
+            /* Clear new config flag */
+            thread_vars->config->new_config2 = false;
+            /* Set flag to clear ts buffer */
+            thread_vars->config->ts2_reset = true;
+            pthread_mutex_unlock(&thread_vars->config->mutex);
+
+            status_cpy.frequency_requested2 = config_cpy.freq_requested2[config_cpy.freq_index2];
+            status_cpy.symbolrate_requested2 = config_cpy.sr_requested2[config_cpy.sr_index2];
+
+            uint8_t tuner_err = ERROR_NONE; // Separate to avoid triggering main() abort on handled tuner error.
+            int32_t tuner_lock_attempts = STV6120_PLL_ATTEMPTS;
+            do
+            {
+                /* init the second tuner demodulator */
+                if (*err == ERROR_NONE)
+                    *err = stv0910_init_tuner(2, config_cpy.sr_requested2[config_cpy.sr_index2], config_cpy.halfscan_ratio2);
+                /* init the second tuner */
+                if (*err == ERROR_NONE)
+                    tuner_err = stv6120_init_tuner(2, config_cpy.freq_requested2[config_cpy.freq_index2], config_cpy.port_swap2);
+
+                /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
+                if (*err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
+                {
+                    printf("Flow: Caught tuner 2 lock timeout, %" PRIu32 " attempts at stv6120_init_tuner() remaining.\n", tuner_lock_attempts);
+                    /* Power down the synthesizers to potentially improve success on retry. */
+                    /* - Everything else gets powered down as well to stay within datasheet-defined states */
+                    *err = stv6120_powerdown_both_paths();
+                    if (*err == ERROR_NONE)
+                        usleep(200 * 1000);
+                }
+            } while (*thread_vars->main_err_ptr == ERROR_NONE && *err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT && tuner_lock_attempts-- > 0);
+
+            /* Propagate up tuner error from stv6120_init_tuner() */
+            if (*err == ERROR_NONE)
+                *err = tuner_err;
+
+            /* we turn on the LNA we want and turn the other off (if they exist) */
+            if (*err == ERROR_NONE)
+                *err = stvvglna_init(NIM_INPUT_TOP, (config_cpy.port_swap2) ? STVVGLNA_OFF : STVVGLNA_ON, &status_cpy.lna_ok2);
+            if (*err == ERROR_NONE)
+                *err = stvvglna_init(NIM_INPUT_BOTTOM, (config_cpy.port_swap2) ? STVVGLNA_ON : STVVGLNA_OFF, &status_cpy.lna_ok2);
+
+            if (*err != ERROR_NONE)
+                printf("ERROR: failed to init tuner 2 device - is the NIM powered on?\n");
+
+            /* now start the whole thing scanning for the signal */
+            if (*err == ERROR_NONE)
+            {
+                *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
+                status_cpy.state2 = STATE_DEMOD_HUNTING;
+            }
+
+            status_cpy.last_ts_or_reinit_monotonic2 = monotonic_ms();
+        }
+
+        /* Main receiver state machine for tuner 2 */
+        switch (status_cpy.state2)
+        {
+        case STATE_DEMOD_HUNTING:
+            if (*err == ERROR_NONE)
+                *err = do_report_tuner2(&status_cpy);
+            /* process state changes */
+            if (*err == ERROR_NONE)
+                *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            if (status_cpy.demod_state2 == DEMOD_FOUND_HEADER)
+            {
+                status_cpy.state2 = STATE_DEMOD_FOUND_HEADER;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S2)
+            {
+                status_cpy.state2 = STATE_DEMOD_S2;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S)
+            {
+                status_cpy.state2 = STATE_DEMOD_S;
+            }
+            else if ((status_cpy.demod_state2 != DEMOD_HUNTING) && (*err == ERROR_NONE))
+            {
+                printf("ERROR: tuner 2 demodulator returned a bad scan state\n");
+                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+            }                                      /* no need for another else, all states covered */
+            break;
+
+        case STATE_DEMOD_FOUND_HEADER:
+            if (*err == ERROR_NONE)
+                *err = do_report_tuner2(&status_cpy);
+            /* process state changes */
+            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            if (status_cpy.demod_state2 == DEMOD_HUNTING)
+            {
+                status_cpy.state2 = STATE_DEMOD_HUNTING;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S2)
+            {
+                status_cpy.state2 = STATE_DEMOD_S2;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S)
+            {
+                status_cpy.state2 = STATE_DEMOD_S;
+            }
+            else if ((status_cpy.demod_state2 != DEMOD_FOUND_HEADER) && (*err == ERROR_NONE))
+            {
+                printf("ERROR: tuner 2 demodulator returned a bad scan state\n");
+                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+            }                                      /* no need for another else, all states covered */
+            break;
+
+        case STATE_DEMOD_S2:
+            if (*err == ERROR_NONE)
+                *err = do_report_tuner2(&status_cpy);
+            /* process state changes */
+            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            if (status_cpy.demod_state2 == DEMOD_HUNTING)
+            {
+                status_cpy.state2 = STATE_DEMOD_HUNTING;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_FOUND_HEADER)
+            {
+                status_cpy.state2 = STATE_DEMOD_FOUND_HEADER;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S)
+            {
+                status_cpy.state2 = STATE_DEMOD_S;
+            }
+            else if ((status_cpy.demod_state2 != DEMOD_S2) && (*err == ERROR_NONE))
+            {
+                printf("ERROR: tuner 2 demodulator returned a bad scan state\n");
+                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+            }                                      /* no need for another else, all states covered */
+            break;
+
+        case STATE_DEMOD_S:
+            if (*err == ERROR_NONE)
+                *err = do_report_tuner2(&status_cpy);
+            /* process state changes */
+            *err = stv0910_read_scan_state(STV0910_DEMOD_BOTTOM, &status_cpy.demod_state2);
+            if (status_cpy.demod_state2 == DEMOD_HUNTING)
+            {
+                status_cpy.state2 = STATE_DEMOD_HUNTING;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_FOUND_HEADER)
+            {
+                status_cpy.state2 = STATE_DEMOD_FOUND_HEADER;
+            }
+            else if (status_cpy.demod_state2 == DEMOD_S2)
+            {
+                status_cpy.state2 = STATE_DEMOD_S2;
+            }
+            else if ((status_cpy.demod_state2 != DEMOD_S) && (*err == ERROR_NONE))
+            {
+                printf("ERROR: tuner 2 demodulator returned a bad scan state\n");
+                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+            }                                      /* no need for another else, all states covered */
+            break;
+
+        default:
+            *err = ERROR_STATE; /* we should never get here so panic if we do */
+            break;
+        }
+
+        if (status->ts2_packet_count_nolock > 0 && last_ts_packet_count != status->ts2_packet_count_nolock)
+        {
+            status_cpy.last_ts_or_reinit_monotonic2 = monotonic_ms();
+            last_ts_packet_count = status->ts2_packet_count_nolock;
+        }
+
+        /* Copy local status data over global object for tuner 2 */
+        pthread_mutex_lock(&status->mutex);
+
+        /* Copy out tuner 2 vars */
+        status->state2 = status_cpy.state2;
+        status->demod_state2 = status_cpy.demod_state2;
+        status->lna_ok2 = status_cpy.lna_ok2;
+        status->lna_gain2 = status_cpy.lna_gain2;
+        status->agc1_gain2 = status_cpy.agc1_gain2;
+        status->agc2_gain2 = status_cpy.agc2_gain2;
+        status->power_i2 = status_cpy.power_i2;
+        status->power_q2 = status_cpy.power_q2;
+        status->frequency_requested2 = status_cpy.frequency_requested2;
+        status->frequency_offset2 = status_cpy.frequency_offset2;
+        status->symbolrate_requested2 = status_cpy.symbolrate_requested2;
+        status->symbolrate2 = status_cpy.symbolrate2;
+        status->viterbi_error_rate2 = status_cpy.viterbi_error_rate2;
+        status->bit_error_rate2 = status_cpy.bit_error_rate2;
+        status->modulation_error_rate2 = status_cpy.modulation_error_rate2;
+        status->errors_bch_uncorrected2 = status_cpy.errors_bch_uncorrected2;
+        status->errors_bch_count2 = status_cpy.errors_bch_count2;
+        status->errors_ldpc_count2 = status_cpy.errors_ldpc_count2;
+        memcpy(status->constellation2, status_cpy.constellation2, (sizeof(uint8_t) * NUM_CONSTELLATIONS * 2));
+        status->puncture_rate2 = status_cpy.puncture_rate2;
+        status->modcod2 = status_cpy.modcod2;
+        status->matype1_2 = status_cpy.matype1_2;
+        status->matype2_2 = status_cpy.matype2_2;
+        status->short_frame2 = status_cpy.short_frame2;
+        status->pilots2 = status_cpy.pilots2;
+        status->rolloff2 = status_cpy.rolloff2;
+        if (status_cpy.last_ts_or_reinit_monotonic2 != 0)
+        {
+            status->last_ts_or_reinit_monotonic2 = status_cpy.last_ts_or_reinit_monotonic2;
+        }
+
+        /* Set monotonic value to signal new data */
+        status->last_updated_monotonic = monotonic_ms();
+
+        pthread_cond_signal(&status->signal);
+        pthread_mutex_unlock(&status->mutex);
+
+        last_i2c_loop = monotonic_ms();
+    }
+
     return NULL;
 }
 
@@ -1662,6 +2025,64 @@ int main(int argc, char *argv[])
         }
     }
 
+    // Second tuner threads (created but will only run when dual_tuner_enabled)
+    thread_vars_t thread_vars_i2c_tuner2;
+        thread_vars_i2c_tuner2.main_err_ptr = &err;
+        thread_vars_i2c_tuner2.thread_err = ERROR_NONE;
+        thread_vars_i2c_tuner2.config = &longmynd_config;
+        thread_vars_i2c_tuner2.status = &longmynd_status;
+
+    if (err == ERROR_NONE)
+    {
+        if (0 == pthread_create(&thread_i2c_tuner2, NULL, loop_i2c_tuner2, (void *)&thread_vars_i2c_tuner2))
+        {
+            //pthread_setname_np(thread_i2c_tuner2, "Tuner2 I2C");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_i2c_tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+    }
+
+    thread_vars_t thread_vars_ts_tuner2;
+        thread_vars_ts_tuner2.main_err_ptr = &err;
+        thread_vars_ts_tuner2.thread_err = ERROR_NONE;
+        thread_vars_ts_tuner2.config = &longmynd_config;
+        thread_vars_ts_tuner2.status = &longmynd_status;
+
+    if (err == ERROR_NONE)
+    {
+        if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts_tuner2, (void *)&thread_vars_ts_tuner2))
+        {
+            //pthread_setname_np(thread_ts_tuner2, "Tuner2 TS");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_ts_tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+    }
+
+    thread_vars_t thread_vars_ts_parse_tuner2;
+        thread_vars_ts_parse_tuner2.main_err_ptr = &err;
+        thread_vars_ts_parse_tuner2.thread_err = ERROR_NONE;
+        thread_vars_ts_parse_tuner2.config = &longmynd_config;
+        thread_vars_ts_parse_tuner2.status = &longmynd_status;
+
+    if (err == ERROR_NONE)
+    {
+        if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse_tuner2, (void *)&thread_vars_ts_parse_tuner2))
+        {
+            //pthread_setname_np(thread_ts_parse_tuner2, "Tuner2 TS Parse");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_ts_parse_tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+    }
+
     uint64_t last_status_sent_monotonic = 0;
     longmynd_status_t longmynd_status_cpy;
 
@@ -1711,7 +2132,10 @@ int main(int argc, char *argv[])
         }
         /* Check for errors on threads */
         if (err == ERROR_NONE &&
-            (thread_vars_ts.thread_err != ERROR_NONE || thread_vars_ts_parse.thread_err != ERROR_NONE || thread_vars_beep.thread_err != ERROR_NONE || thread_vars_i2c.thread_err != ERROR_NONE))
+            (thread_vars_ts.thread_err != ERROR_NONE || thread_vars_ts_parse.thread_err != ERROR_NONE ||
+             thread_vars_beep.thread_err != ERROR_NONE || thread_vars_i2c.thread_err != ERROR_NONE ||
+             thread_vars_i2c_tuner2.thread_err != ERROR_NONE || thread_vars_ts_tuner2.thread_err != ERROR_NONE ||
+             thread_vars_ts_parse_tuner2.thread_err != ERROR_NONE))
         {
             err = ERROR_THREAD_ERROR;
         }
@@ -1737,6 +2161,11 @@ int main(int argc, char *argv[])
     pthread_join(thread_ts, NULL);
     pthread_join(thread_i2c, NULL);
     pthread_join(thread_beep, NULL);
+
+    // Wait for second tuner threads
+    pthread_join(thread_i2c_tuner2, NULL);
+    pthread_join(thread_ts_tuner2, NULL);
+    pthread_join(thread_ts_parse_tuner2, NULL);
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
 
