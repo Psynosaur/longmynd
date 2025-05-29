@@ -821,9 +821,12 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     if (config->dual_tuner_enabled) {
         config->polarisation_supply_tuner2 = config->polarisation_supply;
         config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;
+        /* CRITICAL FIX: Set initial configuration flag for tuner 2 */
+        config->new_config_tuner2 = true;
         printf("Flow: Copied polarization settings to tuner 2: supply=%s, horizontal=%s\n",
                config->polarisation_supply_tuner2 ? "enabled" : "disabled",
                config->polarisation_horizontal_tuner2 ? "true" : "false");
+        printf("Flow: Initial configuration flags set for both tuners (new_config=true, new_config_tuner2=true)\n");
     }
 
     return err;
