@@ -1105,16 +1105,31 @@ void *loop_i2c(void *arg)
                 /* Initialize tuners - dual-tuner aware */
                 if (*err == ERROR_NONE) {
                     if (config_cpy.dual_tuner_enabled) {
-                        if (thread_vars->tuner_id == 1) {
-                            /* Tuner 1: use tuner 1 frequency, turn off tuner 2 for now */
-                            uint32_t freq_tuner1 = config_cpy.freq_requested[config_cpy.freq_index];
-                            printf("Flow: Initializing tuner 1 with frequency %d KHz\n", freq_tuner1);
-                            tuner_err = stv6120_init(freq_tuner1, 0, config_cpy.port_swap);
+                        /* Check if this is initial setup or reconfiguration */
+                        if (!config_cpy.tuners_initialized) {
+                            /* Initial setup - use full stv6120_init() */
+                            if (thread_vars->tuner_id == 1) {
+                                /* Tuner 1: use tuner 1 frequency, turn off tuner 2 for now */
+                                uint32_t freq_tuner1 = config_cpy.freq_requested[config_cpy.freq_index];
+                                printf("Flow: Initial setup tuner 1 with frequency %d KHz\n", freq_tuner1);
+                                tuner_err = stv6120_init(freq_tuner1, 0, config_cpy.port_swap);
+                            } else {
+                                /* Tuner 2: use tuner 2 frequency, turn off tuner 1 for this instance */
+                                uint32_t freq_tuner2 = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
+                                printf("Flow: Initial setup tuner 2 with frequency %d KHz\n", freq_tuner2);
+                                tuner_err = stv6120_init(0, freq_tuner2, config_cpy.port_swap);
+                            }
                         } else {
-                            /* Tuner 2: use tuner 2 frequency, turn off tuner 1 for this instance */
-                            uint32_t freq_tuner2 = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
-                            printf("Flow: Initializing tuner 2 with frequency %d KHz\n", freq_tuner2);
-                            tuner_err = stv6120_init(0, freq_tuner2, config_cpy.port_swap);
+                            /* Reconfiguration - use frequency-only change to avoid affecting other tuner */
+                            if (thread_vars->tuner_id == 1) {
+                                uint32_t freq_tuner1 = config_cpy.freq_requested[config_cpy.freq_index];
+                                printf("Flow: Reconfiguring tuner 1 frequency only to %d KHz\n", freq_tuner1);
+                                tuner_err = stv6120_set_freq_only(TUNER_1, freq_tuner1);
+                            } else {
+                                uint32_t freq_tuner2 = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
+                                printf("Flow: Reconfiguring tuner 2 frequency only to %d KHz\n", freq_tuner2);
+                                tuner_err = stv6120_set_freq_only(TUNER_2, freq_tuner2);
+                            }
                         }
                     } else {
                         /* Single tuner mode - original behavior */
@@ -1155,14 +1170,14 @@ void *loop_i2c(void *arg)
             bool lna_top_ok = false;
             bool lna_bottom_ok = false;
 
-            if (*err == ERROR_NONE) {
+            /* Only initialize LNAs during initial setup, not during reconfiguration */
+            if (*err == ERROR_NONE && (!config_cpy.dual_tuner_enabled || !config_cpy.tuners_initialized)) {
+                printf("Flow: Initializing LNAs (initial setup)\n");
                 lna_top_err = stvvglna_init(NIM_INPUT_TOP, (config_cpy.port_swap) ? STVVGLNA_OFF : STVVGLNA_ON, &lna_top_ok);
                 if (lna_top_err != ERROR_NONE) {
                     printf("WARNING: TOP LNA initialization failed (error %d)\n", lna_top_err);
                 }
-            }
 
-            if (*err == ERROR_NONE) {
                 lna_bottom_err = stvvglna_init(NIM_INPUT_BOTTOM, (config_cpy.port_swap) ? STVVGLNA_ON : STVVGLNA_OFF, &lna_bottom_ok);
                 if (lna_bottom_err != ERROR_NONE) {
                     if (config_cpy.dual_tuner_enabled) {
@@ -1173,6 +1188,11 @@ void *loop_i2c(void *arg)
                         printf("WARNING: BOTTOM LNA initialization failed (error %d)\n", lna_bottom_err);
                     }
                 }
+            } else if (*err == ERROR_NONE && config_cpy.dual_tuner_enabled && config_cpy.tuners_initialized) {
+                /* During reconfiguration, assume LNAs are already working and skip re-initialization */
+                printf("Flow: Skipping LNA re-initialization during reconfiguration\n");
+                lna_top_ok = true;  /* Assume working from previous initialization */
+                lna_bottom_ok = true;  /* Assume working from previous initialization */
             }
 
             /* Set overall LNA status based on available LNAs */

@@ -250,6 +250,34 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv6120_set_freq_only(uint8_t tuner, uint32_t freq) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Sets frequency for a specific tuner without affecting the other tuner or shared registers         */
+/* This function only modifies PLL registers specific to the target tuner                            */
+/*   tuner: TUNER_1  |  TUNER_2 : which tuner we are going to work on                                 */
+/*    freq: the frequency to set the tuner to in KHz                                                  */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    printf("Flow: STV6120 set frequency only for tuner %d to %d KHz\n", tuner, freq);
+
+    /* Only calibrate lowpass filter and set frequency for the specific tuner */
+    if (err == ERROR_NONE) {
+        err = stv6120_cal_lowpass(tuner);
+        if (err == ERROR_NONE) {
+            err = stv6120_set_freq(tuner, freq);
+        }
+    }
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to set frequency only for tuner %d to %d KHz\n", tuner, freq);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv6120_init(uint32_t freq_tuner_1, uint32_t freq_tuner_2, bool swap) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Initialises the tuner. Both tuners can be set up.                                                  */
