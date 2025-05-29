@@ -421,6 +421,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
+    strcpy(config->ts2_fifo_path, "longmynd_tuner2_ts");
     config->status_use_ip = false;
     strcpy(config->status_fifo_path, "longmynd_main_status");
     config->polarisation_supply = false;
@@ -448,6 +449,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
             case 't':
                 strncpy(config->ts_fifo_path, argv[param], (128 - 1));
                 ts_fifo_set = true;
+                break;
+            case 'T':
+                strncpy(config->ts2_fifo_path, argv[param], (128 - 1));
+                config->dual_tuner_enabled = true;
                 break;
             case 'I':
                 strncpy(config->status_ip_addr, argv[param++], (16 - 1));
@@ -772,8 +777,12 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                     printf("              Second device: USB bus/device=%i,%i\n",
                            config->device2_usb_bus, config->device2_usb_addr);
                 }
-                printf("              Tuner 2 TS output to IP=%s:%i\n",
-                       config->ts2_ip_addr, config->ts2_ip_port);
+                if (config->ts_use_ip) {
+                    printf("              Tuner 2 TS output to IP=%s:%i\n",
+                           config->ts2_ip_addr, config->ts2_ip_port);
+                } else {
+                    printf("              Tuner 2 TS output to FIFO=%s\n", config->ts2_fifo_path);
+                }
                 printf("              Tuner 2 Frequency=%i KHz\n", config->freq_requested_tuner2[0]);
                 for (int i = 1; (i < 4) && (config->freq_requested_tuner2[i] != 0); i++)
                 {
@@ -1593,6 +1602,15 @@ uint8_t status_all_write(longmynd_status_t *status, uint8_t (*status_write)(uint
     /* TS Null Percentage */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = status_write(STATUS_TS_NULL_PERCENTAGE, status->ts_null_percentage, output_ready_ptr);
+    /* TS Packet Count */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = status_write(STATUS_TS_PACKET_COUNT, status->ts_packet_count_total, output_ready_ptr);
+    /* TS Lock Status */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = status_write(STATUS_TS_LOCK, status->ts_lock ? 1 : 0, output_ready_ptr);
+    /* TS Bitrate */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = status_write(STATUS_TS_BITRATE, status->ts_bitrate_kbps, output_ready_ptr);
     /* TS Elementary Stream PIDs */
     for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
     {
@@ -1695,6 +1713,15 @@ uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool
     /* TS Null Percentage */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(tuner_id, STATUS_TS_NULL_PERCENTAGE, status->ts_null_percentage, output_ready_ptr);
+    /* TS Packet Count */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_TS_PACKET_COUNT, status->ts_packet_count_total, output_ready_ptr);
+    /* TS Lock Status */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_TS_LOCK, status->ts_lock ? 1 : 0, output_ready_ptr);
+    /* TS Bitrate */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_TS_BITRATE, status->ts_bitrate_kbps, output_ready_ptr);
     /* Elementary Streams */
     for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
     {

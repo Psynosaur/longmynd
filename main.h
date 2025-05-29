@@ -65,6 +65,9 @@
 #define STATUS_MATYPE1            28
 #define STATUS_MATYPE2            29
 #define STATUS_ROLLOFF            30
+#define STATUS_TS_PACKET_COUNT    31
+#define STATUS_TS_LOCK            32
+#define STATUS_TS_BITRATE         33
 
 /* The number of constellation peeks we do for each background loop */
 #define NUM_CONSTELLATIONS 16
@@ -106,6 +109,7 @@ typedef struct {
     int ts_ip_port;
 
     // Second tuner TS output
+    char ts2_fifo_path[128];
     char ts2_ip_addr[16];
     int ts2_ip_port;
 
@@ -174,6 +178,10 @@ typedef struct {
     pthread_cond_t signal=PTHREAD_COND_INITIALIZER;
 
     uint32_t ts_packet_count_nolock=0;
+    uint32_t ts_packet_count_total=0;
+    bool ts_lock=false;
+    uint32_t ts_bitrate_kbps=0;
+    uint64_t ts_last_bitrate_calc_monotonic=0;
 } longmynd_status_t;
 
 typedef struct {

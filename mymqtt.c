@@ -195,9 +195,9 @@ int mqttend()
 	return (mosquitto_lib_cleanup());
 }
 
-const char StatusString[31][255] = {"", "rx_state", "lna_gain", "puncrate", "poweri", "powerq", "carrier_frequency", "constel_i", "constel_q",
+const char StatusString[34][255] = {"", "rx_state", "lna_gain", "puncrate", "poweri", "powerq", "carrier_frequency", "constel_i", "constel_q",
 									"symbolrate", "viterbi_error", "ber", "mer", "service_name", "provider_name", "ts_null", "es_pid", "es_type", "modcod", "short_frame", "pilots",
-									"ldpc_errors", "bch_errors", "bch_uncorect", "lnb_supply", "polarisation", "agc1", "agc2", "matype1", "matype2", "rolloff"};
+									"ldpc_errors", "bch_errors", "bch_uncorect", "lnb_supply", "polarisation", "agc1", "agc2", "matype1", "matype2", "rolloff", "ts_packet_count", "ts_lock", "ts_bitrate"};
 
 const char StateString[5][255] = {"Init", "Hunting", "found header", "demod_s", "demod_s2"};
 
@@ -661,6 +661,21 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
 	else if (message == STATUS_TS_NULL_PERCENTAGE)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_TS_PACKET_COUNT)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_TS_LOCK)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_TS_BITRATE)
 	{
 		sprintf(status_message, "%i", data);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);

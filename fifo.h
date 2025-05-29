@@ -25,11 +25,14 @@
 #include <stdint.h>
 
 uint8_t fifo_ts_write(uint8_t*, uint32_t, bool*);
+uint8_t fifo_ts2_write(uint8_t*, uint32_t, bool*);
 uint8_t fifo_status_write(uint8_t, uint32_t, bool*);
 uint8_t fifo_status_string_write(uint8_t, char*, bool*);
 uint8_t fifo_ts_init(char *fifo_path, bool*);
+uint8_t fifo_ts2_init(char *fifo_path, bool*);
 uint8_t fifo_status_init(char *fifo_path, bool*);
 uint8_t fifo_close(bool);
+uint8_t fifo_close_ts2(bool);
 
 #endif
 

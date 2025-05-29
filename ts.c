@@ -20,6 +20,14 @@
 */
 
 #include <string.h>
+#include <time.h>
+
+/* Windows compatibility for CLOCK_MONOTONIC */
+#ifdef _WIN32
+#ifndef CLOCK_MONOTONIC
+#define CLOCK_MONOTONIC 1
+#endif
+#endif
 
 #include "main.h"
 #include "errors.h"
@@ -31,6 +39,9 @@
 
 #include "libts.h"
 #include "stv0910.h"
+
+/* External function declaration */
+extern uint64_t monotonic_ms(void);
 
 #define TS_FRAME_SIZE 20*512 // 512 is base USB FTDI frame
 
@@ -79,11 +90,24 @@ void *loop_ts(void *arg) {
     }
 
     if(thread_vars->config->ts_use_ip) {
-        *err=udp_ts_init(thread_vars->config->ts_ip_addr, thread_vars->config->ts_ip_port);
+        if (thread_vars->tuner_id == 2) {
+            /* Tuner 2: Use tuner 2 UDP endpoint */
+            *err=udp_ts_init(thread_vars->config->ts2_ip_addr, thread_vars->config->ts2_ip_port);
+        } else {
+            /* Tuner 1: Use tuner 1 UDP endpoint */
+            *err=udp_ts_init(thread_vars->config->ts_ip_addr, thread_vars->config->ts_ip_port);
+        }
         ts_write = udp_ts_write;
     } else {
-        *err=fifo_ts_init(thread_vars->config->ts_fifo_path, &fifo_ready);
-        ts_write = fifo_ts_write;
+        if (thread_vars->tuner_id == 2) {
+            /* Tuner 2: Use tuner 2 FIFO */
+            *err=fifo_ts2_init(thread_vars->config->ts2_fifo_path, &fifo_ready);
+            ts_write = fifo_ts2_write;
+        } else {
+            /* Tuner 1: Use tuner 1 FIFO */
+            *err=fifo_ts_init(thread_vars->config->ts_fifo_path, &fifo_ready);
+            ts_write = fifo_ts_write;
+        }
     }
 
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE){
@@ -110,6 +134,12 @@ void *loop_ts(void *arg) {
 
             status->ts_null_percentage = 100;
             status->ts_packet_count_nolock = 0;
+
+            /* Reset TS status information */
+            status->ts_packet_count_total = 0;
+            status->ts_lock = false;
+            status->ts_bitrate_kbps = 0;
+            status->ts_last_bitrate_calc_monotonic = 0;
 
             for (int j=0; j<NUM_ELEMENT_STREAMS; j++) {
                 status->ts_elementary_streams[j][0] = 0;
@@ -155,7 +185,11 @@ void *loop_ts(void *arg) {
             else if(!thread_vars->config->ts_use_ip && !fifo_ready)
             {
                 /* Try opening the fifo again */
-                *err=fifo_ts_init(thread_vars->config->ts_fifo_path, &fifo_ready);
+                if (thread_vars->tuner_id == 2) {
+                    *err=fifo_ts2_init(thread_vars->config->ts2_fifo_path, &fifo_ready);
+                } else {
+                    *err=fifo_ts_init(thread_vars->config->ts_fifo_path, &fifo_ready);
+                }
             }
 
             if(longmynd_ts_parse_buffer.waiting
@@ -171,6 +205,31 @@ void *loop_ts(void *arg) {
             }
 
             status->ts_packet_count_nolock += (len-2);
+
+            /* Update TS status information */
+            pthread_mutex_lock(&status->mutex);
+
+            /* Update total packet count */
+            status->ts_packet_count_total += (len-2) / 188; /* 188 bytes per TS packet */
+
+            /* Calculate bitrate every 5 seconds */
+            uint64_t current_time_monotonic = monotonic_ms();
+
+            if (status->ts_last_bitrate_calc_monotonic == 0) {
+                status->ts_last_bitrate_calc_monotonic = current_time_monotonic;
+            } else if ((current_time_monotonic - status->ts_last_bitrate_calc_monotonic) >= 5000) { /* 5 seconds */
+                uint64_t time_diff_ms = current_time_monotonic - status->ts_last_bitrate_calc_monotonic;
+                uint32_t bytes_received = (len-2);
+                if (time_diff_ms > 0) {
+                    status->ts_bitrate_kbps = (bytes_received * 8) / time_diff_ms; /* Convert to kbps */
+                }
+                status->ts_last_bitrate_calc_monotonic = current_time_monotonic;
+            }
+
+            /* Update TS lock status - consider locked if we're receiving data */
+            status->ts_lock = true;
+
+            pthread_mutex_unlock(&status->mutex);
         }
 
     }
