@@ -451,55 +451,160 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data
 	char status_message[255];
 	static int latest_modcod_t1 = 0;
 	static int latest_modcod_t2 = 0;
+	const char *topic_prefix;
 
 	if (tuner_id != 1 && tuner_id != 2) {
 		printf("ERROR: Invalid tuner ID: %d\n", tuner_id);
 		return ERROR_ARGS_INPUT;
 	}
 
-	/* Build tuner-specific topic */
-	sprintf(status_topic, "dt/longmynd/tuner%d/%s", tuner_id, StatusString[message]);
+	/* Set topic prefix based on tuner ID */
+	topic_prefix = (tuner_id == 1) ? "dt" : "dt2";
 
-	if (message == STATUS_STATE) {
+	/* Build tuner-specific topic with proper prefix */
+	sprintf(status_topic, "%s/longmynd/%s", topic_prefix, StatusString[message]);
+
+	if (message == STATUS_STATE) // state machine
+	{
 		sprintf(status_message, "%s", StateString[data]);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
-		/* Publish current configuration for this tuner */
-		sprintf(status_topic, "dt/longmynd/tuner%d/set/sr", tuner_id);
+		sprintf(status_topic, "%s/longmynd/set/sr", topic_prefix);
 		sprintf(status_message, "%d", Symbolrate);  // TODO: Use tuner-specific values
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
-		sprintf(status_topic, "dt/longmynd/tuner%d/set/frequency", tuner_id);
+		sprintf(status_topic, "%s/longmynd/set/frequency", topic_prefix);
 		sprintf(status_message, "%d", Frequency);  // TODO: Use tuner-specific values
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "%s/longmynd/set/swport", topic_prefix);
+		sprintf(status_message, "%d", sport);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "%s/longmynd/set/tsip", topic_prefix);
+		sprintf(status_message, "%s", stsip);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		extern size_t video_pcrpts;
+		extern size_t audio_pcrpts;
+		extern long transmission_delay;
+
+		sprintf(status_topic, "%s/longmynd/videobuffer", topic_prefix);
+		sprintf(status_message, "%d", video_pcrpts);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		sprintf(status_topic, "%s/longmynd/audiobuffer", topic_prefix);
+		sprintf(status_message, "%d", audio_pcrpts);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+
+		if(transmission_delay!=0)
+		{
+		sprintf(status_topic, "%s/longmynd/transdelay", topic_prefix);
+		sprintf(status_message, "%ld", transmission_delay);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+		}
 	}
-	else if (message == STATUS_SYMBOL_RATE) {
-		data = (data + 500) / 1000; // SR in KS
+	else if (message == STATUS_SYMBOL_RATE)
+	{
+		data = (data + 500) / 1000; // SR EN KS
 		sprintf(status_message, "%i", data);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
-	else if (message == STATUS_MER) {
+	else if (message == STATUS_MODCOD)
+	{
+		int modcod = data;
+		if (tuner_id == 1) latest_modcod_t1 = modcod;
+		else latest_modcod_t2 = modcod;
+
+		char modulation[50];
+		char fec[50];
+		const char TabFec[][255] = {"none", "1/4", "1/3", "2/5", "1/2", "3/5", "2/3", "3/4", "4/5", "5/6", "8/9", "9/10", "3/5", "2/3", "3/4", "5/6",
+									"8/9", "9/10", "2/3", "3/4", "4/5", "5/6", "8/9", "9/10", "3/4", "4/5", "5/6", "8/9", "9/10"};
+
+		if (modcod < 12)
+			strcpy(modulation, "QPSK");
+		if (modcod == 0)
+			strcpy(modulation, "none");
+		if ((modcod >= 12) && (modcod <= 17))
+			strcpy(modulation, "8PSK");
+		if ((modcod >= 18) && (modcod <= 23))
+			strcpy(modulation, "16APSK");
+		if ((modcod >= 24) && (modcod <= 28))
+			strcpy(modulation, "32APSK");
+
+		strcpy(fec, TabFec[modcod]);
+		sprintf(status_topic, "%s/longmynd/modulation", topic_prefix);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(modulation), modulation, 2, false);
+		sprintf(status_topic, "%s/longmynd/fec", topic_prefix);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(fec), fec, 2, false);
+	}
+	else if (message == STATUS_MATYPE2)
+	{
+		sprintf(status_message, "%x", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ROLLOFF)
+	{
+		sprintf(status_topic, "%s/longmynd/rolloff", topic_prefix);
+		if(data==0)	sprintf(status_message, "0.35");
+		if(data==1)	sprintf(status_message, "0.25");
+		if(data==2)	sprintf(status_message, "0.20");
+		if(data==3)	sprintf(status_message, "0.15");
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_MATYPE1)
+	{
+		char matype[50];
+		switch ((data & 0xC0) >> 6)
+		{
+		case 0:
+			strcpy(matype, "Generic packetized");
+			break;
+		case 1:
+			strcpy(matype, "Generic continuous");
+			break;
+		case 2:
+			strcpy(matype, "Generic packetized");
+			break;
+		case 3:
+			strcpy(matype, "Transport");
+			break;
+		}
+
+		mosquitto_publish(mosq, NULL, status_topic, strlen(matype), matype, 2, false);
+	}
+	else if (message == STATUS_MER)
+	{
 		int TheoricMER[] = {0, -24, -12, 0, 10, 22, 32, 40, 46, 52, 62, 65, 55, 66, 79, 94, 106, 110, 90, 102, 110, 116, 129, 131, 126, 136, 143, 157, 161};
 		sprintf(status_message, "%0.1f", ((int)data) / 10.0);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
-
 		char smargin[50];
 		int latest_modcod = (tuner_id == 1) ? latest_modcod_t1 : latest_modcod_t2;
-		if (latest_modcod != 0) {
+		if (latest_modcod != 0)
+		{
+
 			int Margin = (int)data - TheoricMER[latest_modcod];
 			sprintf(smargin, "%d", Margin / 10);
-			sprintf(status_topic, "dt/longmynd/tuner%d/margin_db", tuner_id);
+			sprintf(status_topic, "%s/longmynd/margin_db", topic_prefix);
+			mosquitto_publish(mosq, NULL, status_topic, strlen(smargin), smargin, 2, false);
+		}
+		else
+		{
+			sprintf(smargin, "%d", 0);
+			sprintf(status_topic, "%s/longmynd/margin_db", topic_prefix);
 			mosquitto_publish(mosq, NULL, status_topic, strlen(smargin), smargin, 2, false);
 		}
 	}
-	else if (message == STATUS_MODCOD) {
-		if (tuner_id == 1) latest_modcod_t1 = data;
-		else latest_modcod_t2 = data;
+	else if ((message == STATUS_CONSTELLATION_I) || (message == STATUS_CONSTELLATION_Q))
+	{
+		int8_t signed_data;
+		signed_data = (int8_t)data;
+		sprintf(status_message, "%d", data);
 
-		sprintf(status_message, "%i", data);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
-	else {
+	else
+	{
 		sprintf(status_message, "%i", data);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
@@ -520,14 +625,18 @@ uint8_t mqtt_status_string_write_tuner(uint8_t tuner_id, uint8_t message, char *
 	(void)output_ready;
 	uint8_t err = ERROR_NONE;
 	char status_topic[255];
+	const char *topic_prefix;
 
 	if (tuner_id != 1 && tuner_id != 2) {
 		printf("ERROR: Invalid tuner ID: %d\n", tuner_id);
 		return ERROR_ARGS_INPUT;
 	}
 
-	/* Build tuner-specific topic */
-	sprintf(status_topic, "dt/longmynd/tuner%d/%s", tuner_id, StatusString[message]);
+	/* Set topic prefix based on tuner ID */
+	topic_prefix = (tuner_id == 1) ? "dt" : "dt2";
+
+	/* Build tuner-specific topic with proper prefix */
+	sprintf(status_topic, "%s/longmynd/%s", topic_prefix, StatusString[message]);
 	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
 
 	return err;
