@@ -95,12 +95,14 @@ void *loop_ts(void *arg) {
 
             pthread_mutex_lock(&status->mutex);
 
-            /* Only clear service names if they are currently empty or this is a major reset */
+            /* FIXED: Only clear service names on initial startup, not on every config change */
             /* This prevents frequent clearing of service names in dual-tuner mode */
-            if (status->service_name[0] == '\0' || status->service_provider_name[0] == '\0') {
-                printf("TS: Clearing service names during TS reset\n");
+            static bool first_reset = true;
+            if (first_reset || (status->service_name[0] == '\0' && status->service_provider_name[0] == '\0')) {
+                printf("TS: Clearing service names during initial TS reset\n");
                 status->service_name[0] = '\0';
                 status->service_provider_name[0] = '\0';
+                first_reset = false;
             } else {
                 printf("TS: Preserving existing service names during TS reset: '%s' / '%s'\n",
                        status->service_name, status->service_provider_name);

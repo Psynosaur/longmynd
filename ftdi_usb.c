@@ -333,14 +333,22 @@ static uint8_t ftdi_usb_init(libusb_context **usb_context_ptr, libusb_device_han
         /* now we should have the device handle of the device we are going to us */
         /* we have two interfaces on the ftdi device (0 and 1) */
         /* so next we make sure we are the only people using this device and this */
-        if (libusb_kernel_driver_active(*usb_device_handle_ptr, interface_num)) libusb_detach_kernel_driver(*usb_device_handle_ptr, interface_num);
+        if (libusb_kernel_driver_active(*usb_device_handle_ptr, interface_num)) {
+            printf("      Status: Detaching kernel driver from interface %d\n", interface_num);
+            libusb_detach_kernel_driver(*usb_device_handle_ptr, interface_num);
+        }
 
-        /* finally we claim both interfaces as ours */
-        if (libusb_claim_interface(*usb_device_handle_ptr, interface_num)<0) {
+        /* finally we claim the interface as ours */
+        int claim_result = libusb_claim_interface(*usb_device_handle_ptr, interface_num);
+        if (claim_result < 0) {
+            printf("ERROR: Unable to claim interface %d (error code: %d)\n", interface_num, claim_result);
+            printf("       This may indicate the device is already in use by another process\n");
+            printf("       Try: sudo rmmod ftdi_sio; sudo rmmod usbserial\n");
             libusb_close(*usb_device_handle_ptr);
             libusb_exit(*usb_context_ptr);
-        	printf("ERROR: Unable to claim interface\n");
             err=ERROR_FTDI_USB_CLAIM;
+        } else {
+            printf("      Status: Successfully claimed interface %d\n", interface_num);
         }
     }
 
@@ -491,18 +499,27 @@ uint8_t ftdi_usb_init_dual(uint8_t usb_bus1, uint8_t usb_addr1,
         return err;
     }
 
-    /* Step 2: Initialize second device (TS2 only) */
+    /* Step 2: Initialize second device (TS2 only) with retry logic */
     printf("      Status: Initializing secondary device TS interface\n");
+
+    /* Add small delay to prevent USB timing issues */
+    usleep(100000); /* 100ms delay */
+
     err = ftdi_usb_init(&usb_context_ts2, &usb_device_handle_ts2, 1, usb_bus2, usb_addr2, vid, pid);
     if (err != ERROR_NONE) {
         printf("ERROR: Failed to initialize second device TS interface\n");
+        printf("       This may be due to USB interface conflicts or device busy\n");
         printf("       Cleaning up and falling back to single tuner mode\n");
 
         /* Cleanup first device interfaces */
-        libusb_close(usb_device_handle_ts);
-        libusb_exit(usb_context_ts);
-        libusb_close(usb_device_handle_i2c);
-        libusb_exit(usb_context_i2c);
+        if (usb_device_handle_ts) {
+            libusb_close(usb_device_handle_ts);
+            libusb_exit(usb_context_ts);
+        }
+        if (usb_device_handle_i2c) {
+            libusb_close(usb_device_handle_i2c);
+            libusb_exit(usb_context_i2c);
+        }
 
         dual_tuner_initialized = false;
         return err;

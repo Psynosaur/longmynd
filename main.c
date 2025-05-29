@@ -112,7 +112,14 @@ void config_set_frequency(uint32_t frequency)
         longmynd_config.freq_requested[2] = 0;
         longmynd_config.freq_requested[3] = 0;
         longmynd_config.freq_index = 0;
-        longmynd_config.new_config = true;
+
+        /* FIXED: Only trigger tuner 1 config change, not both tuners */
+        if (longmynd_config.dual_tuner_enabled) {
+            longmynd_config.new_config = true;  // Only tuner 1
+            printf("Flow: Tuner 1 frequency config change triggered\n");
+        } else {
+            longmynd_config.new_config = true;  // Single tuner mode
+        }
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -130,7 +137,14 @@ void config_set_symbolrate(uint32_t symbolrate)
         longmynd_config.sr_requested[2] = 0;
         longmynd_config.sr_requested[3] = 0;
         longmynd_config.sr_index = 0;
-        longmynd_config.new_config = true;
+
+        /* FIXED: Only trigger tuner 1 config change, not both tuners */
+        if (longmynd_config.dual_tuner_enabled) {
+            longmynd_config.new_config = true;  // Only tuner 1
+            printf("Flow: Tuner 1 symbol rate config change triggered\n");
+        } else {
+            longmynd_config.new_config = true;  // Single tuner mode
+        }
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -155,7 +169,13 @@ void config_set_frequency_and_symbolrate(uint32_t frequency, uint32_t symbolrate
         longmynd_config.sr_requested[3] = 0;
         longmynd_config.sr_index = 0;
 
-        longmynd_config.new_config = true;
+        /* FIXED: Only trigger tuner 1 config change, not both tuners */
+        if (longmynd_config.dual_tuner_enabled) {
+            longmynd_config.new_config = true;  // Only tuner 1
+            printf("Flow: Tuner 1 frequency+symbol rate config change triggered\n");
+        } else {
+            longmynd_config.new_config = true;  // Single tuner mode
+        }
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -247,6 +267,7 @@ void config_set_frequency_tuner2(uint32_t frequency)
         longmynd_config.freq_requested_tuner2[3] = 0;
         longmynd_config.freq_index_tuner2 = 0;
         longmynd_config.new_config_tuner2 = true;
+        printf("Flow: Tuner 2 frequency config change triggered\n");
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -265,6 +286,7 @@ void config_set_symbolrate_tuner2(uint32_t symbolrate)
         longmynd_config.sr_requested_tuner2[3] = 0;
         longmynd_config.sr_index_tuner2 = 0;
         longmynd_config.new_config_tuner2 = true;
+        printf("Flow: Tuner 2 symbol rate config change triggered\n");
 
         pthread_mutex_unlock(&longmynd_config.mutex);
     }
@@ -949,9 +971,9 @@ void *loop_i2c(void *arg)
 
 
 
-        /* Check if there's a new config - handle both main and tuner 2 config changes */
-        if (thread_vars->config->new_config ||
-            (config_cpy.dual_tuner_enabled && thread_vars->tuner_id == 2 && thread_vars->config->new_config_tuner2))
+        /* Check if there's a new config - FIXED: separate flags for each tuner */
+        if ((thread_vars->tuner_id == 1 && thread_vars->config->new_config) ||
+            (thread_vars->tuner_id == 2 && thread_vars->config->new_config_tuner2))
         {
             fprintf(stderr,"New Config !!!!!!!!!\n");
             /* Lock config struct */
