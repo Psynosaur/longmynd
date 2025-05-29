@@ -195,9 +195,9 @@ int mqttend()
 	return (mosquitto_lib_cleanup());
 }
 
-const char StatusString[30][255] = {"", "rx_state", "lna_gain", "puncrate", "poweri", "powerq", "carrier_frequency", "constel_i", "constel_q",
+const char StatusString[31][255] = {"", "rx_state", "lna_gain", "puncrate", "poweri", "powerq", "carrier_frequency", "constel_i", "constel_q",
 									"symbolrate", "viterbi_error", "ber", "mer", "service_name", "provider_name", "ts_null", "es_pid", "es_type", "modcod", "short_frame", "pilots",
-									"ldpc_errors", "bch_errors", "bch_uncorect", "lnb_supply", "polarisation", "agc1", "agc2", "matype1", "matype2"};
+									"ldpc_errors", "bch_errors", "bch_uncorect", "lnb_supply", "polarisation", "agc1", "agc2", "matype1", "matype2", "rolloff"};
 
 const char StateString[5][255] = {"Init", "Hunting", "found header", "demod_s", "demod_s2"};
 
@@ -390,6 +390,36 @@ void mqtt_set_dual_tuner_mode(bool enabled)
 	/* -------------------------------------------------------------------------------------------------- */
 	dual_tuner_mqtt_enabled = enabled;
 	printf("Flow: MQTT dual-tuner mode %s\n", enabled ? "enabled" : "disabled");
+}
+
+void mqtt_init_tuner_values(uint32_t freq1, uint32_t sr1, uint32_t freq2, uint32_t sr2, const char *tsip1, const char *tsip2)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Initialize MQTT tuner values from command line configuration                                      */
+	/*   freq1: tuner 1 frequency in KHz                                                                 */
+	/*   sr1: tuner 1 symbol rate in KSymbols/s                                                          */
+	/*   freq2: tuner 2 frequency in KHz                                                                 */
+	/*   sr2: tuner 2 symbol rate in KSymbols/s                                                          */
+	/*   tsip1: tuner 1 TS IP address                                                                    */
+	/*   tsip2: tuner 2 TS IP address                                                                    */
+	/* -------------------------------------------------------------------------------------------------- */
+	Frequency = freq1;
+	Symbolrate = sr1;
+	Frequency_tuner2 = freq2;
+	Symbolrate_tuner2 = sr2;
+
+	if (tsip1) {
+		strncpy(stsip, tsip1, sizeof(stsip) - 1);
+		stsip[sizeof(stsip) - 1] = '\0';
+	}
+
+	if (tsip2) {
+		strncpy(stsip_tuner2, tsip2, sizeof(stsip_tuner2) - 1);
+		stsip_tuner2[sizeof(stsip_tuner2) - 1] = '\0';
+	}
+
+	printf("Flow: MQTT tuner values initialized - T1: %d KHz/%d KS/s, T2: %d KHz/%d KS/s\n",
+	       freq1, sr1, freq2, sr2);
 }
 
 void mqtt_process_dual_command(const char *topic, const char *payload)

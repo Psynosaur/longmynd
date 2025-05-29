@@ -1547,6 +1547,68 @@ uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_string_write_tuner(tuner_id, STATUS_SERVICE_PROVIDER_NAME, status->service_provider_name, output_ready_ptr);
 
+    /* Additional status values for complete dual-tuner support */
+    /* Puncture Rate */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_PUNCTURE_RATE, status->puncture_rate, output_ready_ptr);
+    /* Carrier Frequency */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_CARRIER_FREQUENCY, status->frequency, output_ready_ptr);
+    /* Constellations */
+    for (uint8_t count = 0; count < NUM_CONSTELLATIONS; count++)
+    {
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(tuner_id, STATUS_CONSTELLATION_I, status->constellation[count][0], output_ready_ptr);
+        if (err == ERROR_NONE && *output_ready_ptr)
+            err = mqtt_status_write_tuner(tuner_id, STATUS_CONSTELLATION_Q, status->constellation[count][1], output_ready_ptr);
+    }
+    /* Viterbi Error Rate */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_VITERBI_ERROR_RATE, status->viterbi_error_rate, output_ready_ptr);
+    /* TS Null Percentage */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_TS_NULL_PERCENTAGE, status->ts_null_percentage, output_ready_ptr);
+    /* Elementary Streams */
+    for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
+    {
+        if (status->ts_elementary_streams[count].pid != 0)
+        {
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_PID, status->ts_elementary_streams[count].pid, output_ready_ptr);
+            if (err == ERROR_NONE && *output_ready_ptr)
+                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_TYPE, status->ts_elementary_streams[count].type, output_ready_ptr);
+        }
+    }
+    /* Short Frames */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_SHORT_FRAME, status->short_frame, output_ready_ptr);
+    /* Pilots */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_PILOTS, status->pilots, output_ready_ptr);
+    /* LDPC Errors */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_ERRORS_LDPC_COUNT, status->errors_ldpc_count, output_ready_ptr);
+    /* BCH Errors */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_ERRORS_BCH_COUNT, status->errors_bch_count, output_ready_ptr);
+    /* BCH Uncorrected */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_ERRORS_BCH_UNCORRECTED, status->errors_bch_uncorrected, output_ready_ptr);
+    /* LNB Supply */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_SUPPLY, status->lnb_supply, output_ready_ptr);
+    /* LNB Polarisation */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_POLARISATION_H, status->lnb_polarisation_horizontal, output_ready_ptr);
+    /* MATYPE */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_MATYPE1, status->matype1, output_ready_ptr);
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_MATYPE2, status->matype2, output_ready_ptr);
+    /* Rolloff */
+    if (err == ERROR_NONE && *output_ready_ptr)
+        err = mqtt_status_write_tuner(tuner_id, STATUS_ROLLOFF, status->rolloff, output_ready_ptr);
+
     return err;
 }
 
@@ -1597,8 +1659,32 @@ int main(int argc, char *argv[])
     }
     else if (longmynd_config.status_use_mqtt)
     {
-        if (err == ERROR_NONE)
+        if (err == ERROR_NONE) {
+            // Initialize MQTT dual-tuner mode if enabled
+            if (longmynd_config.dual_tuner_enabled) {
+                printf("Flow: Enabling MQTT dual-tuner mode\n");
+                mqtt_set_dual_tuner_mode(true);
+
+                // Initialize MQTT tuner values from command line configuration
+                mqtt_init_tuner_values(
+                    longmynd_config.freq_requested[longmynd_config.freq_index],
+                    longmynd_config.sr_requested[longmynd_config.sr_index],
+                    longmynd_config.freq_requested_tuner2[longmynd_config.freq_index_tuner2],
+                    longmynd_config.sr_requested_tuner2[longmynd_config.sr_index_tuner2],
+                    longmynd_config.ts_ip_addr,
+                    longmynd_config.ts2_ip_addr
+                );
+            } else {
+                // Initialize single-tuner MQTT values
+                mqtt_init_tuner_values(
+                    longmynd_config.freq_requested[longmynd_config.freq_index],
+                    longmynd_config.sr_requested[longmynd_config.sr_index],
+                    0, 0, longmynd_config.ts_ip_addr, NULL
+                );
+            }
+
             err = mqttinit(longmynd_config.status_ip_addr);
+        }
         if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");
         status_write = mqtt_status_write;
         status_string_write = mqtt_status_string_write;
@@ -1639,15 +1725,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Initialize MQTT (enable dual-tuner mode if configured)
-    if (err == ERROR_NONE && longmynd_config.status_use_ip) {
-        if (longmynd_config.dual_tuner_enabled) {
-            printf("Flow: Enabling MQTT dual-tuner mode\n");
-            mqtt_set_dual_tuner_mode(true);
-        }
-        printf("Flow: Initializing MQTT broker: %s\n", longmynd_config.status_ip_addr);
-        err = mqttinit(longmynd_config.status_ip_addr);
-    }
+
 
     // Initialize status structures for dual-tuner mode
     pthread_mutex_t dual_sync_mutex = PTHREAD_MUTEX_INITIALIZER;
