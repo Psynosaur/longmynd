@@ -85,6 +85,12 @@ uint32_t Frequency = 0;
 bool sport;
 char stsip[255];
 
+/* Dual-tuner specific globals */
+uint32_t Symbolrate_tuner2 = 0;
+uint32_t Frequency_tuner2 = 0;
+bool sport_tuner2;
+char stsip_tuner2[255];
+
 void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_message *msg)
 {
 	char *key = msg->topic;
@@ -419,19 +425,57 @@ void mqtt_process_dual_command(const char *topic, const char *payload)
 	else if (strcmp(topic, "cmd/longmynd/tuner2/sr") == 0) {
 		uint32_t symbolrate = atol(payload);
 		printf("MQTT: Tuner 2 symbol rate = %d\n", symbolrate);
-		// TODO: Implement tuner 2 specific symbol rate control
-		// config_set_symbolrate_tuner2(symbolrate);
+		if (symbolrate <= 27500 && symbolrate >= 33) {
+			Symbolrate_tuner2 = symbolrate;
+			config_set_symbolrate_tuner2(symbolrate);
+			printf("MQTT: Tuner 2 symbol rate set to %d KSymbols/s\n", symbolrate);
+		} else {
+			printf("ERROR: MQTT Tuner 2 symbol rate %d out of range (33-27500 KSymbols/s)\n", symbolrate);
+		}
 	}
 	else if (strcmp(topic, "cmd/longmynd/tuner2/frequency") == 0) {
 		uint32_t frequency = atol(payload);
 		printf("MQTT: Tuner 2 frequency = %d\n", frequency);
-		// TODO: Implement tuner 2 specific frequency control
-		// config_set_frequency_tuner2(frequency);
+		if (frequency <= 2450000 && frequency >= 144000) {
+			Frequency_tuner2 = frequency;
+			config_set_frequency_tuner2(frequency);
+			printf("MQTT: Tuner 2 frequency set to %d KHz\n", frequency);
+		} else {
+			printf("ERROR: MQTT Tuner 2 frequency %d out of range (144000-2450000 KHz)\n", frequency);
+		}
 	}
 	else if (strcmp(topic, "cmd/longmynd/tuner2/polar") == 0) {
 		printf("MQTT: Tuner 2 polarization = %s\n", payload);
-		// TODO: Implement tuner 2 specific polarization control
-		// config_set_lnbv_tuner2(enabled, horizontal);
+		if (strcmp(payload, "h") == 0) {
+			config_set_lnbv_tuner2(true, true);
+			printf("MQTT: Tuner 2 polarization set to horizontal (18V)\n");
+		}
+		else if (strcmp(payload, "v") == 0) {
+			config_set_lnbv_tuner2(true, false);
+			printf("MQTT: Tuner 2 polarization set to vertical (13V)\n");
+		}
+		else if (strcmp(payload, "n") == 0) {
+			config_set_lnbv_tuner2(false, false);
+			printf("MQTT: Tuner 2 polarization supply disabled\n");
+		}
+		else {
+			printf("ERROR: MQTT Tuner 2 invalid polarization value '%s' (use 'h', 'v', or 'n')\n", payload);
+		}
+	}
+	/* Additional tuner 2 commands for completeness */
+	else if (strcmp(topic, "cmd/longmynd/tuner2/swport") == 0) {
+		bool sport_val = atoi(payload);
+		printf("MQTT: Tuner 2 port swap = %s\n", sport_val ? "true" : "false");
+		// Note: Port swap affects both tuners globally, so we use the existing function
+		sport_tuner2 = sport_val;
+		config_set_swport(sport_val);
+		printf("MQTT: Port swap setting applied globally\n");
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner2/tsip") == 0) {
+		printf("MQTT: Tuner 2 TS IP = %s\n", payload);
+		strcpy(stsip_tuner2, payload);
+		// Note: Tuner 2 TS IP is set via command line (-j option), not dynamically changeable
+		printf("WARNING: MQTT Tuner 2 TS IP change not supported - use command line -j option\n");
 	}
 }
 
@@ -470,19 +514,35 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		sprintf(status_topic, "%s/longmynd/set/sr", topic_prefix);
-		sprintf(status_message, "%d", Symbolrate);  // TODO: Use tuner-specific values
+		if (tuner_id == 1) {
+			sprintf(status_message, "%d", Symbolrate);
+		} else {
+			sprintf(status_message, "%d", Symbolrate_tuner2);
+		}
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		sprintf(status_topic, "%s/longmynd/set/frequency", topic_prefix);
-		sprintf(status_message, "%d", Frequency);  // TODO: Use tuner-specific values
+		if (tuner_id == 1) {
+			sprintf(status_message, "%d", Frequency);
+		} else {
+			sprintf(status_message, "%d", Frequency_tuner2);
+		}
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		sprintf(status_topic, "%s/longmynd/set/swport", topic_prefix);
-		sprintf(status_message, "%d", sport);
+		if (tuner_id == 1) {
+			sprintf(status_message, "%d", sport);
+		} else {
+			sprintf(status_message, "%d", sport_tuner2);
+		}
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		sprintf(status_topic, "%s/longmynd/set/tsip", topic_prefix);
-		sprintf(status_message, "%s", stsip);
+		if (tuner_id == 1) {
+			sprintf(status_message, "%s", stsip);
+		} else {
+			sprintf(status_message, "%s", stsip_tuner2);
+		}
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		extern size_t video_pcrpts;

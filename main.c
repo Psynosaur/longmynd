@@ -231,6 +231,111 @@ void config_reinit(bool increment_frsr)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+/* Dual-tuner configuration functions                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* NB: This overwrites any multiple-frequency config for tuner 2 */
+void config_set_frequency_tuner2(uint32_t frequency)
+{
+    if (frequency <= 2450000 && frequency >= 144000)
+    {
+        pthread_mutex_lock(&longmynd_config.mutex);
+
+        longmynd_config.freq_requested_tuner2[0] = frequency;
+        longmynd_config.freq_requested_tuner2[1] = 0;
+        longmynd_config.freq_requested_tuner2[2] = 0;
+        longmynd_config.freq_requested_tuner2[3] = 0;
+        longmynd_config.freq_index_tuner2 = 0;
+        longmynd_config.new_config_tuner2 = true;
+
+        pthread_mutex_unlock(&longmynd_config.mutex);
+    }
+}
+
+/* NB: This overwrites any multiple-symbolrate config for tuner 2 */
+void config_set_symbolrate_tuner2(uint32_t symbolrate)
+{
+    if (symbolrate <= 27500 && symbolrate >= 33)
+    {
+        pthread_mutex_lock(&longmynd_config.mutex);
+
+        longmynd_config.sr_requested_tuner2[0] = symbolrate;
+        longmynd_config.sr_requested_tuner2[1] = 0;
+        longmynd_config.sr_requested_tuner2[2] = 0;
+        longmynd_config.sr_requested_tuner2[3] = 0;
+        longmynd_config.sr_index_tuner2 = 0;
+        longmynd_config.new_config_tuner2 = true;
+
+        pthread_mutex_unlock(&longmynd_config.mutex);
+    }
+}
+
+/* NB: This overwrites any multiple-frequency or multiple-symbolrate config for tuner 2 */
+void config_set_frequency_and_symbolrate_tuner2(uint32_t frequency, uint32_t symbolrate)
+{
+    if (frequency <= 2450000 && frequency >= 144000 && symbolrate <= 27500 && symbolrate >= 33)
+    {
+        pthread_mutex_lock(&longmynd_config.mutex);
+
+        longmynd_config.freq_requested_tuner2[0] = frequency;
+        longmynd_config.freq_requested_tuner2[1] = 0;
+        longmynd_config.freq_requested_tuner2[2] = 0;
+        longmynd_config.freq_requested_tuner2[3] = 0;
+        longmynd_config.freq_index_tuner2 = 0;
+
+        longmynd_config.sr_requested_tuner2[0] = symbolrate;
+        longmynd_config.sr_requested_tuner2[1] = 0;
+        longmynd_config.sr_requested_tuner2[2] = 0;
+        longmynd_config.sr_requested_tuner2[3] = 0;
+        longmynd_config.sr_index_tuner2 = 0;
+
+        longmynd_config.new_config_tuner2 = true;
+
+        pthread_mutex_unlock(&longmynd_config.mutex);
+    }
+}
+
+void config_set_lnbv_tuner2(bool enabled, bool horizontal)
+{
+    pthread_mutex_lock(&longmynd_config.mutex);
+
+    longmynd_config.polarisation_supply_tuner2 = enabled;
+    longmynd_config.polarisation_horizontal_tuner2 = horizontal;
+    longmynd_config.new_config_tuner2 = true;
+
+    pthread_mutex_unlock(&longmynd_config.mutex);
+}
+
+void config_reinit_tuner2(bool increment_frsr)
+{
+    pthread_mutex_lock(&longmynd_config.mutex);
+
+    if (increment_frsr)
+    {
+        /* Cycle symbolrate for a given frequency for tuner 2 */
+        do
+        {
+            /* Increment modulus 4 */
+            longmynd_config.sr_index_tuner2 = (longmynd_config.sr_index_tuner2 + 1) & 0x3;
+            /* Check if we've just cycled all symbolrates */
+            if (longmynd_config.sr_index_tuner2 == 0)
+            {
+                /* Cycle frequences once we've tried all symbolrates */
+                do
+                {
+                    /* Increment modulus 4 */
+                    longmynd_config.freq_index_tuner2 = (longmynd_config.freq_index_tuner2 + 1) & 0x3;
+                } while (longmynd_config.freq_requested_tuner2[longmynd_config.freq_index_tuner2] == 0);
+            }
+        } while (longmynd_config.sr_requested_tuner2[longmynd_config.sr_index_tuner2] == 0);
+    }
+
+    longmynd_config.new_config_tuner2 = true;
+
+    pthread_mutex_unlock(&longmynd_config.mutex);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint64_t monotonic_ms(void)
 {
     /* -------------------------------------------------------------------------------------------------- */
@@ -278,6 +383,17 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->auto_detect_second_device = false;
     strcpy(config->ts2_ip_addr, "230.0.0.3");
     config->ts2_ip_port = 1234;
+
+    // Initialize dual-tuner configuration arrays
+    for (int i = 0; i < 4; i++) {
+        config->freq_requested_tuner2[i] = 0;
+        config->sr_requested_tuner2[i] = 0;
+    }
+    config->freq_index_tuner2 = 0;
+    config->sr_index_tuner2 = 0;
+    config->polarisation_supply_tuner2 = false;
+    config->polarisation_horizontal_tuner2 = false;
+    config->new_config_tuner2 = false;
 
     config->ts_use_ip = false;
     config->status_use_mqtt = false;

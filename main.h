@@ -118,6 +118,15 @@ typedef struct {
     bool polarisation_supply;
     bool polarisation_horizontal; // false -> 13V, true -> 18V
 
+    // Dual-tuner specific configuration
+    uint32_t freq_requested_tuner2[4];
+    uint32_t sr_requested_tuner2[4];
+    uint8_t freq_index_tuner2;
+    uint8_t sr_index_tuner2;
+    bool polarisation_supply_tuner2;
+    bool polarisation_horizontal_tuner2;
+    bool new_config_tuner2;
+
     int ts_timeout;
 
     bool new_config=false;
@@ -187,6 +196,13 @@ void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
 void config_set_swport(bool sport);
 void config_set_tsip(char *tsip);
+
+/* Dual-tuner configuration functions */
+void config_set_frequency_tuner2(uint32_t frequency);
+void config_set_symbolrate_tuner2(uint32_t symbolrate);
+void config_set_frequency_and_symbolrate_tuner2(uint32_t frequency, uint32_t symbolrate);
+void config_set_lnbv_tuner2(bool enabled, bool horizontal);
+void config_reinit_tuner2(bool increment_frsr);
 
 /* Dual-tuner aware reporting functions */
 uint8_t do_report_dual(longmynd_status_t *status, uint8_t demod);
