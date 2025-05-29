@@ -1957,6 +1957,8 @@ int main(int argc, char *argv[])
                 } else if (longmynd_config.status_use_ip || status_output_ready) {
                     /* Send tuner 1 status via UDP/FIFO (backward compatibility) */
                     err = status_all_write(&longmynd_status_tuner1_cpy, status_write, status_string_write, &status_output_ready);
+                } else if (!longmynd_config.status_use_ip && !status_output_ready) {
+                    err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
                 }
 
                 last_status_sent_monotonic_tuner1 = longmynd_status_tuner1_cpy.last_updated_monotonic;
@@ -1972,6 +1974,12 @@ int main(int argc, char *argv[])
                 if (longmynd_config.status_use_mqtt) {
                     /* Send tuner 2 status via MQTT with tuner-specific topics */
                     err = status_all_write_tuner(2, &longmynd_status_tuner2_cpy, &status_output_ready);
+                } else if (longmynd_config.status_use_ip || status_output_ready) {
+                    /* Send tuner 2 status via UDP/FIFO (not recommended for dual-tuner) */
+                    printf("WARNING: Tuner 2 status via UDP/FIFO not fully supported - use MQTT for dual-tuner\n");
+                    err = status_all_write(&longmynd_status_tuner2_cpy, status_write, status_string_write, &status_output_ready);
+                } else if (!longmynd_config.status_use_ip && !status_output_ready) {
+                    err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
                 }
 
                 last_status_sent_monotonic_tuner2 = longmynd_status_tuner2_cpy.last_updated_monotonic;

@@ -373,6 +373,13 @@ uint8_t mqtt_status_string_write(uint8_t message, char *data, bool *output_ready
 	char status_topic[255];
 
 	sprintf(status_topic, "dt/longmynd/%s", StatusString[message]);
+
+	/* Debug output for service and provider names */
+	if (message == STATUS_SERVICE_NAME || message == STATUS_SERVICE_PROVIDER_NAME) {
+		printf("MQTT DEBUG: Single-tuner publishing %s = '%s' (length: %zu)\n",
+		       StatusString[message], data, strlen(data));
+	}
+
 	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
 
 	return err;
@@ -867,6 +874,13 @@ uint8_t mqtt_status_string_write_tuner(uint8_t tuner_id, uint8_t message, char *
 
 	/* Build tuner-specific topic with proper prefix */
 	sprintf(status_topic, "%s/longmynd/%s", topic_prefix, StatusString[message]);
+
+	/* Debug output for service and provider names */
+	if (message == STATUS_SERVICE_NAME || message == STATUS_SERVICE_PROVIDER_NAME) {
+		printf("MQTT DEBUG: Tuner %d publishing %s = '%s' (length: %zu)\n",
+		       tuner_id, StatusString[message], data, strlen(data));
+	}
+
 	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
 
 	return err;
