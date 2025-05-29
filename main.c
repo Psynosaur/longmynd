@@ -1081,19 +1081,19 @@ void *loop_i2c(void *arg)
                                 /* No additional STV0910 initialization needed for tuner 2 */
                             }
                         } else {
-                            /* Reconfiguration mode - use individual demodulator setup */
-                            printf("Flow: Using individual demodulator reconfiguration (tuner %d)\n", thread_vars->tuner_id);
+                            /* Reconfiguration mode - use safe individual demodulator reconfiguration */
+                            printf("Flow: Using safe individual demodulator reconfiguration (tuner %d)\n", thread_vars->tuner_id);
 
                             if (thread_vars->tuner_id == 1) {
-                                /* Tuner 1 reconfiguration - reconfigure TOP demodulator only */
+                                /* Tuner 1 reconfiguration - safely reconfigure TOP demodulator only */
                                 uint32_t sr_tuner1 = config_cpy.sr_requested[config_cpy.sr_index];
-                                printf("      Status: Reconfiguring TOP demodulator with symbol rate %d\n", sr_tuner1);
-                                *err = stv0910_setup_receive(STV0910_DEMOD_TOP, sr_tuner1);
+                                printf("      Status: Safely reconfiguring TOP demodulator with symbol rate %d\n", sr_tuner1);
+                                *err = stv0910_reconfigure_demod(STV0910_DEMOD_TOP, sr_tuner1);
                             } else {
-                                /* Tuner 2 reconfiguration - reconfigure BOTTOM demodulator only */
+                                /* Tuner 2 reconfiguration - safely reconfigure BOTTOM demodulator only */
                                 uint32_t sr_tuner2 = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
-                                printf("      Status: Reconfiguring BOTTOM demodulator with symbol rate %d\n", sr_tuner2);
-                                *err = stv0910_setup_receive(STV0910_DEMOD_BOTTOM, sr_tuner2);
+                                printf("      Status: Safely reconfiguring BOTTOM demodulator with symbol rate %d\n", sr_tuner2);
+                                *err = stv0910_reconfigure_demod(STV0910_DEMOD_BOTTOM, sr_tuner2);
                             }
                         }
                     } else {

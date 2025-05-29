@@ -925,6 +925,41 @@ uint8_t stv0910_setup_receive_dual(uint8_t demod, uint32_t symbol_rate) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_reconfigure_demod(uint8_t demod, uint32_t symbol_rate) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Safely reconfigure a specific demodulator without affecting the other                             */
+/*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to reconfigure               */
+/*   symbol_rate: symbol rate in symbols per second                                                   */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    printf("Flow: STV0910 reconfigure demod %d, SR %d\n", demod, symbol_rate);
+
+    /* Validate demodulator parameter */
+    if (demod != STV0910_DEMOD_TOP && demod != STV0910_DEMOD_BOTTOM) {
+        printf("ERROR: Invalid demodulator specified: %d\n", demod);
+        return ERROR_DEMOD_INIT;
+    }
+
+    /* Step 1: Stop the specific demodulator to prevent interference */
+    printf("      Status: Stopping demodulator %d for reconfiguration\n", demod);
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_DMDISTATE : RSTV0910_P1_DMDISTATE), 0x1c);
+    }
+
+    /* Step 2: Reconfigure the demodulator parameters */
+    if (err == ERROR_NONE) {
+        printf("      Status: Reconfiguring demodulator %d parameters\n", demod);
+        err = stv0910_setup_receive(demod, symbol_rate);
+    }
+
+    if (err != ERROR_NONE) printf("ERROR: STV0910 reconfigure demod\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_start_scan_dual_controlled(uint8_t demod, bool skip_top_check) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Start scan for a specific demodulator following open_tuner sequence                               */
