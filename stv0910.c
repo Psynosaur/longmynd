@@ -954,6 +954,12 @@ uint8_t stv0910_reconfigure_demod(uint8_t demod, uint32_t symbol_rate) {
         err = stv0910_setup_receive(demod, symbol_rate);
     }
 
+    /* Step 3: CRITICAL FIX - Restart the scan after reconfiguration */
+    if (err == ERROR_NONE) {
+        printf("      Status: Restarting scan for demodulator %d after reconfiguration\n", demod);
+        err = stv0910_start_scan(demod);
+    }
+
     if (err != ERROR_NONE) printf("ERROR: STV0910 reconfigure demod\n");
 
     return err;
