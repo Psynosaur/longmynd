@@ -477,6 +477,47 @@ void mqtt_process_dual_command(const char *topic, const char *payload)
 		// Note: Tuner 2 TS IP is set via command line (-j option), not dynamically changeable
 		printf("WARNING: MQTT Tuner 2 TS IP change not supported - use command line -j option\n");
 	}
+	/* Backward compatibility: tuner1 commands (same as main commands) */
+	else if (strcmp(topic, "cmd/longmynd/tuner1/sr") == 0) {
+		uint32_t symbolrate = atol(payload);
+		printf("MQTT: Tuner 1 symbol rate = %d\n", symbolrate);
+		if (symbolrate <= 27500 && symbolrate >= 33) {
+			Symbolrate = symbolrate;
+			config_set_symbolrate(symbolrate);
+			printf("MQTT: Tuner 1 symbol rate set to %d KSymbols/s\n", symbolrate);
+		} else {
+			printf("ERROR: MQTT Tuner 1 symbol rate %d out of range (33-27500 KSymbols/s)\n", symbolrate);
+		}
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner1/frequency") == 0) {
+		uint32_t frequency = atol(payload);
+		printf("MQTT: Tuner 1 frequency = %d\n", frequency);
+		if (frequency <= 2450000 && frequency >= 144000) {
+			Frequency = frequency;
+			config_set_frequency(frequency);
+			printf("MQTT: Tuner 1 frequency set to %d KHz\n", frequency);
+		} else {
+			printf("ERROR: MQTT Tuner 1 frequency %d out of range (144000-2450000 KHz)\n", frequency);
+		}
+	}
+	else if (strcmp(topic, "cmd/longmynd/tuner1/polar") == 0) {
+		printf("MQTT: Tuner 1 polarization = %s\n", payload);
+		if (strcmp(payload, "h") == 0) {
+			config_set_lnbv(true, true);
+			printf("MQTT: Tuner 1 polarization set to horizontal (18V)\n");
+		}
+		else if (strcmp(payload, "v") == 0) {
+			config_set_lnbv(true, false);
+			printf("MQTT: Tuner 1 polarization set to vertical (13V)\n");
+		}
+		else if (strcmp(payload, "n") == 0) {
+			config_set_lnbv(false, false);
+			printf("MQTT: Tuner 1 polarization supply disabled\n");
+		}
+		else {
+			printf("ERROR: MQTT Tuner 1 invalid polarization value '%s' (use 'h', 'v', or 'n')\n", payload);
+		}
+	}
 }
 
 uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data, bool *output_ready)

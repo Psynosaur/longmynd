@@ -391,8 +391,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     }
     config->freq_index_tuner2 = 0;
     config->sr_index_tuner2 = 0;
-    config->polarisation_supply_tuner2 = false;
-    config->polarisation_horizontal_tuner2 = false;
+    config->polarisation_supply_tuner2 = config->polarisation_supply;  // Copy from main tuner
+    config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;  // Copy from main tuner
     config->new_config_tuner2 = false;
 
     config->ts_use_ip = false;
@@ -476,7 +476,30 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'j':
                 strncpy(config->ts2_ip_addr, argv[param++], (16 - 1));
-                config->ts2_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
+                config->ts2_ip_port = (uint16_t)strtol(argv[param++], NULL, 10);
+                /* Parse tuner 2 frequency and symbol rate */
+                if (param < argc - 2) {  /* Ensure we have at least 2 more arguments for freq and sr */
+                    config->freq_requested_tuner2[0] = (uint32_t)strtol(argv[param++], NULL, 10);
+                    config->sr_requested_tuner2[0] = (uint32_t)strtol(argv[param], NULL, 10);
+                    /* Initialize other array elements to 0 */
+                    for (int i = 1; i < 4; i++) {
+                        config->freq_requested_tuner2[i] = 0;
+                        config->sr_requested_tuner2[i] = 0;
+                    }
+                    config->freq_index_tuner2 = 0;
+                    config->sr_index_tuner2 = 0;
+                    printf("Flow: Tuner 2 configured: Frequency=%d KHz, Symbol Rate=%d KSymbols/s\n",
+                           config->freq_requested_tuner2[0], config->sr_requested_tuner2[0]);
+                } else {
+                    printf("WARNING: Tuner 2 frequency and symbol rate not provided, using tuner 1 values\n");
+                    /* Copy tuner 1 values as fallback */
+                    for (int i = 0; i < 4; i++) {
+                        config->freq_requested_tuner2[i] = config->freq_requested[i];
+                        config->sr_requested_tuner2[i] = config->sr_requested[i];
+                    }
+                    config->freq_index_tuner2 = config->freq_index;
+                    config->sr_index_tuner2 = config->sr_index;
+                }
                 config->dual_tuner_enabled = true;
                 break;
             }
@@ -914,22 +937,35 @@ void *loop_i2c(void *arg)
 
 
 
-        /* Check if there's a new config */
-        if (thread_vars->config->new_config)
+        /* Check if there's a new config - handle both main and tuner 2 config changes */
+        if (thread_vars->config->new_config ||
+            (config_cpy.dual_tuner_enabled && thread_vars->tuner_id == 2 && thread_vars->config->new_config_tuner2))
         {
             fprintf(stderr,"New Config !!!!!!!!!\n");
             /* Lock config struct */
             pthread_mutex_lock(&thread_vars->config->mutex);
             /* Clone status struct locally */
             memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
-            /* Clear new config flag */
-            thread_vars->config->new_config = false;
+            /* Clear appropriate new config flag */
+            if (thread_vars->tuner_id == 1) {
+                thread_vars->config->new_config = false;
+            } else if (thread_vars->tuner_id == 2) {
+                thread_vars->config->new_config_tuner2 = false;
+            }
             /* Set flag to clear ts buffer */
             thread_vars->config->ts_reset = true;
             pthread_mutex_unlock(&thread_vars->config->mutex);
 
-            status_cpy.frequency_requested = config_cpy.freq_requested[config_cpy.freq_index];
-            status_cpy.symbolrate_requested = config_cpy.sr_requested[config_cpy.sr_index];
+            /* Set tuner-specific frequency and symbol rate */
+            if (config_cpy.dual_tuner_enabled && thread_vars->tuner_id == 2) {
+                /* Tuner 2: use tuner 2 specific configuration */
+                status_cpy.frequency_requested = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
+                status_cpy.symbolrate_requested = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
+            } else {
+                /* Tuner 1 or single tuner mode: use main configuration */
+                status_cpy.frequency_requested = config_cpy.freq_requested[config_cpy.freq_index];
+                status_cpy.symbolrate_requested = config_cpy.sr_requested[config_cpy.sr_index];
+            }
 
             uint8_t tuner_err = ERROR_NONE; // Seperate to avoid triggering main() abort on handled tuner error.
             int32_t tuner_lock_attempts = STV6120_PLL_ATTEMPTS;
@@ -948,8 +984,9 @@ void *loop_i2c(void *arg)
                         if (thread_vars->tuner_id == 1) {
                             /* Tuner 1 (TOP demodulator) - initialize with both symbol rates */
                             printf("      Status: Initializing dual demodulators with TOP-first sequence\n");
-                            *err = stv0910_init_dual_sequence(config_cpy.sr_requested[config_cpy.sr_index],
-                                                             config_cpy.sr_requested[config_cpy.sr_index]);
+                            uint32_t sr_tuner1 = config_cpy.sr_requested[config_cpy.sr_index];
+                            uint32_t sr_tuner2 = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
+                            *err = stv0910_init_dual_sequence(sr_tuner1, sr_tuner2);
 
                             /* Signal that TOP demodulator is ready */
                             if (*err == ERROR_NONE && thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
@@ -1001,11 +1038,13 @@ void *loop_i2c(void *arg)
                 if (*err == ERROR_NONE) {
                     if (config_cpy.dual_tuner_enabled) {
                         if (thread_vars->tuner_id == 1) {
-                            /* Tuner 1: use first frequency, turn off tuner 2 for now */
-                            tuner_err = stv6120_init(config_cpy.freq_requested[config_cpy.freq_index], 0, config_cpy.port_swap);
+                            /* Tuner 1: use tuner 1 frequency, turn off tuner 2 for now */
+                            uint32_t freq_tuner1 = config_cpy.freq_requested[config_cpy.freq_index];
+                            tuner_err = stv6120_init(freq_tuner1, 0, config_cpy.port_swap);
                         } else {
-                            /* Tuner 2: use first frequency, turn off tuner 1 for this instance */
-                            tuner_err = stv6120_init(0, config_cpy.freq_requested[config_cpy.freq_index], config_cpy.port_swap);
+                            /* Tuner 2: use tuner 2 frequency, turn off tuner 1 for this instance */
+                            uint32_t freq_tuner2 = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
+                            tuner_err = stv6120_init(0, freq_tuner2, config_cpy.port_swap);
                         }
                     } else {
                         /* Single tuner mode - original behavior */
@@ -1080,13 +1119,23 @@ void *loop_i2c(void *arg)
             if (*err != ERROR_NONE)
                 printf("ERROR: failed to init a device - is the NIM powered on?\n");
 
-            /* Enable/Disable polarisation voltage supply */
-            if (*err == ERROR_NONE)
-                *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply, config_cpy.polarisation_horizontal);
-            if (*err == ERROR_NONE)
-            {
-                status_cpy.polarisation_supply = config_cpy.polarisation_supply;
-                status_cpy.polarisation_horizontal = config_cpy.polarisation_horizontal;
+            /* Enable/Disable polarisation voltage supply - use tuner-specific values */
+            if (*err == ERROR_NONE) {
+                if (config_cpy.dual_tuner_enabled && thread_vars->tuner_id == 2) {
+                    /* Tuner 2: use tuner 2 specific polarization settings */
+                    *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply_tuner2, config_cpy.polarisation_horizontal_tuner2);
+                    if (*err == ERROR_NONE) {
+                        status_cpy.polarisation_supply = config_cpy.polarisation_supply_tuner2;
+                        status_cpy.polarisation_horizontal = config_cpy.polarisation_horizontal_tuner2;
+                    }
+                } else {
+                    /* Tuner 1 or single tuner mode: use main polarization settings */
+                    *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply, config_cpy.polarisation_horizontal);
+                    if (*err == ERROR_NONE) {
+                        status_cpy.polarisation_supply = config_cpy.polarisation_supply;
+                        status_cpy.polarisation_horizontal = config_cpy.polarisation_horizontal;
+                    }
+                }
             }
 
             /* now start the whole thing scanning for the signal */
