@@ -971,24 +971,39 @@ void *loop_i2c(void *arg)
 
 
 
-        /* Check if there's a new config - FIXED: separate flags for each tuner */
+        /* CRITICAL FIX: Check and clear flags atomically to prevent race conditions */
+        bool should_process_config = false;
+        pthread_mutex_lock(&thread_vars->config->mutex);
+
+        /* Check if this specific tuner should process a config change */
         if ((thread_vars->tuner_id == 1 && thread_vars->config->new_config) ||
             (thread_vars->tuner_id == 2 && thread_vars->config->new_config_tuner2))
         {
+            should_process_config = true;
             fprintf(stderr,"New Config !!!!!!!!!\n");
-            /* Lock config struct */
-            pthread_mutex_lock(&thread_vars->config->mutex);
-            /* Clone status struct locally */
+            printf("DEBUG: Tuner %d triggered config change (new_config=%s, new_config_tuner2=%s)\n",
+                   thread_vars->tuner_id,
+                   thread_vars->config->new_config ? "true" : "false",
+                   thread_vars->config->new_config_tuner2 ? "true" : "false");
+
+            /* Clone config struct locally */
             memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
-            /* Clear appropriate new config flag */
+
+            /* Clear appropriate new config flag IMMEDIATELY */
             if (thread_vars->tuner_id == 1) {
                 thread_vars->config->new_config = false;
+                printf("DEBUG: Cleared new_config flag for tuner 1\n");
             } else if (thread_vars->tuner_id == 2) {
                 thread_vars->config->new_config_tuner2 = false;
+                printf("DEBUG: Cleared new_config_tuner2 flag for tuner 2\n");
             }
             /* Set flag to clear ts buffer */
             thread_vars->config->ts_reset = true;
-            pthread_mutex_unlock(&thread_vars->config->mutex);
+        }
+        pthread_mutex_unlock(&thread_vars->config->mutex);
+
+        if (should_process_config)
+        {
 
             /* Set tuner-specific frequency and symbol rate */
             if (config_cpy.dual_tuner_enabled && thread_vars->tuner_id == 2) {
@@ -1195,7 +1210,7 @@ void *loop_i2c(void *arg)
             }
 
             status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();
-        }
+        } /* End of if (should_process_config) block */
 
         /* Main receiver state machine */
         switch (status_cpy.state)
