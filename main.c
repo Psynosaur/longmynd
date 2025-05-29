@@ -1553,7 +1553,7 @@ uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool
         err = mqtt_status_write_tuner(tuner_id, STATUS_PUNCTURE_RATE, status->puncture_rate, output_ready_ptr);
     /* Carrier Frequency */
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(tuner_id, STATUS_CARRIER_FREQUENCY, status->frequency, output_ready_ptr);
+        err = mqtt_status_write_tuner(tuner_id, STATUS_CARRIER_FREQUENCY, status->frequency_requested, output_ready_ptr);
     /* Constellations */
     for (uint8_t count = 0; count < NUM_CONSTELLATIONS; count++)
     {
@@ -1571,12 +1571,12 @@ uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool
     /* Elementary Streams */
     for (uint8_t count = 0; count < NUM_ELEMENT_STREAMS; count++)
     {
-        if (status->ts_elementary_streams[count].pid != 0)
+        if (status->ts_elementary_streams[count][0] != 0)
         {
             if (err == ERROR_NONE && *output_ready_ptr)
-                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_PID, status->ts_elementary_streams[count].pid, output_ready_ptr);
+                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_PID, status->ts_elementary_streams[count][0], output_ready_ptr);
             if (err == ERROR_NONE && *output_ready_ptr)
-                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_TYPE, status->ts_elementary_streams[count].type, output_ready_ptr);
+                err = mqtt_status_write_tuner(tuner_id, STATUS_ES_TYPE, status->ts_elementary_streams[count][1], output_ready_ptr);
         }
     }
     /* Short Frames */
@@ -1596,10 +1596,10 @@ uint8_t status_all_write_tuner(uint8_t tuner_id, longmynd_status_t *status, bool
         err = mqtt_status_write_tuner(tuner_id, STATUS_ERRORS_BCH_UNCORRECTED, status->errors_bch_uncorrected, output_ready_ptr);
     /* LNB Supply */
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_SUPPLY, status->lnb_supply, output_ready_ptr);
+        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_SUPPLY, status->polarisation_supply, output_ready_ptr);
     /* LNB Polarisation */
     if (err == ERROR_NONE && *output_ready_ptr)
-        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_POLARISATION_H, status->lnb_polarisation_horizontal, output_ready_ptr);
+        err = mqtt_status_write_tuner(tuner_id, STATUS_LNB_POLARISATION_H, status->polarisation_horizontal, output_ready_ptr);
     /* MATYPE */
     if (err == ERROR_NONE && *output_ready_ptr)
         err = mqtt_status_write_tuner(tuner_id, STATUS_MATYPE1, status->matype1, output_ready_ptr);
