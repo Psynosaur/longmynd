@@ -507,7 +507,7 @@ uint8_t stv6120_powerdown_single_path(uint8_t tuner) {
             (STV6120_CTRL2_BBGAIN_0DB        << STV6120_CTRL2_BBGAIN_SHIFT)    );
     } else {
         printf("ERROR: Invalid tuner specified for powerdown: %d\n", tuner);
-        err = ERROR_TUNER_INIT;
+        err = ERROR_ARGS_INPUT;
     }
 
     return err;
