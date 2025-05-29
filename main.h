@@ -126,6 +126,7 @@ typedef struct {
     bool polarisation_supply_tuner2;
     bool polarisation_horizontal_tuner2;
     bool new_config_tuner2;
+    bool tuners_initialized;  // Track if tuners have been initialized before
 
     int ts_timeout;
 

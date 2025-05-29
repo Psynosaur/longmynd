@@ -416,6 +416,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->polarisation_supply_tuner2 = config->polarisation_supply;  // Copy from main tuner
     config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;  // Copy from main tuner
     config->new_config_tuner2 = false;
+    config->tuners_initialized = false;  // Track if tuners have been initialized before
 
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
@@ -1024,58 +1025,76 @@ void *loop_i2c(void *arg)
                 if (*err == ERROR_NONE)
                     *err = nim_init();
 
-                /* CRITICAL: Use dual-tuner initialization sequence if enabled */
+                /* Initialize STV0910 demodulator(s) */
                 if (*err == ERROR_NONE) {
                     if (config_cpy.dual_tuner_enabled) {
-                        /* CRITICAL: Use open_tuner TOP-first initialization sequence */
-                        printf("Flow: Using CRITICAL dual-tuner initialization sequence (tuner %d)\n", thread_vars->tuner_id);
+                        /* Check if this is the first initialization or a reconfiguration */
+                        if (!config_cpy.tuners_initialized) {
+                            /* CRITICAL: Use open_tuner TOP-first initialization sequence ONLY on first startup */
+                            printf("Flow: Using CRITICAL dual-tuner initialization sequence (tuner %d) - FIRST STARTUP\n", thread_vars->tuner_id);
 
-                        if (thread_vars->tuner_id == 1) {
-                            /* Tuner 1 (TOP demodulator) - initialize with both symbol rates */
-                            printf("      Status: Initializing dual demodulators with TOP-first sequence\n");
-                            uint32_t sr_tuner1 = config_cpy.sr_requested[config_cpy.sr_index];
-                            uint32_t sr_tuner2 = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
-                            *err = stv0910_init_dual_sequence(sr_tuner1, sr_tuner2);
+                            if (thread_vars->tuner_id == 1) {
+                                /* Tuner 1 (TOP demodulator) - initialize with both symbol rates */
+                                printf("      Status: Initializing dual demodulators with TOP-first sequence\n");
+                                uint32_t sr_tuner1 = config_cpy.sr_requested[config_cpy.sr_index];
+                                uint32_t sr_tuner2 = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
+                                *err = stv0910_init_dual_sequence(sr_tuner1, sr_tuner2);
 
-                            /* Signal that TOP demodulator is ready */
-                            if (*err == ERROR_NONE && thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
-                                pthread_mutex_lock(thread_vars->dual_sync_mutex);
-                                *thread_vars->top_demod_ready = true;
-                                pthread_cond_broadcast(thread_vars->dual_sync_cond);
-                                pthread_mutex_unlock(thread_vars->dual_sync_mutex);
-                                printf("      Status: TOP demodulator initialization complete - signaling BOTTOM demodulator\n");
+                                /* Signal that TOP demodulator is ready */
+                                if (*err == ERROR_NONE && thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
+                                    pthread_mutex_lock(thread_vars->dual_sync_mutex);
+                                    *thread_vars->top_demod_ready = true;
+                                    pthread_cond_broadcast(thread_vars->dual_sync_cond);
+                                    pthread_mutex_unlock(thread_vars->dual_sync_mutex);
+                                    printf("      Status: TOP demodulator initialization complete - signaling BOTTOM demodulator\n");
+                                }
+                            } else {
+                                /* Tuner 2 (BOTTOM demodulator) - wait for TOP to be initialized first */
+                                printf("      Status: Tuner 2 waiting for TOP demodulator to be stable\n");
+
+                                if (thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
+                                    pthread_mutex_lock(thread_vars->dual_sync_mutex);
+
+                                    /* Wait with timeout to prevent infinite hanging */
+                                    struct timespec timeout;
+                                    clock_gettime(CLOCK_REALTIME, &timeout);
+                                    timeout.tv_sec += 10; /* 10 second timeout */
+
+                                    int wait_result = 0;
+                                    while (!*thread_vars->top_demod_ready && wait_result == 0) {
+                                        printf("      Status: Waiting for TOP demodulator initialization...\n");
+                                        wait_result = pthread_cond_timedwait(thread_vars->dual_sync_cond, thread_vars->dual_sync_mutex, &timeout);
+                                    }
+
+                                    if (wait_result == ETIMEDOUT) {
+                                        printf("      WARNING: Timeout waiting for TOP demodulator - proceeding anyway\n");
+                                    } else if (*thread_vars->top_demod_ready) {
+                                        printf("      Status: TOP demodulator ready - proceeding with BOTTOM demodulator\n");
+                                    }
+
+                                    pthread_mutex_unlock(thread_vars->dual_sync_mutex);
+                                } else {
+                                    /* Fallback to time-based delay if synchronization not available */
+                                    printf("      Status: Using fallback delay for TOP demodulator stability\n");
+                                    usleep(100000); /* 100ms delay */
+                                }
+                                /* No additional STV0910 initialization needed for tuner 2 */
                             }
                         } else {
-                            /* Tuner 2 (BOTTOM demodulator) - wait for TOP to be initialized first */
-                            printf("      Status: Tuner 2 waiting for TOP demodulator to be stable\n");
+                            /* Reconfiguration mode - use individual demodulator setup */
+                            printf("Flow: Using individual demodulator reconfiguration (tuner %d)\n", thread_vars->tuner_id);
 
-                            if (thread_vars->dual_sync_mutex && thread_vars->dual_sync_cond && thread_vars->top_demod_ready) {
-                                pthread_mutex_lock(thread_vars->dual_sync_mutex);
-
-                                /* Wait with timeout to prevent infinite hanging */
-                                struct timespec timeout;
-                                clock_gettime(CLOCK_REALTIME, &timeout);
-                                timeout.tv_sec += 10; /* 10 second timeout */
-
-                                int wait_result = 0;
-                                while (!*thread_vars->top_demod_ready && wait_result == 0) {
-                                    printf("      Status: Waiting for TOP demodulator initialization...\n");
-                                    wait_result = pthread_cond_timedwait(thread_vars->dual_sync_cond, thread_vars->dual_sync_mutex, &timeout);
-                                }
-
-                                if (wait_result == ETIMEDOUT) {
-                                    printf("      WARNING: Timeout waiting for TOP demodulator - proceeding anyway\n");
-                                } else if (*thread_vars->top_demod_ready) {
-                                    printf("      Status: TOP demodulator ready - proceeding with BOTTOM demodulator\n");
-                                }
-
-                                pthread_mutex_unlock(thread_vars->dual_sync_mutex);
+                            if (thread_vars->tuner_id == 1) {
+                                /* Tuner 1 reconfiguration - reconfigure TOP demodulator only */
+                                uint32_t sr_tuner1 = config_cpy.sr_requested[config_cpy.sr_index];
+                                printf("      Status: Reconfiguring TOP demodulator with symbol rate %d\n", sr_tuner1);
+                                *err = stv0910_setup_receive(STV0910_DEMOD_TOP, sr_tuner1);
                             } else {
-                                /* Fallback to time-based delay if synchronization not available */
-                                printf("      Status: Using fallback delay for TOP demodulator stability\n");
-                                usleep(100000); /* 100ms delay */
+                                /* Tuner 2 reconfiguration - reconfigure BOTTOM demodulator only */
+                                uint32_t sr_tuner2 = config_cpy.sr_requested_tuner2[config_cpy.sr_index_tuner2];
+                                printf("      Status: Reconfiguring BOTTOM demodulator with symbol rate %d\n", sr_tuner2);
+                                *err = stv0910_setup_receive(STV0910_DEMOD_BOTTOM, sr_tuner2);
                             }
-                            /* No additional STV0910 initialization needed for tuner 2 */
                         }
                     } else {
                         /* Single tuner mode - original initialization */
@@ -1193,20 +1212,40 @@ void *loop_i2c(void *arg)
             if (*err == ERROR_NONE)
             {
                 if (config_cpy.dual_tuner_enabled) {
-                    /* In dual-tuner mode, scan start is already handled by stv0910_init_dual_sequence */
-                    /* Only tuner 1 should set the state since both demodulators are already scanning */
-                    if (thread_vars->tuner_id == 1) {
-                        printf("      Status: Dual-tuner scan already initiated by init sequence\n");
-                        status_cpy.state = STATE_DEMOD_HUNTING;
+                    if (!config_cpy.tuners_initialized) {
+                        /* First startup - scan start is already handled by stv0910_init_dual_sequence */
+                        if (thread_vars->tuner_id == 1) {
+                            printf("      Status: Dual-tuner scan already initiated by init sequence\n");
+                            status_cpy.state = STATE_DEMOD_HUNTING;
+                        } else {
+                            printf("      Status: Tuner 2 scan already initiated - monitoring BOTTOM demodulator\n");
+                            status_cpy.state = STATE_DEMOD_HUNTING;
+                        }
                     } else {
-                        printf("      Status: Tuner 2 scan already initiated - monitoring BOTTOM demodulator\n");
-                        status_cpy.state = STATE_DEMOD_HUNTING;
+                        /* Reconfiguration - start scan for individual demodulator */
+                        if (thread_vars->tuner_id == 1) {
+                            printf("      Status: Starting scan for TOP demodulator (reconfiguration)\n");
+                            *err = stv0910_start_scan(STV0910_DEMOD_TOP);
+                            status_cpy.state = STATE_DEMOD_HUNTING;
+                        } else {
+                            printf("      Status: Starting scan for BOTTOM demodulator (reconfiguration)\n");
+                            *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
+                            status_cpy.state = STATE_DEMOD_HUNTING;
+                        }
                     }
                 } else {
                     /* Single tuner mode - original behavior */
                     *err = stv0910_start_scan(STV0910_DEMOD_TOP);
                     status_cpy.state = STATE_DEMOD_HUNTING;
                 }
+            }
+
+            /* Mark tuners as initialized after successful first startup */
+            if (*err == ERROR_NONE && config_cpy.dual_tuner_enabled && !config_cpy.tuners_initialized) {
+                pthread_mutex_lock(&thread_vars->config->mutex);
+                thread_vars->config->tuners_initialized = true;
+                pthread_mutex_unlock(&thread_vars->config->mutex);
+                printf("      Status: Tuners marked as initialized (tuner %d)\n", thread_vars->tuner_id);
             }
 
             status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();
