@@ -1128,7 +1128,17 @@ void *loop_i2c(void *arg)
                     printf("Flow: Caught tuner lock timeout, %" PRIu32 " attempts at stv6120_init() remaining.\n", tuner_lock_attempts);
                     /* Power down the synthesizers to potentially improve success on retry. */
                     /* - Everything else gets powered down as well to stay within datasheet-defined states */
-                    *err = stv6120_powerdown_both_paths();
+
+                    if (config_cpy.dual_tuner_enabled && config_cpy.tuners_initialized) {
+                        /* Dual-tuner reconfiguration mode - only power down the failing tuner */
+                        uint8_t failing_tuner = (thread_vars->tuner_id == 1) ? TUNER_1 : TUNER_2;
+                        printf("Flow: Powering down only tuner %d path to avoid affecting other tuner\n", thread_vars->tuner_id);
+                        *err = stv6120_powerdown_single_path(failing_tuner);
+                    } else {
+                        /* Initial startup or single-tuner mode - power down both paths */
+                        *err = stv6120_powerdown_both_paths();
+                    }
+
                     if (*err == ERROR_NONE)
                         usleep(200 * 1000);
                 }
