@@ -817,16 +817,16 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 
     config->new_config = true;
 
-    /* CRITICAL FIX: Copy polarization settings to tuner 2 after command line parsing */
+    /* SEQUENTIAL INIT: Copy polarization settings to tuner 2 after command line parsing */
     if (config->dual_tuner_enabled) {
-        config->polarisation_supply_tuner2 = config->polarisation_supply;
-        config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;
-        /* CRITICAL FIX: Set initial configuration flag for tuner 2 */
-        config->new_config_tuner2 = true;
-        printf("Flow: Copied polarization settings to tuner 2: supply=%s, horizontal=%s\n",
-               config->polarisation_supply_tuner2 ? "enabled" : "disabled",
-               config->polarisation_horizontal_tuner2 ? "true" : "false");
-        printf("Flow: Initial configuration flags set for both tuners (new_config=true, new_config_tuner2=true)\n");
+        // config->polarisation_supply_tuner2 = config->polarisation_supply;
+        // config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;
+        /* SEQUENTIAL INIT: Don't set tuner 2 config flag yet - let tuner 1 initialize first */
+        // config->new_config_tuner2 = true;  // Will be set after tuner 1 completes
+        // printf("Flow: Copied polarization settings to tuner 2: supply=%s, horizontal=%s\n",
+        //        config->polarisation_supply_tuner2 ? "enabled" : "disabled",
+        //        config->polarisation_horizontal_tuner2 ? "true" : "false");
+        printf("Flow: Sequential initialization - tuner 1 will initialize first, then trigger tuner 2\n");
     }
 
     return err;
@@ -1286,6 +1286,13 @@ void *loop_i2c(void *arg)
             if (*err == ERROR_NONE && config_cpy.dual_tuner_enabled && !config_cpy.tuners_initialized) {
                 pthread_mutex_lock(&thread_vars->config->mutex);
                 thread_vars->config->tuners_initialized = true;
+
+                /* SEQUENTIAL INIT: If this is tuner 1, trigger tuner 2 initialization */
+                if (thread_vars->tuner_id == 1) {
+                    thread_vars->config->new_config_tuner2 = true;
+                    printf("      Status: Tuner 1 initialization complete - triggering tuner 2 initialization\n");
+                }
+
                 pthread_mutex_unlock(&thread_vars->config->mutex);
                 printf("      Status: Tuners marked as initialized (tuner %d)\n", thread_vars->tuner_id);
             }
