@@ -476,30 +476,20 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'j':
                 strncpy(config->ts2_ip_addr, argv[param++], (16 - 1));
-                config->ts2_ip_port = (uint16_t)strtol(argv[param++], NULL, 10);
-                /* Parse tuner 2 frequency and symbol rate */
-                if (param < argc - 2) {  /* Ensure we have at least 2 more arguments for freq and sr */
-                    config->freq_requested_tuner2[0] = (uint32_t)strtol(argv[param++], NULL, 10);
-                    config->sr_requested_tuner2[0] = (uint32_t)strtol(argv[param], NULL, 10);
-                    /* Initialize other array elements to 0 */
-                    for (int i = 1; i < 4; i++) {
-                        config->freq_requested_tuner2[i] = 0;
-                        config->sr_requested_tuner2[i] = 0;
-                    }
-                    config->freq_index_tuner2 = 0;
-                    config->sr_index_tuner2 = 0;
-                    printf("Flow: Tuner 2 configured: Frequency=%d KHz, Symbol Rate=%d KSymbols/s\n",
-                           config->freq_requested_tuner2[0], config->sr_requested_tuner2[0]);
-                } else {
-                    printf("WARNING: Tuner 2 frequency and symbol rate not provided, using tuner 1 values\n");
-                    /* Copy tuner 1 values as fallback */
-                    for (int i = 0; i < 4; i++) {
-                        config->freq_requested_tuner2[i] = config->freq_requested[i];
-                        config->sr_requested_tuner2[i] = config->sr_requested[i];
-                    }
-                    config->freq_index_tuner2 = config->freq_index;
-                    config->sr_index_tuner2 = config->sr_index;
+                config->ts2_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
+                /* Only consume IP and port for tuner 2 */
+                /* Tuner 2 frequency and symbol rate will be copied from tuner 1 later if not explicitly provided */
+                printf("Flow: Tuner 2 TS output configured: IP=%s, Port=%d\n",
+                       config->ts2_ip_addr, config->ts2_ip_port);
+                /* Mark that we need to copy tuner 1 values later */
+                config->freq_requested_tuner2[0] = 0;  /* Will be set later */
+                config->sr_requested_tuner2[0] = 0;    /* Will be set later */
+                for (int i = 1; i < 4; i++) {
+                    config->freq_requested_tuner2[i] = 0;
+                    config->sr_requested_tuner2[i] = 0;
                 }
+                config->freq_index_tuner2 = 0;
+                config->sr_index_tuner2 = 0;
                 config->dual_tuner_enabled = true;
                 break;
             }
@@ -604,6 +594,18 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 arg_ptr = comma_ptr + sizeof(char);
             }
         }
+    }
+
+    /* Copy tuner 1 values to tuner 2 if tuner 2 values weren't provided with -j option */
+    if (err == ERROR_NONE && config->dual_tuner_enabled && config->freq_requested_tuner2[0] == 0) {
+        printf("Flow: Copying tuner 1 values to tuner 2 (frequency=%d KHz, symbol rate=%d KSymbols/s)\n",
+               config->freq_requested[0], config->sr_requested[0]);
+        for (int i = 0; i < 4; i++) {
+            config->freq_requested_tuner2[i] = config->freq_requested[i];
+            config->sr_requested_tuner2[i] = config->sr_requested[i];
+        }
+        config->freq_index_tuner2 = config->freq_index;
+        config->sr_index_tuner2 = config->sr_index;
     }
 
     /* Process LNB Voltage Supply parameter */
@@ -749,6 +751,16 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 }
                 printf("              Tuner 2 TS output to IP=%s:%i\n",
                        config->ts2_ip_addr, config->ts2_ip_port);
+                printf("              Tuner 2 Frequency=%i KHz\n", config->freq_requested_tuner2[0]);
+                for (int i = 1; (i < 4) && (config->freq_requested_tuner2[i] != 0); i++)
+                {
+                    printf("              Tuner 2 Alternative Frequency=%i KHz\n", config->freq_requested_tuner2[i]);
+                }
+                printf("              Tuner 2 Symbol Rate=%i KSymbols/s\n", config->sr_requested_tuner2[0]);
+                for (int i = 1; (i < 4) && (config->sr_requested_tuner2[i] != 0); i++)
+                {
+                    printf("              Tuner 2 Alternative Symbol Rate=%i KSymbols/s\n", config->sr_requested_tuner2[i]);
+                }
             }
 
             if (!config->ts_use_ip)
