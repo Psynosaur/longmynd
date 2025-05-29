@@ -260,7 +260,23 @@ uint8_t stv6120_set_freq_only(uint8_t tuner, uint32_t freq) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
 
-    printf("Flow: STV6120 set frequency only for tuner %d to %d KHz\n", tuner, freq);
+    printf("Flow: STV6120 set frequency only for tuner %d (TUNER_%d) to %d KHz\n", tuner + 1, tuner + 1, freq);
+
+    /* Ensure global variables are properly initialized by reading current register values */
+    /* This is necessary because stv6120_set_freq() and stv6120_cal_lowpass() depend on these globals */
+    if (err == ERROR_NONE) {
+        if (tuner == TUNER_1) {
+            err = stv6120_read_reg(STV6120_CTRL7, &ctrl7);
+            if (err == ERROR_NONE) {
+                err = stv6120_read_reg(STV6120_CTRL8, &ctrl8);
+            }
+        } else {
+            err = stv6120_read_reg(STV6120_CTRL16, &ctrl16);
+            if (err == ERROR_NONE) {
+                err = stv6120_read_reg(STV6120_CTRL17, &ctrl17);
+            }
+        }
+    }
 
     /* Only calibrate lowpass filter and set frequency for the specific tuner */
     if (err == ERROR_NONE) {
@@ -271,7 +287,7 @@ uint8_t stv6120_set_freq_only(uint8_t tuner, uint32_t freq) {
     }
 
     if (err != ERROR_NONE) {
-        printf("ERROR: Failed to set frequency only for tuner %d to %d KHz\n", tuner, freq);
+        printf("ERROR: Failed to set frequency only for tuner %d (TUNER_%d) to %d KHz\n", tuner + 1, tuner + 1, freq);
     }
 
     return err;
