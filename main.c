@@ -413,8 +413,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     }
     config->freq_index_tuner2 = 0;
     config->sr_index_tuner2 = 0;
-    config->polarisation_supply_tuner2 = config->polarisation_supply;  // Copy from main tuner
-    config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;  // Copy from main tuner
+    config->polarisation_supply_tuner2 = false;  // Will be set properly after command line parsing
+    config->polarisation_horizontal_tuner2 = false;  // Will be set properly after command line parsing
     config->new_config_tuner2 = false;
     config->tuners_initialized = false;  // Track if tuners have been initialized before
 
@@ -816,6 +816,15 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     }
 
     config->new_config = true;
+
+    /* CRITICAL FIX: Copy polarization settings to tuner 2 after command line parsing */
+    if (config->dual_tuner_enabled) {
+        config->polarisation_supply_tuner2 = config->polarisation_supply;
+        config->polarisation_horizontal_tuner2 = config->polarisation_horizontal;
+        printf("Flow: Copied polarization settings to tuner 2: supply=%s, horizontal=%s\n",
+               config->polarisation_supply_tuner2 ? "enabled" : "disabled",
+               config->polarisation_horizontal_tuner2 ? "true" : "false");
+    }
 
     return err;
 }
