@@ -945,10 +945,14 @@ void *loop_i2c(void *arg)
 
             /* Only fail if both LNAs fail in single-tuner mode, or if TOP LNA fails in dual-tuner mode */
             if (config_cpy.dual_tuner_enabled) {
-                /* In dual-tuner mode, we need at least the TOP LNA working */
-                if (lna_top_err != ERROR_NONE) {
+                /* In dual-tuner mode, we need at least the TOP LNA working for tuner 1 */
+                /* For tuner 2, allow graceful degradation if BOTTOM LNA fails */
+                if (thread_vars->tuner_id == 1 && lna_top_err != ERROR_NONE) {
                     *err = lna_top_err;
                     printf("ERROR: TOP LNA initialization failed in dual-tuner mode - cannot continue\n");
+                } else if (thread_vars->tuner_id == 2 && lna_bottom_err != ERROR_NONE) {
+                    printf("WARNING: BOTTOM LNA initialization failed for tuner 2 - continuing with graceful degradation\n");
+                    /* Don't set error for tuner 2 BOTTOM LNA failure - allow graceful degradation */
                 }
             } else {
                 /* In single-tuner mode, fail if any critical LNA fails */

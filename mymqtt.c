@@ -537,6 +537,105 @@ uint8_t mqtt_status_write_tuner(uint8_t tuner_id, uint8_t message, uint32_t data
 		mosquitto_publish(mosq, NULL, status_topic, strlen(modulation), modulation, 2, false);
 		sprintf(status_topic, "%s/longmynd/fec", topic_prefix);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(fec), fec, 2, false);
+
+		sprintf(status_message, "%i", data);
+		sprintf(status_topic, "%s/longmynd/%s", topic_prefix, StatusString[message]);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_PUNCTURE_RATE)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_CARRIER_FREQUENCY)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_VITERBI_ERROR_RATE)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_BER)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_TS_NULL_PERCENTAGE)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ES_PID)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ES_TYPE)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_SHORT_FRAME)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_PILOTS)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ERRORS_LDPC_COUNT)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ERRORS_BCH_COUNT)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ERRORS_BCH_UNCORRECTED)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_LNB_SUPPLY)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_LNB_POLARISATION_H)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_LNA_GAIN)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_AGC1_GAIN)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_AGC2_GAIN)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_POWER_I)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_POWER_Q)
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 	}
 	else if (message == STATUS_MATYPE2)
 	{
