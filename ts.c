@@ -94,9 +94,18 @@ void *loop_ts(void *arg) {
             } while (*err==ERROR_NONE && len>2);
 
             pthread_mutex_lock(&status->mutex);
-                
-            status->service_name[0] = '\0';
-            status->service_provider_name[0] = '\0';
+
+            /* Only clear service names if they are currently empty or this is a major reset */
+            /* This prevents frequent clearing of service names in dual-tuner mode */
+            if (status->service_name[0] == '\0' || status->service_provider_name[0] == '\0') {
+                printf("TS: Clearing service names during TS reset\n");
+                status->service_name[0] = '\0';
+                status->service_provider_name[0] = '\0';
+            } else {
+                printf("TS: Preserving existing service names during TS reset: '%s' / '%s'\n",
+                       status->service_name, status->service_provider_name);
+            }
+
             status->ts_null_percentage = 100;
             status->ts_packet_count_nolock = 0;
 
@@ -106,12 +115,12 @@ void *loop_ts(void *arg) {
 
             pthread_mutex_unlock(&status->mutex);
 
-           config->ts_reset = false; 
+           config->ts_reset = false;
         }
-        
+
 
         *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
-        
+
         //if(len>2) fprintf(stderr,"len %d\n",len);
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
@@ -123,18 +132,18 @@ void *loop_ts(void *arg) {
          stv0910_read_matype(1, &matype1,&matype2);
          pthread_mutex_unlock(&status->mutex);
          */
-         
+
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 3)
         {
-             
-           
+
+
             ts_write = udp_ts_write;
             //ts_write = udp_bb_write;
         }
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 1)
         {
             ts_write = udp_bb_write;
-        }    
+        }
 
 
             if(thread_vars->config->ts_use_ip || fifo_ready)
@@ -190,12 +199,15 @@ static void ts_callback_sdt_service(
 )
 {
     pthread_mutex_lock(&ts_longmynd_status->mutex);
-                
+
     memcpy(ts_longmynd_status->service_name, service_name_ptr, *service_name_length_ptr);
     ts_longmynd_status->service_name[*service_name_length_ptr] = '\0';
 
     memcpy(ts_longmynd_status->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
     ts_longmynd_status->service_provider_name[*service_provider_name_length_ptr] = '\0';
+
+    printf("TS: SDT parsed - Service: '%s', Provider: '%s'\n",
+           ts_longmynd_status->service_name, ts_longmynd_status->service_provider_name);
 
     pthread_mutex_unlock(&ts_longmynd_status->mutex);
 }

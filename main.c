@@ -1052,10 +1052,12 @@ void *loop_i2c(void *arg)
                         if (thread_vars->tuner_id == 1) {
                             /* Tuner 1: use tuner 1 frequency, turn off tuner 2 for now */
                             uint32_t freq_tuner1 = config_cpy.freq_requested[config_cpy.freq_index];
+                            printf("Flow: Initializing tuner 1 with frequency %d KHz\n", freq_tuner1);
                             tuner_err = stv6120_init(freq_tuner1, 0, config_cpy.port_swap);
                         } else {
                             /* Tuner 2: use tuner 2 frequency, turn off tuner 1 for this instance */
                             uint32_t freq_tuner2 = config_cpy.freq_requested_tuner2[config_cpy.freq_index_tuner2];
+                            printf("Flow: Initializing tuner 2 with frequency %d KHz\n", freq_tuner2);
                             tuner_err = stv6120_init(0, freq_tuner2, config_cpy.port_swap);
                         }
                     } else {
