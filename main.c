@@ -791,6 +791,13 @@ void *loop_i2c(void *arg)
 
         status_cpy.last_ts_or_reinit_monotonic = 0;
 
+        /* Initialize status_cpy.state from current status to prevent uninitialized state machine errors */
+        pthread_mutex_lock(&status->mutex);
+        status_cpy.state = status->state;
+        pthread_mutex_unlock(&status->mutex);
+
+
+
         /* Check if there's a new config */
         if (thread_vars->config->new_config)
         {
@@ -988,6 +995,11 @@ void *loop_i2c(void *arg)
         /* Main receiver state machine */
         switch (status_cpy.state)
         {
+        case STATE_INIT:
+            /* Initial state - wait for configuration to be processed */
+            /* Do nothing until new_config triggers initialization */
+            break;
+
         case STATE_DEMOD_HUNTING:
             /* Use dual-tuner aware reporting */
             if (*err == ERROR_NONE) {
@@ -1461,10 +1473,18 @@ int main(int argc, char *argv[])
     pthread_cond_t dual_sync_cond = PTHREAD_COND_INITIALIZER;
     bool top_demod_ready = false;
 
+    // Initialize status structures with proper initial state
+    longmynd_status.state = STATE_INIT;
+    longmynd_config.new_config = true; // Ensure initialization runs on first loop
+
     if (longmynd_config.dual_tuner_enabled) {
         printf("Flow: Initializing dual-tuner status structures\n");
         memcpy(&longmynd_status_tuner1, &longmynd_status, sizeof(longmynd_status_t));
         memcpy(&longmynd_status_tuner2, &longmynd_status, sizeof(longmynd_status_t));
+
+        // Ensure both tuner status structures have proper initial state
+        longmynd_status_tuner1.state = STATE_INIT;
+        longmynd_status_tuner2.state = STATE_INIT;
 
         // Initialize mutexes and condition variables for dual status structures
         pthread_mutex_init(&longmynd_status_tuner1.mutex, NULL);
