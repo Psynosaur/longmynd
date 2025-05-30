@@ -119,7 +119,12 @@ void *loop_ts(void *arg) {
         /* If reset flag is active (eg. just started or changed station), then clear out the ts buffer */
         if(config->ts_reset) {
             do {
-                if (*err==ERROR_NONE) *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
+                /* Use tuner-specific FTDI read function */
+                if (thread_vars->tuner_id == 2) {
+                    if (*err==ERROR_NONE) *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
+                } else {
+                    if (*err==ERROR_NONE) *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
+                }
             } while (*err==ERROR_NONE && len>2);
 
             pthread_mutex_lock(&status->mutex);
@@ -156,7 +161,12 @@ void *loop_ts(void *arg) {
         }
 
 
-        *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
+        /* Use tuner-specific FTDI read function */
+        if (thread_vars->tuner_id == 2) {
+            *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
+        } else {
+            *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
+        }
 
         //if(len>2) fprintf(stderr,"len %d\n",len);
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
