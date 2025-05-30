@@ -113,11 +113,7 @@ void config_set_frequency(uint32_t frequency)
         longmynd_config.freq_requested[3] = 0;
         longmynd_config.freq_index = 0;
 
-        /* BEACON MODE: Clear beacon mode on first frequency command */
-        if (longmynd_config.beacon_mode) {
-            longmynd_config.beacon_mode = false;
-            printf("Flow: Beacon mode cleared - first frequency command received, starting UDP streaming\n");
-        }
+
 
         /* FIXED: Only trigger tuner 1 config change, not both tuners */
         if (longmynd_config.dual_tuner_enabled) {
