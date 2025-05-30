@@ -95,43 +95,53 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 {
 	char *key = msg->topic;
 	char *svalue = (char *)msg->payload;
+	bool dual_command_handled = false;
 
 	/* Handle dual-tuner commands first */
 	if (dual_tuner_mqtt_enabled) {
-		mqtt_process_dual_command(key, svalue);
+		/* Check if this is a dual-tuner specific command */
+		if (strstr(key, "cmd/longmynd/tuner1/") != NULL || strstr(key, "cmd/longmynd/tuner2/") != NULL) {
+			mqtt_process_dual_command(key, svalue);
+			dual_command_handled = true;
+		}
 	}
 
-	/* Backward compatibility: existing commands control tuner 1 */
-	if (strcmp(key, "cmd/longmynd/sr") == 0)
-	{
-		Symbolrate = atol(svalue);
-		config_set_symbolrate(Symbolrate);
-	}
-	if (strcmp(key, "cmd/longmynd/frequency") == 0)
-	{
-		Frequency = atol(svalue);
-		config_set_frequency(Frequency);
-	}
-	if (strcmp(key, "cmd/longmynd/swport") == 0)
-	{
-		sport = atoi(svalue);
-		config_set_swport(sport);
-	}
-
-	if (strcmp(key, "cmd/longmynd/tsip") == 0)
-	{
-		strcpy(stsip, svalue);
-		config_set_tsip(svalue);
-	}
-
-	if (strcmp(key, "cmd/longmynd/polar") == 0)
-	{
-		if (strcmp(svalue, "h") == 0)
-			config_set_lnbv(true, true);
-		if (strcmp(svalue, "v") == 0)
-			config_set_lnbv(true, false);
-		if (strcmp(svalue, "n") == 0)
-			config_set_lnbv(false, false);
+	/* Backward compatibility: existing commands control tuner 1 ONLY if not already handled as dual-tuner command */
+	if (!dual_command_handled) {
+		if (strcmp(key, "cmd/longmynd/sr") == 0)
+		{
+			printf("MQTT: Legacy symbol rate command = %s (routed to tuner 1)\n", svalue);
+			Symbolrate = atol(svalue);
+			config_set_symbolrate(Symbolrate);
+		}
+		else if (strcmp(key, "cmd/longmynd/frequency") == 0)
+		{
+			printf("MQTT: Legacy frequency command = %s (routed to tuner 1)\n", svalue);
+			Frequency = atol(svalue);
+			config_set_frequency(Frequency);
+		}
+		else if (strcmp(key, "cmd/longmynd/swport") == 0)
+		{
+			printf("MQTT: Legacy swport command = %s (routed to tuner 1)\n", svalue);
+			sport = atoi(svalue);
+			config_set_swport(sport);
+		}
+		else if (strcmp(key, "cmd/longmynd/tsip") == 0)
+		{
+			printf("MQTT: Legacy tsip command = %s (routed to tuner 1)\n", svalue);
+			strcpy(stsip, svalue);
+			config_set_tsip(svalue);
+		}
+		else if (strcmp(key, "cmd/longmynd/polar") == 0)
+		{
+			printf("MQTT: Legacy polarization command = %s (routed to tuner 1)\n", svalue);
+			if (strcmp(svalue, "h") == 0)
+				config_set_lnbv(true, true);
+			else if (strcmp(svalue, "v") == 0)
+				config_set_lnbv(true, false);
+			else if (strcmp(svalue, "n") == 0)
+				config_set_lnbv(false, false);
+		}
 	}
 }
 

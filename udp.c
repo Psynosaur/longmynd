@@ -269,6 +269,7 @@ void udp_send_normalize(u_int8_t *b, int len)
     if ((IsSync == false) && (len >= 2 * 188))
     {
         int start_packet = 0;
+        bool sync_found = false;
         for (start_packet = 0; start_packet < 188; start_packet++)
         {
             if ((b[start_packet] == 0x47) && (b[start_packet + 188] == 0x47))
@@ -276,16 +277,18 @@ void udp_send_normalize(u_int8_t *b, int len)
                 b = b + start_packet;
                 len = len - start_packet;
                 IsSync = true;
+                sync_found = true;
                 fprintf(stderr, "Recover Sync %d\n", start_packet);
-
                 break;
             }
         }
 
-        fprintf(stderr, "Not Sync!\n");
+        if (!sync_found) {
+            fprintf(stderr, "Not Sync!\n");
+        }
     }
 
-    if (Buffer[0] != 0x47)
+    if (Size > 0 && Buffer[0] != 0x47)
     {
         if (Size >= 188)
         {
@@ -972,15 +975,47 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
 uint8_t udp_bb_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /* Write BB frame data for tuner 1 (TOP demodulator) - uses existing function                       */
+    /* Write BB frame data for tuner 1 (TOP demodulator) - uses dedicated UDP socket                    */
     /*   buffer: data buffer to send                                                                     */
     /*   len: length of data                                                                             */
     /*   output_ready: output ready flag                                                                 */
     /*   return: error code                                                                              */
     /* -------------------------------------------------------------------------------------------------- */
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
 
-    /* Use existing udp_bb_write function for tuner 1 */
-    return udp_bb_write(buffer, len, output_ready);
+    if (!dual_udp_initialized) {
+        printf("ERROR: Dual UDP not initialized\n");
+        return ERROR_UDP_WRITE;
+    }
+
+    remaining_len = len;
+
+    /* Process data in 510 byte chunks (same as tuner 2) */
+    while (remaining_len > 0) {
+        if (remaining_len > 510) {
+            write_size = 510;
+            udp_bb_defrag_tuner1(&buffer[len - remaining_len], write_size, true);
+            remaining_len -= 512;
+        } else {
+            write_size = remaining_len;
+            udp_bb_defrag_tuner1(&buffer[len - remaining_len], write_size, true);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0)) {
+        printf("ERROR: UDP tuner1 BB write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: UDP tuner1 BB write\n");
+    }
+
+    return err;
 }
 
 uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
@@ -1095,6 +1130,75 @@ void udp_bb_defrag_tuner2(uint8_t *b, int len, bool withheader)
 
         fprintf(stderr, "Tuner2: Recursive with size %d\n", size);
         udp_bb_defrag_tuner2(b + olddfl - oldoffset, size, true);
+    }
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void udp_bb_defrag_tuner1(uint8_t *b, int len, bool withheader)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* BB frame defragmentation for tuner 1 (similar to udp_bb_defrag but for dedicated socket)        */
+    /*   b: data buffer                                                                                  */
+    /*   len: length of data                                                                             */
+    /*   withheader: whether header is included                                                          */
+    /* -------------------------------------------------------------------------------------------------- */
+    static unsigned char BBFrame_t1[BBFRAME_MAX_LEN];
+    static int offset_t1 = 0;
+    static int dfl_t1 = 0;
+    static int count_t1 = 0;
+    int idx_b = 0;
+    (void)withheader;
+
+    if (offset_t1 + len > BBFRAME_MAX_LEN) {
+        fprintf(stderr, "Tuner1: bbframe overflow! %d/%d\n", offset_t1, len);
+        offset_t1 = 0;
+        return;
+    }
+
+    if ((offset_t1 == 0) && (b[0] != 0x72)) {
+        fprintf(stderr, "Tuner1: BBFRAME padding ? %x\n", b[0]);
+        return;
+    }
+
+    if ((offset_t1 == 0) && (len >= 10) && (calc_crc8(b, 9) == b[9])) {
+        dfl_t1 = (((int)b[4] << 8) + (int)b[5]) / 8 + 10;
+    }
+
+    if (dfl_t1 == 0) {
+        fprintf(stderr, "Tuner1: wrong dfl size %d\n", len);
+        return;
+    }
+
+    if (offset_t1 + len < dfl_t1) {
+        memcpy(BBFrame_t1 + offset_t1, b, len);
+        offset_t1 += len;
+        return;
+    }
+
+    if (offset_t1 + len == dfl_t1) {
+        memcpy(BBFrame_t1 + offset_t1, b, len);
+        fprintf(stderr, "Tuner1: Complete bbframe # %d : %d/%d\n", count_t1, offset_t1 + len, dfl_t1);
+        sendto(sockfd_ts1, BBFrame_t1, dfl_t1, 0,
+               (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr));
+        offset_t1 = 0;
+        count_t1++;
+        return;
+    }
+
+    if (offset_t1 + len > dfl_t1) {
+        memcpy(BBFrame_t1 + offset_t1, b, dfl_t1 - offset_t1);
+        sendto(sockfd_ts1, BBFrame_t1, dfl_t1, 0,
+               (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr));
+        fprintf(stderr, "Tuner1: First Complete bbframe # %d : %d/%d\n", count_t1, offset_t1 + dfl_t1 - offset_t1, dfl_t1);
+
+        int size = len - (dfl_t1 - offset_t1);
+        int oldoffset = offset_t1;
+        int olddfl = dfl_t1;
+        offset_t1 = 0;
+        dfl_t1 = 0;
+
+        fprintf(stderr, "Tuner1: Recursive with size %d\n", size);
+        udp_bb_defrag_tuner1(b + olddfl - oldoffset, size, true);
     }
 }
 

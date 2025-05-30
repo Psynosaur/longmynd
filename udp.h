@@ -45,6 +45,7 @@ uint8_t udp_close_dual(void);
 /* Internal dual-tuner UDP helper functions */
 void udp_send_normalize_tuner1(uint8_t *b, int len);
 void udp_send_normalize_tuner2(uint8_t *b, int len);
+void udp_bb_defrag_tuner1(uint8_t *b, int len, bool withheader);
 void udp_bb_defrag_tuner2(uint8_t *b, int len, bool withheader);
 
 #endif
