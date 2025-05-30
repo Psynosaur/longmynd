@@ -403,8 +403,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->device2_usb_bus = 0;
     config->device2_usb_addr = 0;
     config->auto_detect_second_device = false;
-    strcpy(config->ts2_ip_addr, "230.0.0.3");
-    config->ts2_ip_port = 1234;
+    strcpy(config->ts_ip_addr, "230.0.0.2");    // Default IP for tuner 1
+    config->ts_ip_port = 1234;                  // Default port for tuner 1
+    strcpy(config->ts2_ip_addr, "230.0.0.3");   // Default IP for tuner 2
+    config->ts2_ip_port = 1234;                 // Default port for tuner 2
 
     // Initialize dual-tuner configuration arrays
     for (int i = 0; i < 4; i++) {
