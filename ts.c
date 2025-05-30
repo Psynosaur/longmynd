@@ -56,6 +56,24 @@ typedef struct {
     pthread_cond_t signal;
 } longmynd_ts_parse_buffer_t;
 
+/* Separate TS parse buffers for dual-tuner mode */
+static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner1 = {
+    .buffer = NULL,
+    .length = 0,
+    .waiting = false,
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .signal = PTHREAD_COND_INITIALIZER
+};
+
+static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner2 = {
+    .buffer = NULL,
+    .length = 0,
+    .waiting = false,
+    .mutex = PTHREAD_MUTEX_INITIALIZER,
+    .signal = PTHREAD_COND_INITIALIZER
+};
+
+/* Legacy single-tuner buffer (for backward compatibility) */
 static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer = {
     .buffer = NULL,
     .length = 0,
@@ -242,16 +260,24 @@ void *loop_ts(void *arg) {
                 }
             }
 
-            if(longmynd_ts_parse_buffer.waiting
-                && longmynd_ts_parse_buffer.buffer != NULL
-                && pthread_mutex_trylock(&longmynd_ts_parse_buffer.mutex) == 0)
-            {
-                memcpy(longmynd_ts_parse_buffer.buffer, &buffer[2],len-2);
-                longmynd_ts_parse_buffer.length = len-2;
-                pthread_cond_signal(&longmynd_ts_parse_buffer.signal);
-                longmynd_ts_parse_buffer.waiting = false;
+            /* Use tuner-specific TS parse buffer for dual-tuner mode */
+            longmynd_ts_parse_buffer_t *parse_buffer;
+            if (thread_vars->config->dual_tuner_enabled) {
+                parse_buffer = (thread_vars->tuner_id == 2) ? &longmynd_ts_parse_buffer_tuner2 : &longmynd_ts_parse_buffer_tuner1;
+            } else {
+                parse_buffer = &longmynd_ts_parse_buffer;
+            }
 
-                pthread_mutex_unlock(&longmynd_ts_parse_buffer.mutex);
+            if(parse_buffer->waiting
+                && parse_buffer->buffer != NULL
+                && pthread_mutex_trylock(&parse_buffer->mutex) == 0)
+            {
+                memcpy(parse_buffer->buffer, &buffer[2],len-2);
+                parse_buffer->length = len-2;
+                pthread_cond_signal(&parse_buffer->signal);
+                parse_buffer->waiting = false;
+
+                pthread_mutex_unlock(&parse_buffer->mutex);
             }
 
             status->ts_packet_count_nolock += (len-2);
@@ -302,13 +328,62 @@ static inline void timespec_add_ns(struct timespec *ts, int32_t ns)
     }
 }
 
-static longmynd_status_t *ts_longmynd_status;
+/* Global status pointer for TS parsing callbacks (single-tuner mode) */
+static longmynd_status_t *ts_longmynd_status = NULL;
 
+/* Tuner-specific callback functions for dual-tuner mode */
+static void ts_callback_sdt_service_tuner(
+    uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
+    uint8_t *service_name_ptr, uint32_t *service_name_length_ptr,
+    longmynd_status_t *status, int tuner_id
+)
+{
+    pthread_mutex_lock(&status->mutex);
+
+    memcpy(status->service_name, service_name_ptr, *service_name_length_ptr);
+    status->service_name[*service_name_length_ptr] = '\0';
+
+    memcpy(status->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
+    status->service_provider_name[*service_provider_name_length_ptr] = '\0';
+
+    printf("TS: Tuner%d SDT parsed - Service: '%s', Provider: '%s'\n",
+           tuner_id, status->service_name, status->service_provider_name);
+
+    pthread_mutex_unlock(&status->mutex);
+}
+
+static void ts_callback_pmt_pids_tuner(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es_pid, uint32_t *ts_pmt_es_type,
+                                      longmynd_status_t *status, int tuner_id)
+{
+    pthread_mutex_lock(&status->mutex);
+
+    status->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
+    status->ts_elementary_streams[*ts_pmt_index_ptr][1] = *ts_pmt_es_type;
+
+    pthread_mutex_unlock(&status->mutex);
+}
+
+static void ts_callback_ts_stats_tuner(uint32_t *ts_packet_total_count_ptr, uint32_t *ts_null_percentage_ptr,
+                                      longmynd_status_t *status, int tuner_id)
+{
+    if(*ts_packet_total_count_ptr > 0)
+    {
+        pthread_mutex_lock(&status->mutex);
+
+        status->ts_null_percentage = *ts_null_percentage_ptr;
+
+        pthread_mutex_unlock(&status->mutex);
+    }
+}
+
+/* Legacy callback functions for single-tuner mode */
 static void ts_callback_sdt_service(
     uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
     uint8_t *service_name_ptr, uint32_t *service_name_length_ptr
 )
 {
+    if (ts_longmynd_status == NULL) return;
+
     pthread_mutex_lock(&ts_longmynd_status->mutex);
 
     memcpy(ts_longmynd_status->service_name, service_name_ptr, *service_name_length_ptr);
@@ -325,6 +400,8 @@ static void ts_callback_sdt_service(
 
 static void ts_callback_pmt_pids(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es_pid, uint32_t *ts_pmt_es_type)
 {
+    if (ts_longmynd_status == NULL) return;
+
     pthread_mutex_lock(&ts_longmynd_status->mutex);
 
     ts_longmynd_status->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
@@ -335,6 +412,8 @@ static void ts_callback_pmt_pids(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es
 
 static void ts_callback_ts_stats(uint32_t *ts_packet_total_count_ptr, uint32_t *ts_null_percentage_ptr)
 {
+    if (ts_longmynd_status == NULL) return;
+
     if(*ts_packet_total_count_ptr > 0)
     {
         pthread_mutex_lock(&ts_longmynd_status->mutex);
@@ -342,6 +421,38 @@ static void ts_callback_ts_stats(uint32_t *ts_packet_total_count_ptr, uint32_t *
         ts_longmynd_status->ts_null_percentage = *ts_null_percentage_ptr;
 
         pthread_mutex_unlock(&ts_longmynd_status->mutex);
+    }
+}
+
+/* Wrapper callback functions for tuner-specific parsing */
+static longmynd_status_t *current_parse_status = NULL;
+static int current_parse_tuner_id = 0;
+
+static void ts_callback_sdt_service_wrapper(
+    uint8_t *service_provider_name_ptr, uint32_t *service_provider_name_length_ptr,
+    uint8_t *service_name_ptr, uint32_t *service_name_length_ptr
+)
+{
+    if (current_parse_status != NULL) {
+        ts_callback_sdt_service_tuner(service_provider_name_ptr, service_provider_name_length_ptr,
+                                     service_name_ptr, service_name_length_ptr,
+                                     current_parse_status, current_parse_tuner_id);
+    }
+}
+
+static void ts_callback_pmt_pids_wrapper(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es_pid, uint32_t *ts_pmt_es_type)
+{
+    if (current_parse_status != NULL) {
+        ts_callback_pmt_pids_tuner(ts_pmt_index_ptr, ts_pmt_es_pid, ts_pmt_es_type,
+                                  current_parse_status, current_parse_tuner_id);
+    }
+}
+
+static void ts_callback_ts_stats_wrapper(uint32_t *ts_packet_total_count_ptr, uint32_t *ts_null_percentage_ptr)
+{
+    if (current_parse_status != NULL) {
+        ts_callback_ts_stats_tuner(ts_packet_total_count_ptr, ts_null_percentage_ptr,
+                                  current_parse_status, current_parse_tuner_id);
     }
 }
 
@@ -353,16 +464,32 @@ void *loop_ts_parse(void *arg) {
     thread_vars_t *thread_vars=(thread_vars_t *)arg;
     uint8_t *err = &thread_vars->thread_err;
     *err=ERROR_NONE;
-    //longmynd_config_t *config = thread_vars->config;
-    ts_longmynd_status = thread_vars->status;
+    longmynd_config_t *config = thread_vars->config;
+    longmynd_status_t *status = thread_vars->status;
 
     uint8_t *ts_buffer = malloc(TS_FRAME_SIZE);
     if(ts_buffer == NULL)
     {
         *err=ERROR_TS_BUFFER_MALLOC;
+        return NULL;
     }
 
-    longmynd_ts_parse_buffer.buffer = ts_buffer;
+    /* Select the appropriate TS parse buffer based on tuner mode */
+    longmynd_ts_parse_buffer_t *parse_buffer;
+    if (config->dual_tuner_enabled) {
+        parse_buffer = (thread_vars->tuner_id == 2) ? &longmynd_ts_parse_buffer_tuner2 : &longmynd_ts_parse_buffer_tuner1;
+        printf("TS Parse: Tuner%d using dedicated parse buffer\n", thread_vars->tuner_id);
+
+        /* Set up tuner-specific callback context */
+        current_parse_status = status;
+        current_parse_tuner_id = thread_vars->tuner_id;
+    } else {
+        parse_buffer = &longmynd_ts_parse_buffer;
+        ts_longmynd_status = status;  /* Set thread-local status for legacy callbacks */
+        printf("TS Parse: Single-tuner mode using legacy parse buffer\n");
+    }
+
+    parse_buffer->buffer = ts_buffer;
 
     struct timespec ts;
 
@@ -370,44 +497,56 @@ void *loop_ts_parse(void *arg) {
     pthread_condattr_t attr;
     pthread_condattr_init(&attr);
     pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
-    pthread_cond_init (&longmynd_ts_parse_buffer.signal, &attr);
+    pthread_cond_init (&parse_buffer->signal, &attr);
     pthread_condattr_destroy(&attr);
 
-    pthread_mutex_lock(&longmynd_ts_parse_buffer.mutex);
+    pthread_mutex_lock(&parse_buffer->mutex);
 
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE)
     {
-        longmynd_ts_parse_buffer.waiting = true;
+        parse_buffer->waiting = true;
 
-        while(longmynd_ts_parse_buffer.waiting && *thread_vars->main_err_ptr == ERROR_NONE)
+        while(parse_buffer->waiting && *thread_vars->main_err_ptr == ERROR_NONE)
         {
             /* Set timer for 100ms */
             clock_gettime(CLOCK_MONOTONIC, &ts);
             timespec_add_ns(&ts, 100 * 1000*1000);
 
             /* Mutex is unlocked during wait */
-            pthread_cond_timedwait(&longmynd_ts_parse_buffer.signal, &longmynd_ts_parse_buffer.mutex, &ts);
+            pthread_cond_timedwait(&parse_buffer->signal, &parse_buffer->mutex, &ts);
         }
 
-        ts_parse(
-            &ts_buffer[0], longmynd_ts_parse_buffer.length,
-            &ts_callback_sdt_service,
-            &ts_callback_pmt_pids,
-            &ts_callback_ts_stats,
-            false
-        );
+        /* Use appropriate callback functions based on tuner mode */
+        if (config->dual_tuner_enabled) {
+            ts_parse(
+                &ts_buffer[0], parse_buffer->length,
+                &ts_callback_sdt_service_wrapper,
+                &ts_callback_pmt_pids_wrapper,
+                &ts_callback_ts_stats_wrapper,
+                false
+            );
+        } else {
+            ts_parse(
+                &ts_buffer[0], parse_buffer->length,
+                &ts_callback_sdt_service,
+                &ts_callback_pmt_pids,
+                &ts_callback_ts_stats,
+                false
+            );
+        }
 
-        pthread_mutex_lock(&ts_longmynd_status->mutex);
+        pthread_mutex_lock(&status->mutex);
 
         /* Trigger pthread signal */
-        pthread_cond_signal(&ts_longmynd_status->signal);
+        pthread_cond_signal(&status->signal);
 
-        pthread_mutex_unlock(&ts_longmynd_status->mutex);
+        pthread_mutex_unlock(&status->mutex);
     }
 
-    pthread_mutex_unlock(&longmynd_ts_parse_buffer.mutex);
+    pthread_mutex_unlock(&parse_buffer->mutex);
 
     free(ts_buffer);
 
+    printf("TS Parse: Tuner%d parse thread exiting\n", thread_vars->tuner_id);
     return NULL;
 }
