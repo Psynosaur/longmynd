@@ -24,6 +24,7 @@
 
 #include "stvvglna.h"
 #include <stdint.h>
+#include <pthread.h>
 
 #define NIM_DEMOD_ADDR 0xd2
 #define NIM_TUNER_ADDR 0xc0
@@ -44,5 +45,8 @@ uint8_t nim_read_demod (uint16_t, uint8_t*);
 uint8_t nim_write_demod(uint16_t, uint8_t );
 uint8_t nim_read_lna   (uint8_t,  uint8_t, uint8_t*);
 uint8_t nim_write_lna  (uint8_t,  uint8_t, uint8_t );
+
+/* I2C synchronization for dual-tuner mode */
+void nim_set_i2c_mutex(pthread_mutex_t *mutex);
 
 #endif

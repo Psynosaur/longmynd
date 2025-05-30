@@ -197,6 +197,9 @@ typedef struct {
     pthread_mutex_t *dual_sync_mutex;
     pthread_cond_t *dual_sync_cond;
     bool *top_demod_ready;
+
+    /* I2C bus synchronization for dual-tuner mode */
+    pthread_mutex_t *i2c_mutex;
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);

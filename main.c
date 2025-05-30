@@ -1907,6 +1907,9 @@ int main(int argc, char *argv[])
     pthread_cond_t dual_sync_cond = PTHREAD_COND_INITIALIZER;
     bool top_demod_ready = false;
 
+    // Initialize I2C bus synchronization mutex for dual-tuner mode
+    pthread_mutex_t i2c_mutex = PTHREAD_MUTEX_INITIALIZER;
+
     // Initialize status structures with proper initial state
     longmynd_status.state = STATE_INIT;
     longmynd_config.new_config = true; // Ensure initialization runs on first loop
@@ -1929,7 +1932,11 @@ int main(int argc, char *argv[])
         // Initialize dual-tuner synchronization
         pthread_mutex_init(&dual_sync_mutex, NULL);
         pthread_cond_init(&dual_sync_cond, NULL);
-        printf("Flow: Dual-tuner synchronization initialized\n");
+        pthread_mutex_init(&i2c_mutex, NULL);
+
+        // Set up I2C bus synchronization for dual-tuner mode
+        nim_set_i2c_mutex(&i2c_mutex);
+        printf("Flow: Dual-tuner synchronization and I2C mutex initialized\n");
     }
 
     thread_vars_t thread_vars_ts;
@@ -1941,6 +1948,7 @@ int main(int argc, char *argv[])
         thread_vars_ts.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
         thread_vars_ts.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
         thread_vars_ts.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
+        thread_vars_ts.i2c_mutex = longmynd_config.dual_tuner_enabled ? &i2c_mutex : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -1964,6 +1972,7 @@ int main(int argc, char *argv[])
         thread_vars_ts_parse.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
         thread_vars_ts_parse.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
         thread_vars_ts_parse.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
+        thread_vars_ts_parse.i2c_mutex = longmynd_config.dual_tuner_enabled ? &i2c_mutex : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -1988,6 +1997,7 @@ int main(int argc, char *argv[])
         thread_vars_i2c.dual_sync_mutex = longmynd_config.dual_tuner_enabled ? &dual_sync_mutex : NULL;
         thread_vars_i2c.dual_sync_cond = longmynd_config.dual_tuner_enabled ? &dual_sync_cond : NULL;
         thread_vars_i2c.top_demod_ready = longmynd_config.dual_tuner_enabled ? &top_demod_ready : NULL;
+        thread_vars_i2c.i2c_mutex = longmynd_config.dual_tuner_enabled ? &i2c_mutex : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -2020,6 +2030,7 @@ int main(int argc, char *argv[])
         thread_vars_ts_tuner2.dual_sync_mutex = &dual_sync_mutex;
         thread_vars_ts_tuner2.dual_sync_cond = &dual_sync_cond;
         thread_vars_ts_tuner2.top_demod_ready = &top_demod_ready;
+        thread_vars_ts_tuner2.i2c_mutex = &i2c_mutex;
 
         if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts, (void *)&thread_vars_ts_tuner2)) {
             //pthread_setname_np(thread_ts_tuner2, "TS Transport 2");
@@ -2038,6 +2049,7 @@ int main(int argc, char *argv[])
             thread_vars_ts_parse_tuner2.dual_sync_mutex = &dual_sync_mutex;
             thread_vars_ts_parse_tuner2.dual_sync_cond = &dual_sync_cond;
             thread_vars_ts_parse_tuner2.top_demod_ready = &top_demod_ready;
+            thread_vars_ts_parse_tuner2.i2c_mutex = &i2c_mutex;
 
             if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse_tuner2)) {
                 //pthread_setname_np(thread_ts_parse_tuner2, "TS Parse 2");
@@ -2057,6 +2069,7 @@ int main(int argc, char *argv[])
             thread_vars_i2c_tuner2.dual_sync_mutex = &dual_sync_mutex;
             thread_vars_i2c_tuner2.dual_sync_cond = &dual_sync_cond;
             thread_vars_i2c_tuner2.top_demod_ready = &top_demod_ready;
+            thread_vars_i2c_tuner2.i2c_mutex = &i2c_mutex;
 
             if (0 == pthread_create(&thread_i2c_tuner2, NULL, loop_i2c, (void *)&thread_vars_i2c_tuner2)) {
                 //pthread_setname_np(thread_i2c_tuner2, "Receiver 2");
@@ -2075,6 +2088,7 @@ int main(int argc, char *argv[])
         thread_vars_beep.thread_err = ERROR_NONE;
         thread_vars_beep.config = &longmynd_config;
         thread_vars_beep.status = &longmynd_status;
+        thread_vars_beep.i2c_mutex = longmynd_config.dual_tuner_enabled ? &i2c_mutex : NULL;
 
     if (err == ERROR_NONE)
     {
@@ -2265,6 +2279,7 @@ int main(int argc, char *argv[])
         /* Cleanup dual-tuner synchronization */
         pthread_mutex_destroy(&dual_sync_mutex);
         pthread_cond_destroy(&dual_sync_cond);
+        pthread_mutex_destroy(&i2c_mutex);
     }
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
