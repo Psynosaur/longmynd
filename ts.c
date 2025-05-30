@@ -43,6 +43,11 @@
 /* External function declaration */
 extern uint64_t monotonic_ms(void);
 
+/* Helper function prototypes for safe buffer management */
+static void ts_parse_buffer_safe_init(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, uint32_t buffer_size, int tuner_id);
+static void ts_parse_buffer_safe_cleanup(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, int tuner_id);
+static bool ts_parse_buffer_is_ready(longmynd_ts_parse_buffer_t *parse_buffer);
+
 #define TS_FRAME_SIZE 20*512 // 512 is base USB FTDI frame
 
 uint8_t *ts_buffer_ptr = NULL;
@@ -51,7 +56,9 @@ bool ts_buffer_waiting;
 typedef struct {
     uint8_t *buffer;
     uint32_t length;
+    uint32_t buffer_size;  /* Track allocated buffer size for bounds checking */
     bool waiting;
+    bool initialized;      /* Track if buffer has been properly initialized */
     pthread_mutex_t mutex;
     pthread_cond_t signal;
 } longmynd_ts_parse_buffer_t;
@@ -60,7 +67,9 @@ typedef struct {
 static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner1 = {
     .buffer = NULL,
     .length = 0,
+    .buffer_size = 0,
     .waiting = false,
+    .initialized = false,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER
 };
@@ -68,7 +77,9 @@ static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner1 = {
 static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner2 = {
     .buffer = NULL,
     .length = 0,
+    .buffer_size = 0,
     .waiting = false,
+    .initialized = false,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER
 };
@@ -77,7 +88,9 @@ static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer_tuner2 = {
 static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer = {
     .buffer = NULL,
     .length = 0,
+    .buffer_size = 0,
     .waiting = false,
+    .initialized = false,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER
 };
@@ -268,16 +281,26 @@ void *loop_ts(void *arg) {
                 parse_buffer = &longmynd_ts_parse_buffer;
             }
 
-            if(parse_buffer->waiting
-                && parse_buffer->buffer != NULL
+            /* Critical bounds checking and validation before buffer operations */
+            if(ts_parse_buffer_is_ready(parse_buffer)  /* Ensure buffer is properly initialized */
+                && parse_buffer->waiting
+                && len > 2  /* Ensure len-2 is valid */
+                && (len-2) <= parse_buffer->buffer_size  /* Prevent buffer overflow */
                 && pthread_mutex_trylock(&parse_buffer->mutex) == 0)
             {
-                memcpy(parse_buffer->buffer, &buffer[2],len-2);
+                /* Safe to copy data - all bounds have been validated */
+                memcpy(parse_buffer->buffer, &buffer[2], len-2);
                 parse_buffer->length = len-2;
                 pthread_cond_signal(&parse_buffer->signal);
                 parse_buffer->waiting = false;
 
                 pthread_mutex_unlock(&parse_buffer->mutex);
+            }
+            else if (parse_buffer->waiting && parse_buffer->buffer != NULL && len > 2 && (len-2) > parse_buffer->buffer_size)
+            {
+                /* Log buffer overflow attempt */
+                printf("TS: Tuner%d WARNING - Buffer overflow prevented: data_size=%u, buffer_size=%u\n",
+                       thread_vars->tuner_id, len-2, parse_buffer->buffer_size);
             }
 
             status->ts_packet_count_nolock += (len-2);
@@ -521,7 +544,8 @@ void *loop_ts_parse(void *arg) {
         printf("TS Parse: Single-tuner mode using legacy parse buffer\n");
     }
 
-    parse_buffer->buffer = ts_buffer;
+    /* Use safe helper function for thread-safe buffer initialization */
+    ts_parse_buffer_safe_init(parse_buffer, ts_buffer, TS_FRAME_SIZE, thread_vars->tuner_id);
 
     struct timespec ts;
 
@@ -548,23 +572,42 @@ void *loop_ts_parse(void *arg) {
             pthread_cond_timedwait(&parse_buffer->signal, &parse_buffer->mutex, &ts);
         }
 
-        /* Use appropriate callback functions based on tuner mode */
-        if (config->dual_tuner_enabled) {
-            ts_parse(
-                &ts_buffer[0], parse_buffer->length,
-                &ts_callback_sdt_service_wrapper,
-                &ts_callback_pmt_pids_wrapper,
-                &ts_callback_ts_stats_wrapper,
-                false
-            );
+        /* Validate buffer state before parsing to prevent segmentation faults */
+        if (parse_buffer->buffer != NULL &&
+            parse_buffer->initialized &&
+            parse_buffer->length > 0 &&
+            parse_buffer->length <= parse_buffer->buffer_size) {
+
+            /* Use appropriate callback functions based on tuner mode */
+            if (config->dual_tuner_enabled) {
+                ts_parse(
+                    parse_buffer->buffer, parse_buffer->length,
+                    &ts_callback_sdt_service_wrapper,
+                    &ts_callback_pmt_pids_wrapper,
+                    &ts_callback_ts_stats_wrapper,
+                    false
+                );
+            } else {
+                ts_parse(
+                    parse_buffer->buffer, parse_buffer->length,
+                    &ts_callback_sdt_service,
+                    &ts_callback_pmt_pids,
+                    &ts_callback_ts_stats,
+                    false
+                );
+            }
         } else {
-            ts_parse(
-                &ts_buffer[0], parse_buffer->length,
-                &ts_callback_sdt_service,
-                &ts_callback_pmt_pids,
-                &ts_callback_ts_stats,
-                false
-            );
+            /* Log invalid buffer state to help debug issues */
+            if (parse_buffer->buffer == NULL) {
+                printf("TS Parse: Tuner%d WARNING - Buffer is NULL, skipping parse\n", thread_vars->tuner_id);
+            } else if (!parse_buffer->initialized) {
+                printf("TS Parse: Tuner%d WARNING - Buffer not initialized, skipping parse\n", thread_vars->tuner_id);
+            } else if (parse_buffer->length == 0) {
+                printf("TS Parse: Tuner%d WARNING - Buffer length is 0, skipping parse\n", thread_vars->tuner_id);
+            } else if (parse_buffer->length > parse_buffer->buffer_size) {
+                printf("TS Parse: Tuner%d WARNING - Buffer length %u exceeds size %u, skipping parse\n",
+                       thread_vars->tuner_id, parse_buffer->length, parse_buffer->buffer_size);
+            }
         }
 
         pthread_mutex_lock(&status->mutex);
@@ -577,8 +620,91 @@ void *loop_ts_parse(void *arg) {
 
     pthread_mutex_unlock(&parse_buffer->mutex);
 
+    /* Use safe helper function for thread-safe buffer cleanup */
+    ts_parse_buffer_safe_cleanup(parse_buffer, ts_buffer, thread_vars->tuner_id);
+
     free(ts_buffer);
 
-    printf("TS Parse: Tuner%d parse thread exiting\n", thread_vars->tuner_id);
+    printf("TS Parse: Tuner%d parse thread exiting - buffer cleaned up\n", thread_vars->tuner_id);
     return NULL;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static void ts_parse_buffer_safe_init(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, uint32_t buffer_size, int tuner_id) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Thread-safe initialization of TS parse buffer with proper validation                              */
+/* -------------------------------------------------------------------------------------------------- */
+    if (parse_buffer == NULL || buffer == NULL || buffer_size == 0) {
+        printf("TS Parse: Tuner%d ERROR - Invalid parameters for buffer initialization\n", tuner_id);
+        return;
+    }
+
+    pthread_mutex_lock(&parse_buffer->mutex);
+
+    /* Clean up any previous buffer if it exists */
+    if (parse_buffer->buffer != NULL && parse_buffer->buffer != buffer) {
+        printf("TS Parse: Tuner%d WARNING - Cleaning up previous buffer during init\n", tuner_id);
+        free(parse_buffer->buffer);
+    }
+
+    /* Initialize buffer with size tracking and validation */
+    parse_buffer->buffer = buffer;
+    parse_buffer->buffer_size = buffer_size;
+    parse_buffer->length = 0;
+    parse_buffer->waiting = false;
+    parse_buffer->initialized = true;
+
+    printf("TS Parse: Tuner%d buffer safely initialized - size=%u bytes\n", tuner_id, buffer_size);
+
+    pthread_mutex_unlock(&parse_buffer->mutex);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static void ts_parse_buffer_safe_cleanup(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, int tuner_id) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Thread-safe cleanup of TS parse buffer to prevent memory leaks and race conditions               */
+/* -------------------------------------------------------------------------------------------------- */
+    if (parse_buffer == NULL) {
+        printf("TS Parse: Tuner%d ERROR - NULL parse_buffer in cleanup\n", tuner_id);
+        return;
+    }
+
+    pthread_mutex_lock(&parse_buffer->mutex);
+
+    /* Only clean up if this buffer matches what we expect */
+    if (parse_buffer->buffer == buffer) {
+        parse_buffer->buffer = NULL;
+        parse_buffer->buffer_size = 0;
+        parse_buffer->length = 0;
+        parse_buffer->initialized = false;
+        parse_buffer->waiting = false;
+
+        printf("TS Parse: Tuner%d buffer safely cleaned up\n", tuner_id);
+    } else {
+        printf("TS Parse: Tuner%d WARNING - Buffer mismatch during cleanup (expected=%p, actual=%p)\n",
+               tuner_id, (void*)buffer, (void*)parse_buffer->buffer);
+    }
+
+    pthread_mutex_unlock(&parse_buffer->mutex);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static bool ts_parse_buffer_is_ready(longmynd_ts_parse_buffer_t *parse_buffer) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Thread-safe check if parse buffer is properly initialized and ready for use                       */
+/* -------------------------------------------------------------------------------------------------- */
+    if (parse_buffer == NULL) {
+        return false;
+    }
+
+    bool ready = false;
+    pthread_mutex_lock(&parse_buffer->mutex);
+
+    ready = (parse_buffer->buffer != NULL &&
+             parse_buffer->initialized &&
+             parse_buffer->buffer_size > 0);
+
+    pthread_mutex_unlock(&parse_buffer->mutex);
+
+    return ready;
 }
