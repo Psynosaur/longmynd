@@ -340,11 +340,27 @@ static void ts_callback_sdt_service_tuner(
 {
     pthread_mutex_lock(&status->mutex);
 
-    memcpy(status->service_name, service_name_ptr, *service_name_length_ptr);
-    status->service_name[*service_name_length_ptr] = '\0';
+    /* Bounds checking to prevent buffer overflow */
+    uint32_t service_name_len = *service_name_length_ptr;
+    uint32_t service_provider_len = *service_provider_name_length_ptr;
 
-    memcpy(status->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
-    status->service_provider_name[*service_provider_name_length_ptr] = '\0';
+    if (service_name_len >= sizeof(status->service_name)) {
+        printf("TS: Tuner%d WARNING - Service name length %u exceeds buffer size %zu, truncating\n",
+               tuner_id, service_name_len, sizeof(status->service_name) - 1);
+        service_name_len = sizeof(status->service_name) - 1;
+    }
+
+    if (service_provider_len >= sizeof(status->service_provider_name)) {
+        printf("TS: Tuner%d WARNING - Service provider length %u exceeds buffer size %zu, truncating\n",
+               tuner_id, service_provider_len, sizeof(status->service_provider_name) - 1);
+        service_provider_len = sizeof(status->service_provider_name) - 1;
+    }
+
+    memcpy(status->service_name, service_name_ptr, service_name_len);
+    status->service_name[service_name_len] = '\0';
+
+    memcpy(status->service_provider_name, service_provider_name_ptr, service_provider_len);
+    status->service_provider_name[service_provider_len] = '\0';
 
     printf("TS: Tuner%d SDT parsed - Service: '%s', Provider: '%s'\n",
            tuner_id, status->service_name, status->service_provider_name);
@@ -386,11 +402,27 @@ static void ts_callback_sdt_service(
 
     pthread_mutex_lock(&ts_longmynd_status->mutex);
 
-    memcpy(ts_longmynd_status->service_name, service_name_ptr, *service_name_length_ptr);
-    ts_longmynd_status->service_name[*service_name_length_ptr] = '\0';
+    /* Bounds checking to prevent buffer overflow */
+    uint32_t service_name_len = *service_name_length_ptr;
+    uint32_t service_provider_len = *service_provider_name_length_ptr;
 
-    memcpy(ts_longmynd_status->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
-    ts_longmynd_status->service_provider_name[*service_provider_name_length_ptr] = '\0';
+    if (service_name_len >= sizeof(ts_longmynd_status->service_name)) {
+        printf("TS: WARNING - Service name length %u exceeds buffer size %zu, truncating\n",
+               service_name_len, sizeof(ts_longmynd_status->service_name) - 1);
+        service_name_len = sizeof(ts_longmynd_status->service_name) - 1;
+    }
+
+    if (service_provider_len >= sizeof(ts_longmynd_status->service_provider_name)) {
+        printf("TS: WARNING - Service provider length %u exceeds buffer size %zu, truncating\n",
+               service_provider_len, sizeof(ts_longmynd_status->service_provider_name) - 1);
+        service_provider_len = sizeof(ts_longmynd_status->service_provider_name) - 1;
+    }
+
+    memcpy(ts_longmynd_status->service_name, service_name_ptr, service_name_len);
+    ts_longmynd_status->service_name[service_name_len] = '\0';
+
+    memcpy(ts_longmynd_status->service_provider_name, service_provider_name_ptr, service_provider_len);
+    ts_longmynd_status->service_provider_name[service_provider_len] = '\0';
 
     printf("TS: SDT parsed - Service: '%s', Provider: '%s'\n",
            ts_longmynd_status->service_name, ts_longmynd_status->service_provider_name);

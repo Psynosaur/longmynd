@@ -165,9 +165,9 @@ void ts_parse(
 
         /*** Parse PID ***/
         ts_pid = (uint32_t)((ts_packet_ptr[1] & 0x1F) << 8) | (uint32_t)ts_packet_ptr[2];
-    
+
         ts_packet_total_count++;
-        
+
         /* NULL/padding packets */
         if(ts_pid == TS_PID_NULL)
         {
@@ -176,7 +176,7 @@ void ts_parse(
             ts_packet_ptr++;
             continue;
         }
-        
+
         /*** Parse Headers to find payload ***/
         ts_payload_content_offset = 4;
 
@@ -325,9 +325,33 @@ void ts_parse(
                 //printf(" - - - Service Provider Name Length %"PRIu32"\n", service_provider_name_length);
                 //printf(" - - - Service Provider Name: %.*s\n", service_provider_name_length, &ts_packet_sdt_descriptor_ptr[4]);
 
+                /* Bounds checking to prevent buffer overruns */
+                if (service_provider_name_length > 255) {
+                    if(parse_verbose) printf("WARNING: Service provider name length %u exceeds maximum, skipping\n", service_provider_name_length);
+                    break;  /* Skip this service entry */
+                }
+
+                /* Check if we have enough data for service name length field */
+                if (ts_payload_content_length + 4 + service_provider_name_length >= ts_payload_section_length) {
+                    if(parse_verbose) printf("WARNING: SDT service provider data extends beyond section, skipping\n");
+                    break;  /* Skip this service entry */
+                }
+
                 service_name_length = (uint32_t)ts_packet_sdt_descriptor_ptr[3+1+service_provider_name_length];
                 //printf(" - - - Service Name Length %"PRIu32"\n", service_name_length);
                 //printf(" - - - Service Name: %.*s\n", service_name_length, &ts_packet_sdt_descriptor_ptr[4+1+service_provider_name_length]);
+
+                /* Bounds checking for service name */
+                if (service_name_length > 255) {
+                    if(parse_verbose) printf("WARNING: Service name length %u exceeds maximum, skipping\n", service_name_length);
+                    break;  /* Skip this service entry */
+                }
+
+                /* Check if we have enough data for the complete service name */
+                if (ts_payload_content_length + 5 + service_provider_name_length + service_name_length >= ts_payload_section_length) {
+                    if(parse_verbose) printf("WARNING: SDT service name data extends beyond section, skipping\n");
+                    break;  /* Skip this service entry */
+                }
 
                 callback_sdt_service(
                     &ts_packet_sdt_descriptor_ptr[4],

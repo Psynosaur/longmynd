@@ -885,8 +885,8 @@ void udp_send_normalize_tuner2(uint8_t *b, int len)
         if (sent_bytes < 0) {
             fprintf(stderr, "Tuner2: UDP send failed\n");
         } else if (send_count_t2 % 1000 == 1) {  /* Log every 1000th send */
-            printf("DEBUG: Tuner2 UDP sent #%u: %zd bytes to 230.0.0.3:1234\n",
-                   send_count_t2, sent_bytes);
+            printf("DEBUG: Tuner2 UDP sent #%u: %zd bytes to %s:%d\n",
+                   send_count_t2, sent_bytes, inet_ntoa(servaddr_ts2.sin_addr), ntohs(servaddr_ts2.sin_port));
         }
 
         memmove(Buffer_t2, Buffer_t2 + BUFF_MAX_SIZE_T2, Size_t2 - BUFF_MAX_SIZE_T2 + len);
@@ -956,8 +956,8 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
         if (sent_bytes < 0) {
             fprintf(stderr, "Tuner1: UDP send failed\n");
         } else if (send_count_t1 % 1000 == 1) {  /* Log every 1000th send */
-            printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
-                    send_count_t1, sent_bytes);
+            printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to %s:%d\n",
+                    send_count_t1, sent_bytes, inet_ntoa(servaddr_ts1.sin_addr), ntohs(servaddr_ts1.sin_port));
         }
 
         memmove(Buffer_t1, Buffer_t1 + BUFF_MAX_SIZE_T1, Size_t1 - BUFF_MAX_SIZE_T1 + len);
