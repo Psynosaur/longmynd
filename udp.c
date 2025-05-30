@@ -884,7 +884,7 @@ void udp_send_normalize_tuner2(uint8_t *b, int len)
                                    (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr));
         if (sent_bytes < 0) {
             fprintf(stderr, "Tuner2: UDP send failed\n");
-        } else if (send_count_t2 % 50 == 1) {  /* Log every 50th send */
+        } else if (send_count_t2 % 1000 == 1) {  /* Log every 1000th send */
             printf("DEBUG: Tuner2 UDP sent #%u: %zd bytes to 230.0.0.3:1234\n",
                    send_count_t2, sent_bytes);
         }
@@ -955,9 +955,9 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
                                    (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr));
         if (sent_bytes < 0) {
             fprintf(stderr, "Tuner1: UDP send failed\n");
-        } else if (send_count_t1 % 50 == 1) {  /* Log every 50th send */
-            // printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
-            //        send_count_t1, sent_bytes);
+        } else if (send_count_t1 % 1000 == 1) {  /* Log every 1000th send */
+            printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
+                    send_count_t1, sent_bytes);
         }
 
         memmove(Buffer_t1, Buffer_t1 + BUFF_MAX_SIZE_T1, Size_t1 - BUFF_MAX_SIZE_T1 + len);
