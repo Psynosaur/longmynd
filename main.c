@@ -1311,10 +1311,10 @@ void *loop_i2c(void *arg)
                 thread_vars->config->tuners_initialized = true;
 
                 /* SEQUENTIAL INIT: If this is tuner 1, trigger tuner 2 initialization */
-                if (thread_vars->tuner_id == 1) {
-                    thread_vars->config->new_config_tuner2 = true;
-                    printf("      Status: Tuner 1 initialization complete - triggering tuner 2 initialization\n");
-                }
+                // if (thread_vars->tuner_id == 1) {
+                //     thread_vars->config->new_config_tuner2 = true;
+                //     printf("      Status: Tuner 1 initialization complete - triggering tuner 2 initialization\n");
+                // }
 
                 pthread_mutex_unlock(&thread_vars->config->mutex);
                 printf("      Status: Tuners marked as initialized (tuner %d)\n", thread_vars->tuner_id);
