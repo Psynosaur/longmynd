@@ -424,6 +424,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     strcpy(config->ts2_fifo_path, "longmynd_tuner2_ts");
     config->status_use_ip = false;
     strcpy(config->status_fifo_path, "longmynd_main_status");
+    strcpy(config->status2_fifo_path, "longmynd_tuner2_status");
     config->polarisation_supply = false;
     char polarisation_str[8];
     config->ts_timeout = 50 * 1000;
@@ -469,6 +470,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
             case 's':
                 strncpy(config->status_fifo_path, argv[param], (128 - 1));
                 status_fifo_set = true;
+                break;
+            case 'Z':
+                strncpy(config->status2_fifo_path, argv[param], (128 - 1));
+                config->dual_tuner_enabled = true;
                 break;
             case 'p':
                 strncpy(polarisation_str, argv[param], (8 - 1));
@@ -799,10 +804,14 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              Main TS output to FIFO=%s\n", config->ts_fifo_path);
             else
                 printf("              Main TS output to IP=%s:%i\n", config->ts_ip_addr, config->ts_ip_port);
-            if (!config->status_use_ip)
+            if (!config->status_use_ip) {
                 printf("              Main Status output to FIFO=%s\n", config->status_fifo_path);
-            else
+                if (config->dual_tuner_enabled) {
+                    printf("              Tuner 2 Status output to FIFO=%s\n", config->status2_fifo_path);
+                }
+            } else {
                 printf("              Main Status output to IP=%s:%i\n", config->status_ip_addr, config->status_ip_port);
+            }
             if (config->port_swap)
                 printf("              NIM inputs are swapped (Main now refers to BOTTOM F-Type\n");
             else
@@ -1845,8 +1854,18 @@ int main(int argc, char *argv[])
     }
     else
     {
-        if (err == ERROR_NONE)
+        if (err == ERROR_NONE) {
             err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
+
+            // Initialize second status FIFO for dual-tuner mode
+            if (err == ERROR_NONE && longmynd_config.dual_tuner_enabled) {
+                bool status2_output_ready = false;
+                err = fifo_status2_init(longmynd_config.status2_fifo_path, &status2_output_ready);
+                if (err == ERROR_NONE) {
+                    printf("Flow: Initialized status2 FIFO: %s\n", longmynd_config.status2_fifo_path);
+                }
+            }
+        }
         status_write = fifo_status_write;
         status_string_write = fifo_status_string_write;
     }
@@ -2128,12 +2147,19 @@ int main(int argc, char *argv[])
                 if (longmynd_config.status_use_mqtt) {
                     /* Send tuner 2 status via MQTT with tuner-specific topics */
                     err = status_all_write_tuner(2, &longmynd_status_tuner2_cpy, &status_output_ready);
-                } else if (longmynd_config.status_use_ip || status_output_ready) {
-                    /* Send tuner 2 status via UDP/FIFO (not recommended for dual-tuner) */
-                    printf("WARNING: Tuner 2 status via UDP/FIFO not fully supported - use MQTT for dual-tuner\n");
+                } else if (longmynd_config.status_use_ip) {
+                    /* Send tuner 2 status via UDP (not recommended for dual-tuner) */
+                    printf("WARNING: Tuner 2 status via UDP not fully supported - use MQTT for dual-tuner\n");
                     err = status_all_write(&longmynd_status_tuner2_cpy, status_write, status_string_write, &status_output_ready);
-                } else if (!longmynd_config.status_use_ip && !status_output_ready) {
-                    err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
+                } else {
+                    /* Send tuner 2 status via dedicated status2 FIFO */
+                    static bool status2_output_ready = false;
+                    if (!status2_output_ready) {
+                        err = fifo_status2_init(longmynd_config.status2_fifo_path, &status2_output_ready);
+                    }
+                    if (status2_output_ready) {
+                        err = status_all_write(&longmynd_status_tuner2_cpy, fifo_status2_write, fifo_status2_string_write, &status2_output_ready);
+                    }
                 }
 
                 last_status_sent_monotonic_tuner2 = longmynd_status_tuner2_cpy.last_updated_monotonic;
@@ -2240,6 +2266,17 @@ int main(int argc, char *argv[])
     }
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
+
+    /* Cleanup FIFOs and other resources */
+    if (!longmynd_config.status_use_ip && !longmynd_config.status_use_mqtt) {
+        fifo_close(longmynd_config.ts_use_ip);  // Close main status and TS FIFOs
+
+        if (longmynd_config.dual_tuner_enabled) {
+            fifo_close_ts2(!longmynd_config.ts_use_ip);  // Close tuner 2 TS FIFO
+            fifo_close_status2(false);  // Close tuner 2 status FIFO
+            printf("Flow: Closed dual-tuner FIFOs\n");
+        }
+    }
 
     return err;
 }

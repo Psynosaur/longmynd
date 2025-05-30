@@ -91,13 +91,14 @@ void *loop_ts(void *arg) {
 
     if(thread_vars->config->ts_use_ip) {
         if (thread_vars->tuner_id == 2) {
-            /* Tuner 2: Use tuner 2 UDP endpoint */
+            /* Tuner 2: Use tuner 2 UDP endpoint and write function */
             *err=udp_ts_init(thread_vars->config->ts2_ip_addr, thread_vars->config->ts2_ip_port);
+            ts_write = udp_ts_write_tuner2;
         } else {
-            /* Tuner 1: Use tuner 1 UDP endpoint */
+            /* Tuner 1: Use tuner 1 UDP endpoint and write function */
             *err=udp_ts_init(thread_vars->config->ts_ip_addr, thread_vars->config->ts_ip_port);
+            ts_write = udp_ts_write_tuner1;
         }
-        ts_write = udp_ts_write;
     } else {
         if (thread_vars->tuner_id == 2) {
             /* Tuner 2: Use tuner 2 FIFO */
@@ -167,14 +168,22 @@ void *loop_ts(void *arg) {
 
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 3)
         {
-
-
-            ts_write = udp_ts_write;
+            /* Use tuner-specific UDP write function */
+            if (thread_vars->tuner_id == 2) {
+                ts_write = udp_ts_write_tuner2;
+            } else {
+                ts_write = udp_ts_write_tuner1;
+            }
             //ts_write = udp_bb_write;
         }
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 1)
         {
-            ts_write = udp_bb_write;
+            /* Use tuner-specific BB write function */
+            if (thread_vars->tuner_id == 2) {
+                ts_write = udp_bb_write_tuner2;
+            } else {
+                ts_write = udp_bb_write_tuner1;
+            }
         }
 
 

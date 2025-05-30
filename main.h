@@ -116,6 +116,7 @@ typedef struct {
     bool status_use_ip;
     bool status_use_mqtt;
     char status_fifo_path[128];
+    char status2_fifo_path[128];  // Second tuner status FIFO path
     char status_ip_addr[16];
     int status_ip_port;
 

@@ -44,6 +44,7 @@
 int fd_ts_fifo;
 int fd_ts2_fifo;
 int fd_status_fifo;
+int fd_status2_fifo;
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -107,7 +108,7 @@ uint8_t fifo_ts_write(uint8_t *buffer, uint32_t len, bool *fifo_ready) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t fifo_ts2_write(uint8_t *buffer, uint32_t len, bool *fifo_ready) {
 /* -------------------------------------------------------------------------------------------------- */
-/* takes a buffer and writes out the contents to the ts2 fifo but removes the unwanted bytes          */
+/* takes a buffer and writes out the contents to the ts2 fifo but removes the unwanted bytes         */
 /* *buffer: the buffer that contains the data to be sent                                              */
 /*     len: the length (number of bytes) of data to be sent                                           */
 /*  return: error code                                                                                */
@@ -223,6 +224,69 @@ uint8_t fifo_status_string_write(uint8_t message, char *data, bool *fifo_ready) 
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t fifo_status2_write(uint8_t message, uint32_t data, bool *fifo_ready) {
+/* -------------------------------------------------------------------------------------------------- */
+/* *message: the string to write out that identifies the status message for tuner 2                  */
+/*     data: an integer to be sent out (as a decimal number string)                                   */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    int ret;
+    char status_message[30];
+
+    /* WARNING: This currently prints as signed integer (int32_t), even though function appears to expect unsigned (uint32_t) */
+    sprintf(status_message, "$%i,%i\n", message, data);
+    ret=write(fd_status2_fifo, status_message, strlen(status_message));
+    if (ret!=(int)strlen(status_message)) {
+        if(errno == EPIPE) {
+            /* Broken Pipe, probably because the other end has disconnected */
+            printf("WARNING: broken status2 fifo\n");
+            *fifo_ready = false;
+        } else if(errno == EAGAIN) {
+            /* Write temporarily blocked, ignore */
+        } else {
+            printf("ERROR: status2 fifo write (error: %s)\n", strerror(errno));
+            err=ERROR_TS_FIFO_WRITE;
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo status2 write\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t fifo_status2_string_write(uint8_t message, char *data, bool *fifo_ready) {
+/* -------------------------------------------------------------------------------------------------- */
+/* *message: the string to write out that identifies the status message for tuner 2                  */
+/*     data: a string to be sent out                                                                  */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    int ret;
+    char status_message[5+128];
+
+    sprintf(status_message, "$%i,%s\n", message, data);
+    ret=write(fd_status2_fifo, status_message, strlen(status_message));
+    if (ret!=(int)strlen(status_message)) {
+        if(errno == EPIPE) {
+            /* Broken Pipe, probably because the other end has disconnected */
+            printf("WARNING: broken status2 fifo\n");
+            *fifo_ready = false;
+        } else if(errno == EAGAIN) {
+            /* Write temporarily blocked, ignore */
+        } else {
+            printf("ERROR: status2 fifo string write (error: %s)\n", strerror(errno));
+            err=ERROR_TS_FIFO_WRITE;
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo status2 string write\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 static uint8_t fifo_init(int *fd_ptr, char *fifo_path, bool *fifo_ready) {
 /* -------------------------------------------------------------------------------------------------- */
 /* initialises the ts and status fifos                                                                */
@@ -273,6 +337,10 @@ uint8_t fifo_status_init(char *fifo_path, bool *fifo_ready) {
     return fifo_init(&fd_status_fifo, fifo_path, fifo_ready);
 }
 
+uint8_t fifo_status2_init(char *fifo_path, bool *fifo_ready) {
+    return fifo_init(&fd_status2_fifo, fifo_path, fifo_ready);
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t fifo_close(bool ignore_ts_fifo) {
 /* ------------------------------------------------------------------------------------------------- */
@@ -319,6 +387,28 @@ uint8_t fifo_close_ts2(bool ignore_ts2_fifo) {
     }
 
     if (err!=ERROR_NONE) printf("ERROR: fifo ts2 close\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t fifo_close_status2(bool ignore_status2_fifo) {
+/* ------------------------------------------------------------------------------------------------- */
+/* closes the status2 fifo                                                                            */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    int ret;
+
+    if (!ignore_status2_fifo) {
+        ret=close(fd_status2_fifo);
+        if (ret!=0) {
+            printf("ERROR: status2 fifo close\n");
+            err=ERROR_STATUS_FIFO_CLOSE;
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo status2 close\n");
 
     return err;
 }
