@@ -409,6 +409,34 @@ uint8_t stv0910_read_modcod_and_type(uint8_t demod, uint32_t *modcod, bool *shor
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_ts_status(uint8_t demod, uint32_t *ts_status) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Read TS status registers for a specific demodulator                                                */
+/*   demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator to read                      */
+/*   ts_status: pointer to store combined TS status (TSSTATUS + TSSTATUS2)                           */
+/*   return: error code                                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t temp0 = 0;
+    uint8_t temp1 = 0;
+
+    /* Read TSSTATUS register */
+    err = stv0910_read_reg(demod == STV0910_DEMOD_TOP ? RSTV0910_P2_TSSTATUS : RSTV0910_P1_TSSTATUS, &temp0);
+
+    /* Read TSSTATUS2 register if first read was successful */
+    if (err == ERROR_NONE) {
+        err = stv0910_read_reg(demod == STV0910_DEMOD_TOP ? RSTV0910_P2_TSSTATUS2 : RSTV0910_P1_TSSTATUS2, &temp1);
+    }
+
+    /* Combine the two status bytes */
+    *ts_status = (uint32_t)(temp0 | (temp1 << 8));
+
+    if (err != ERROR_NONE) printf("ERROR: STV0910 read TS status\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) {
 
     uint8_t err;
