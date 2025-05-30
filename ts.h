@@ -24,6 +24,7 @@
 
 void *loop_ts(void *arg);
 void *loop_ts_parse(void *arg);
+void *loop_ts_parse_tuner2(void *arg);
 
 #endif
 

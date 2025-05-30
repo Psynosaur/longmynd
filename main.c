@@ -2064,10 +2064,11 @@ int main(int argc, char *argv[])
             thread_vars_ts_parse_tuner2.top_demod_ready = &top_demod_ready;
             thread_vars_ts_parse_tuner2.i2c_mutex = &i2c_mutex;
 
-            if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse_tuner2)) {
+            if (0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse_tuner2, (void *)&thread_vars_ts_parse_tuner2)) {
                 //pthread_setname_np(thread_ts_parse_tuner2, "TS Parse 2");
+                printf("Flow: Created tuner 2 TS parse thread (dedicated implementation)\n");
             } else {
-                fprintf(stderr, "Error creating loop_ts_parse tuner2 pthread\n");
+                fprintf(stderr, "Error creating loop_ts_parse_tuner2 pthread\n");
                 err = ERROR_THREAD_ERROR;
             }
         }
