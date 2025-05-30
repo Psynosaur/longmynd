@@ -178,48 +178,8 @@ void *loop_ts(void *arg) {
                        read_count, len, len-2, len > 2 ? buffer[2] : 0);
             }
 
-            /* CRITICAL FIX: In dual-tuner mode, implement hardware-based TS demultiplexing */
-            /* The STV0910 multiplexes both TOP and BOTTOM demodulator data through the same USB endpoint */
-            /* We use hardware TS status registers to determine data source and filter appropriately */
-            bool should_process_data = true;
-            if (config->dual_tuner_enabled) {
-                /* Use hardware TS status to determine if this data is from TOP demodulator */
-                uint32_t ts_status_top = 0;
-                uint32_t ts_status_bottom = 0;
-
-                /* Read TS status from both demodulators to determine active source */
-                uint8_t status_err = stv0910_read_ts_status(STV0910_DEMOD_TOP, &ts_status_top);
-                if (status_err == ERROR_NONE) {
-                    status_err = stv0910_read_ts_status(STV0910_DEMOD_BOTTOM, &ts_status_bottom);
-                }
-
-                if (status_err == ERROR_NONE) {
-                    /* Check if TOP demodulator has active TS data (TSFIFO_LINEOK bit) */
-                    bool top_ts_active = (ts_status_top & 0x80) != 0;  /* TSFIFO_LINEOK */
-                    bool bottom_ts_active = (ts_status_bottom & 0x80) != 0;
-
-                    if (!top_ts_active && bottom_ts_active) {
-                        /* Only BOTTOM demodulator has TS data - skip for tuner 1 */
-                        should_process_data = false;
-                        static uint32_t filter_count = 0;
-                        filter_count++;
-                        if (filter_count % 100 == 1) {
-                            printf("DEBUG: Tuner1 filtering TS data - only BOTTOM active (count: %u)\n", filter_count);
-                        }
-                    }
-                } else {
-                    /* Fallback to state-based filtering if hardware read fails */
-                    pthread_mutex_lock(&status->mutex);
-                    bool top_demod_locked = (status->state == STATE_DEMOD_S || status->state == STATE_DEMOD_S2);
-                    pthread_mutex_unlock(&status->mutex);
-                    should_process_data = top_demod_locked;
-                }
-            }
-
-            if (!should_process_data) {
-                /* Skip processing this TS data - it's from the other demodulator */
-                continue;
-            }
+            /* FIXED: No demultiplexing needed - each tuner reads from its own FTDI device */
+            /* Tuner 1 processes all data from its dedicated device (TOP demodulator) */
 
 /*
             uint32_t matype1,matype2;
@@ -602,23 +562,10 @@ void *loop_ts_tuner2(void *arg) {
         }
 
 
-        /* CRITICAL FIX: In dual-tuner mode, tuner 2 should read from the same source as tuner 1 */
-        /* The STV0910 has both TOP and BOTTOM demodulators on the same chip, and TS data */
-        /* from both demodulators is multiplexed through the same USB endpoint. */
-        /* We need to read from the primary device and demultiplex the data. */
-        if (config->dual_tuner_enabled) {
-            /* Read from primary device (same as tuner 1) and demultiplex for BOTTOM demodulator */
-            *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
-
-            static uint32_t tuner2_debug_count = 0;
-            tuner2_debug_count++;
-            if (tuner2_debug_count % 200 == 1) {
-                printf("DEBUG: Tuner2 reading from primary device (demux mode) #%u\n", tuner2_debug_count);
-            }
-        } else {
-            /* Single tuner mode - use dedicated function (should not happen in dual mode) */
-            *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
-        }
+        /* FIXED: Tuner 2 should read from its own dedicated FTDI device */
+        /* Each tuner has its own FTDI device and USB endpoint for independent TS streaming */
+        /* This follows the open_tuner MediaSources/Minitiouner dual-device architecture */
+        *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
 
         //if(len>2) fprintf(stderr,"len %d\n",len);
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
@@ -631,47 +578,8 @@ void *loop_ts_tuner2(void *arg) {
                        read_count, len, len-2, len > 2 ? buffer[2] : 0);
             }
 
-            /* CRITICAL FIX: In dual-tuner mode, implement hardware-based TS demultiplexing */
-            /* Since we're reading from the same source as tuner 1, we need to filter for BOTTOM demodulator data */
-            bool should_process_data = true;
-            if (config->dual_tuner_enabled) {
-                /* Use hardware TS status to determine if this data is from BOTTOM demodulator */
-                uint32_t ts_status_top = 0;
-                uint32_t ts_status_bottom = 0;
-
-                /* Read TS status from both demodulators to determine active source */
-                uint8_t status_err = stv0910_read_ts_status(STV0910_DEMOD_TOP, &ts_status_top);
-                if (status_err == ERROR_NONE) {
-                    status_err = stv0910_read_ts_status(STV0910_DEMOD_BOTTOM, &ts_status_bottom);
-                }
-
-                if (status_err == ERROR_NONE) {
-                    /* Check if BOTTOM demodulator has active TS data (TSFIFO_LINEOK bit) */
-                    bool top_ts_active = (ts_status_top & 0x80) != 0;  /* TSFIFO_LINEOK */
-                    bool bottom_ts_active = (ts_status_bottom & 0x80) != 0;
-
-                    if (!bottom_ts_active && top_ts_active) {
-                        /* Only TOP demodulator has TS data - skip for tuner 2 */
-                        should_process_data = false;
-                        static uint32_t filter_count = 0;
-                        filter_count++;
-                        if (filter_count % 100 == 1) {
-                            printf("DEBUG: Tuner2 filtering TS data - only TOP active (count: %u)\n", filter_count);
-                        }
-                    }
-                } else {
-                    /* Fallback to state-based filtering if hardware read fails */
-                    pthread_mutex_lock(&status->mutex);
-                    bool bottom_demod_locked = (status->state == STATE_DEMOD_S || status->state == STATE_DEMOD_S2);
-                    pthread_mutex_unlock(&status->mutex);
-                    should_process_data = bottom_demod_locked;
-                }
-            }
-
-            if (!should_process_data) {
-                /* Skip processing this TS data - it's from the other demodulator */
-                continue;
-            }
+            /* FIXED: No demultiplexing needed - each tuner reads from its own FTDI device */
+            /* Tuner 2 processes all data from its dedicated device (BOTTOM demodulator) */
 
 /*
             uint32_t matype1,matype2;
