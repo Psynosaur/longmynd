@@ -54,6 +54,8 @@ int sockfd_status;
 int sockfd_ts;
 
 /* Dual-tuner UDP globals */
+struct sockaddr_in servaddr_ts1;  /* Dedicated socket for tuner 1 in dual mode */
+int sockfd_ts1;                   /* Dedicated socket for tuner 1 in dual mode */
 struct sockaddr_in servaddr_ts2;
 int sockfd_ts2;
 bool dual_udp_initialized = false;
@@ -683,12 +685,12 @@ uint8_t udp_ts_init_dual(char *udp_ip1, int udp_port1, char *udp_ip2, int udp_po
     printf("Flow: UDP dual init - Tuner1: %s:%d, Tuner2: %s:%d\n",
            udp_ip1, udp_port1, udp_ip2, udp_port2);
 
-    /* Initialize first tuner UDP (reuse existing function) */
+    /* Initialize dedicated tuner 1 UDP socket */
     if (err == ERROR_NONE) {
-        err = udp_ts_init(udp_ip1, udp_port1);
+        err = udp_init(&servaddr_ts1, &sockfd_ts1, udp_ip1, udp_port1);
     }
 
-    /* Initialize second tuner UDP */
+    /* Initialize tuner 2 UDP socket */
     if (err == ERROR_NONE) {
         err = udp_init(&servaddr_ts2, &sockfd_ts2, udp_ip2, udp_port2);
     }
@@ -706,15 +708,47 @@ uint8_t udp_ts_init_dual(char *udp_ip1, int udp_port1, char *udp_ip2, int udp_po
 uint8_t udp_ts_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /* Write TS data for tuner 1 (TOP demodulator) - uses existing UDP socket                           */
+    /* Write TS data for tuner 1 (TOP demodulator) - uses dedicated UDP socket                          */
     /*   buffer: data buffer to send                                                                     */
     /*   len: length of data                                                                             */
     /*   output_ready: output ready flag                                                                 */
     /*   return: error code                                                                              */
     /* -------------------------------------------------------------------------------------------------- */
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
 
-    /* Use existing udp_ts_write function for tuner 1 */
-    return udp_ts_write(buffer, len, output_ready);
+    if (!dual_udp_initialized) {
+        printf("ERROR: Dual UDP not initialized\n");
+        return ERROR_UDP_WRITE;
+    }
+
+    remaining_len = len;
+
+    /* Process data in 510 byte chunks (same as tuner 2) */
+    while (remaining_len > 0) {
+        if (remaining_len > 510) {
+            write_size = 510;
+            udp_send_normalize_tuner1(&buffer[len - remaining_len], write_size);
+            remaining_len -= 512;
+        } else {
+            write_size = remaining_len;
+            udp_send_normalize_tuner1(&buffer[len - remaining_len], write_size);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0)) {
+        printf("ERROR: UDP tuner1 write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: UDP tuner1 TS write\n");
+    }
+
+    return err;
 }
 
 uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
@@ -824,6 +858,70 @@ void udp_send_normalize_tuner2(uint8_t *b, int len)
     } else {
         memcpy(Buffer_t2 + Size_t2, b, len);
         Size_t2 += len;
+    }
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void udp_send_normalize_tuner1(uint8_t *b, int len)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Normalize and send TS data for tuner 1 (similar to udp_send_normalize but for dedicated socket)  */
+    /*   b: data buffer                                                                                  */
+    /*   len: length of data                                                                             */
+    /* -------------------------------------------------------------------------------------------------- */
+#define BUFF_MAX_SIZE_T1 (7 * 188)
+    static uint8_t *Buffer_t1 = NULL;
+    if (Buffer_t1 == NULL)
+        Buffer_t1 = (uint8_t *)malloc(BUFF_MAX_SIZE_T1 * 2);
+
+    static int Size_t1 = 0;
+    static bool IsSync_t1 = false;
+
+    /* Align to Sync Packet */
+    if ((IsSync_t1 == false) && (len >= 2 * 188)) {
+        int start_packet = 0;
+        for (start_packet = 0; start_packet < 188; start_packet++) {
+            if ((b[start_packet] == 0x47) && (b[start_packet + 188] == 0x47)) {
+                b = b + start_packet;
+                len = len - start_packet;
+                IsSync_t1 = true;
+                fprintf(stderr, "Tuner1: Recover Sync %d\n", start_packet);
+                break;
+            }
+        }
+        if (!IsSync_t1) {
+            fprintf(stderr, "Tuner1: Not Sync!\n");
+        }
+    }
+
+    if (Buffer_t1[0] != 0x47) {
+        if (Size_t1 >= 188) {
+            IsSync_t1 = false;
+            Size_t1 = 0;
+            fprintf(stderr, "Tuner1: Lost Sync\n");
+            return;
+        }
+    }
+
+    if ((Size_t1 + len) >= BUFF_MAX_SIZE_T1) {
+        memcpy(Buffer_t1 + Size_t1, b, len);
+
+        if (IsSync_t1) {
+            /* Process TS timing for tuner 1 if needed */
+            /* ProcessTSTiming(Buffer_t1, BUFF_MAX_SIZE_T1, &video_pcrpts, &audio_pcrpts, &transmission_delay); */
+        }
+
+        if (sendto(sockfd_ts1, Buffer_t1, BUFF_MAX_SIZE_T1, 0,
+                   (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr)) < 0) {
+            fprintf(stderr, "Tuner1: UDP send failed\n");
+        }
+
+        memmove(Buffer_t1, Buffer_t1 + BUFF_MAX_SIZE_T1, Size_t1 - BUFF_MAX_SIZE_T1 + len);
+        Size_t1 += len;
+        Size_t1 = Size_t1 - BUFF_MAX_SIZE_T1;
+    } else {
+        memcpy(Buffer_t1 + Size_t1, b, len);
+        Size_t1 += len;
     }
 }
 
@@ -967,16 +1065,22 @@ uint8_t udp_close_dual(void)
 
     printf("Flow: UDP dual close\n");
 
-    /* Close first tuner socket (use existing function) */
-    err = udp_close();
-
-    /* Close second tuner socket */
+    /* Close dedicated tuner sockets */
     if (dual_udp_initialized) {
+        /* Close tuner 1 socket */
+        ret = close(sockfd_ts1);
+        if (ret != 0) {
+            err = ERROR_UDP_CLOSE;
+            printf("ERROR: Tuner1 UDP close\n");
+        }
+
+        /* Close tuner 2 socket */
         ret = close(sockfd_ts2);
         if (ret != 0) {
             err = ERROR_UDP_CLOSE;
             printf("ERROR: Tuner2 UDP close\n");
         }
+
         dual_udp_initialized = false;
     }
 
