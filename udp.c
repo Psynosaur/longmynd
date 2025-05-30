@@ -956,8 +956,8 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
         if (sent_bytes < 0) {
             fprintf(stderr, "Tuner1: UDP send failed\n");
         } else if (send_count_t1 % 50 == 1) {  /* Log every 50th send */
-            printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
-                   send_count_t1, sent_bytes);
+            // printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
+            //        send_count_t1, sent_bytes);
         }
 
         memmove(Buffer_t1, Buffer_t1 + BUFF_MAX_SIZE_T1, Size_t1 - BUFF_MAX_SIZE_T1 + len);
