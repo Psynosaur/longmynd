@@ -43,11 +43,6 @@
 /* External function declaration */
 extern uint64_t monotonic_ms(void);
 
-/* Helper function prototypes for safe buffer management */
-static void ts_parse_buffer_safe_init(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, uint32_t buffer_size, int tuner_id);
-static void ts_parse_buffer_safe_cleanup(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, int tuner_id);
-static bool ts_parse_buffer_is_ready(longmynd_ts_parse_buffer_t *parse_buffer);
-
 #define TS_FRAME_SIZE 20*512 // 512 is base USB FTDI frame
 
 uint8_t *ts_buffer_ptr = NULL;
@@ -94,6 +89,11 @@ static longmynd_ts_parse_buffer_t longmynd_ts_parse_buffer = {
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER
 };
+
+/* Helper function prototypes for safe buffer management */
+static void ts_parse_buffer_safe_init(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, uint32_t buffer_size, int tuner_id);
+static void ts_parse_buffer_safe_cleanup(longmynd_ts_parse_buffer_t *parse_buffer, uint8_t *buffer, int tuner_id);
+static bool ts_parse_buffer_is_ready(longmynd_ts_parse_buffer_t *parse_buffer);
 
 
 
