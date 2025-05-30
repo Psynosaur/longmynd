@@ -103,7 +103,9 @@ typedef struct {
     bool auto_detect_second_device;
 
     bool ts_use_ip;
-    bool ts_reset;
+    bool ts_reset;  // Legacy single-tuner reset flag
+    bool ts_reset_tuner1;  // Dual-tuner: Reset flag for tuner 1
+    bool ts_reset_tuner2;  // Dual-tuner: Reset flag for tuner 2
     char ts_fifo_path[128];
     char ts_ip_addr[16];
     int ts_ip_port;

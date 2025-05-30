@@ -116,7 +116,9 @@ void *loop_ts(void *arg) {
 
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE){
         /* If reset flag is active (eg. just started or changed station), then clear out the ts buffer */
-        if(config->ts_reset) {
+        /* Use appropriate reset flag based on dual-tuner mode */
+        bool should_reset = config->dual_tuner_enabled ? config->ts_reset_tuner1 : config->ts_reset;
+        if(should_reset) {
             do {
                 /* Tuner 1: Use tuner 1 FTDI read function */
                 if (*err==ERROR_NONE) *err=ftdi_usb_ts_read(buffer, &len, TS_FRAME_SIZE);
@@ -152,7 +154,13 @@ void *loop_ts(void *arg) {
 
             pthread_mutex_unlock(&status->mutex);
 
-           config->ts_reset = false;
+            /* Clear appropriate reset flag based on dual-tuner mode */
+            if (config->dual_tuner_enabled) {
+                config->ts_reset_tuner1 = false;
+                printf("DEBUG: Cleared ts_reset_tuner1 flag\n");
+            } else {
+                config->ts_reset = false;  // Legacy single-tuner mode
+            }
         }
 
 
@@ -474,6 +482,7 @@ void *loop_ts_tuner2(void *arg) {
     thread_vars_t *thread_vars=(thread_vars_t *)arg;
     uint8_t *err = &thread_vars->thread_err;
     longmynd_config_t *config = thread_vars->config;
+
     longmynd_status_t *status = thread_vars->status;
 
     uint8_t *buffer;
@@ -507,7 +516,8 @@ void *loop_ts_tuner2(void *arg) {
 
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE){
         /* If reset flag is active (eg. just started or changed station), then clear out the ts buffer */
-        if(config->ts_reset) {
+        /* Use tuner 2 specific reset flag */
+        if(config->ts_reset_tuner2) {
             do {
                 /* Tuner 2: Use tuner 2 FTDI read function */
                 if (*err==ERROR_NONE) *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
@@ -543,7 +553,9 @@ void *loop_ts_tuner2(void *arg) {
 
             pthread_mutex_unlock(&status->mutex);
 
-           config->ts_reset = false;
+            /* Clear tuner 2 specific reset flag */
+            config->ts_reset_tuner2 = false;
+            printf("DEBUG: Cleared ts_reset_tuner2 flag\n");
         }
 
 

@@ -424,6 +424,9 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->ts_streaming_enabled = false;  // Start with TS streaming disabled until first tuning
 
     config->ts_use_ip = false;
+    config->ts_reset = false;  // Legacy single-tuner reset flag
+    config->ts_reset_tuner1 = false;  // Dual-tuner: Reset flag for tuner 1
+    config->ts_reset_tuner2 = false;  // Dual-tuner: Reset flag for tuner 2
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
     strcpy(config->ts2_fifo_path, "longmynd_tuner2_ts");
@@ -1029,12 +1032,20 @@ void *loop_i2c(void *arg)
             if (thread_vars->tuner_id == 1) {
                 thread_vars->config->new_config = false;
                 printf("DEBUG: Cleared new_config flag for tuner 1\n");
+                /* Set tuner 1 specific reset flag */
+                if (thread_vars->config->dual_tuner_enabled) {
+                    thread_vars->config->ts_reset_tuner1 = true;
+                    printf("DEBUG: Set ts_reset_tuner1 flag\n");
+                } else {
+                    thread_vars->config->ts_reset = true;  // Legacy single-tuner mode
+                }
             } else if (thread_vars->tuner_id == 2) {
                 thread_vars->config->new_config_tuner2 = false;
                 printf("DEBUG: Cleared new_config_tuner2 flag for tuner 2\n");
+                /* Set tuner 2 specific reset flag */
+                thread_vars->config->ts_reset_tuner2 = true;
+                printf("DEBUG: Set ts_reset_tuner2 flag\n");
             }
-            /* Set flag to clear ts buffer */
-            thread_vars->config->ts_reset = true;
         }
         pthread_mutex_unlock(&thread_vars->config->mutex);
 
