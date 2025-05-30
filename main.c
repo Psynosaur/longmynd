@@ -2304,8 +2304,7 @@ int main(int argc, char *argv[])
         fifo_close(longmynd_config.ts_use_ip);  // Close main status and TS FIFOs
 
         if (longmynd_config.dual_tuner_enabled) {
-            fifo_close_ts2(!longmynd_config.ts_use_ip);  // Close tuner 2 TS FIFO
-            fifo_close_status2(false);  // Close tuner 2 status FIFO
+            fifo_close2(!longmynd_config.ts_use_ip);  // Close tuner 2 status and TS FIFOs
             printf("Flow: Closed dual-tuner FIFOs\n");
         }
     }

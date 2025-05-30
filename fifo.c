@@ -51,365 +51,429 @@ int fd_status2_fifo;
 /* -------------------------------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_ts_write(uint8_t *buffer, uint32_t len, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* takes a buffer and writes out the contents to the ts fifo but removes the unwanted bytes           */
-/* *buffer: the buffer that contains the data to be sent                                              */
-/*     len: the length (number of bytes) of data to be sent                                           */
-/*  return: error code                                                                                */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_ts_write(uint8_t *buffer, uint32_t len, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* takes a buffer and writes out the contents to the ts fifo but removes the unwanted bytes           */
+    /* *buffer: the buffer that contains the data to be sent                                              */
+    /*     len: the length (number of bytes) of data to be sent                                           */
+    /*  return: error code                                                                                */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
     int32_t remaining_len; /* note it is signed so can go negative */
     uint32_t write_size;
 
-    remaining_len=len;
+    remaining_len = len;
     /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
     /* the FTDI chip every 512 bytes of USB message */
-    while (remaining_len>0) {
-        if (remaining_len>510) {
-             /* calculate where to start in the buffer and how many bytes to send */
-             write_size=510;
-             ret=write(fd_ts_fifo, &buffer[len-remaining_len], write_size);
-             /* note we skip over the 2 bytes inserted by the FTDI */
-             remaining_len-=512;
-        } else {
-             write_size=remaining_len;
-             ret=write(fd_ts_fifo, &buffer[len-remaining_len], write_size);
-             remaining_len-=write_size; /* should be 0 if all went well */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            /* calculate where to start in the buffer and how many bytes to send */
+            write_size = 510;
+            ret = write(fd_ts_fifo, &buffer[len - remaining_len], write_size);
+            /* note we skip over the 2 bytes inserted by the FTDI */
+            remaining_len -= 512;
         }
-        if (ret!=(int)write_size) {
-            if(errno == EPIPE) {
+        else
+        {
+            write_size = remaining_len;
+            ret = write(fd_ts_fifo, &buffer[len - remaining_len], write_size);
+            remaining_len -= write_size; /* should be 0 if all went well */
+        }
+        if (ret != (int)write_size)
+        {
+            if (errno == EPIPE)
+            {
                 /* Broken Pipe, probably because the other end has disconnected */
                 printf("WARNING: broken ts fifo\n");
                 *fifo_ready = false;
-            } else if(errno == EAGAIN) {
+            }
+            else if (errno == EAGAIN)
+            {
                 /* Write temporarily blocked, try again */
                 continue;
-            } else {
+            }
+            else
+            {
                 printf("ERROR: ts fifo write (error: %s)\n", strerror(errno));
-                err=ERROR_TS_FIFO_WRITE;
+                err = ERROR_TS_FIFO_WRITE;
             }
             break;
         }
     }
 
     /* if someting went bad with our calcs, remaining will not be 0 */
-    if ((err==ERROR_NONE) && *fifo_ready && (remaining_len!=0)) {
+    if ((err == ERROR_NONE) && *fifo_ready && (remaining_len != 0))
+    {
         printf("ERROR: ts fifo write incorrect number of bytes\n");
-        err=ERROR_TS_FIFO_WRITE;
+        err = ERROR_TS_FIFO_WRITE;
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo ts write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo ts write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_ts2_write(uint8_t *buffer, uint32_t len, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* takes a buffer and writes out the contents to the ts2 fifo but removes the unwanted bytes         */
-/* *buffer: the buffer that contains the data to be sent                                              */
-/*     len: the length (number of bytes) of data to be sent                                           */
-/*  return: error code                                                                                */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_ts2_write(uint8_t *buffer, uint32_t len, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* takes a buffer and writes out the contents to the ts2 fifo but removes the unwanted bytes         */
+    /* *buffer: the buffer that contains the data to be sent                                              */
+    /*     len: the length (number of bytes) of data to be sent                                           */
+    /*  return: error code                                                                                */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
     int32_t remaining_len; /* note it is signed so can go negative */
     uint32_t write_size;
 
-    remaining_len=len;
+    remaining_len = len;
     /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
     /* the FTDI chip every 512 bytes of USB message */
-    while (remaining_len>0) {
-        if (remaining_len>510) {
-             /* calculate where to start in the buffer and how many bytes to send */
-             write_size=510;
-             ret=write(fd_ts2_fifo, &buffer[len-remaining_len], write_size);
-             /* note we skip over the 2 bytes inserted by the FTDI */
-             remaining_len-=512;
-        } else {
-             write_size=remaining_len;
-             ret=write(fd_ts2_fifo, &buffer[len-remaining_len], write_size);
-             remaining_len-=write_size; /* should be 0 if all went well */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            /* calculate where to start in the buffer and how many bytes to send */
+            write_size = 510;
+            ret = write(fd_ts2_fifo, &buffer[len - remaining_len], write_size);
+            /* note we skip over the 2 bytes inserted by the FTDI */
+            remaining_len -= 512;
         }
-        if (ret!=(int)write_size) {
-            if(errno == EPIPE) {
+        else
+        {
+            write_size = remaining_len;
+            ret = write(fd_ts2_fifo, &buffer[len - remaining_len], write_size);
+            remaining_len -= write_size; /* should be 0 if all went well */
+        }
+        if (ret != (int)write_size)
+        {
+            if (errno == EPIPE)
+            {
                 /* Broken Pipe, probably because the other end has disconnected */
                 printf("WARNING: broken ts2 fifo\n");
                 *fifo_ready = false;
-            } else if(errno == EAGAIN) {
+            }
+            else if (errno == EAGAIN)
+            {
                 /* Write temporarily blocked, try again */
                 continue;
-            } else {
+            }
+            else
+            {
                 printf("ERROR: ts2 fifo write (error: %s)\n", strerror(errno));
-                err=ERROR_TS_FIFO_WRITE;
+                err = ERROR_TS_FIFO_WRITE;
             }
             break;
         }
     }
 
     /* if someting went bad with our calcs, remaining will not be 0 */
-    if ((err==ERROR_NONE) && *fifo_ready && (remaining_len!=0)) {
+    if ((err == ERROR_NONE) && *fifo_ready && (remaining_len != 0))
+    {
         printf("ERROR: ts2 fifo write incorrect number of bytes\n");
-        err=ERROR_TS_FIFO_WRITE;
+        err = ERROR_TS_FIFO_WRITE;
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo ts2 write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo ts2 write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_status_write(uint8_t message, uint32_t data, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* *message: the string to write out that identifies the status message                               */
-/*     data: an integer to be sent out (as a decimal number string)                                   */
-/*   return: error code                                                                               */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_status_write(uint8_t message, uint32_t data, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* *message: the string to write out that identifies the status message                               */
+    /*     data: an integer to be sent out (as a decimal number string)                                   */
+    /*   return: error code                                                                               */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
     char status_message[30];
 
     /* WARNING: This currently prints as signed integer (int32_t), even though function appears to expect unsigned (uint32_t) */
     sprintf(status_message, "$%i,%i\n", message, data);
-    ret=write(fd_status_fifo, status_message, strlen(status_message));
-    if (ret!=(int)strlen(status_message)) {
-        if(errno == EPIPE) {
+    ret = write(fd_status_fifo, status_message, strlen(status_message));
+    if (ret != (int)strlen(status_message))
+    {
+        if (errno == EPIPE)
+        {
             /* Broken Pipe, probably because the other end has disconnected */
             printf("WARNING: broken status fifo\n");
             *fifo_ready = false;
-        } else if(errno == EAGAIN) {
+        }
+        else if (errno == EAGAIN)
+        {
             /* Write temporarily blocked, ignore */
-        } else {
+        }
+        else
+        {
             printf("ERROR: status fifo write (error: %s)\n", strerror(errno));
-            err=ERROR_TS_FIFO_WRITE;
+            err = ERROR_TS_FIFO_WRITE;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo status write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo status write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_status_string_write(uint8_t message, char *data, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* *message: the string to write out that identifies the status message                               */
-/*     data: an integer to be sent out (as a decimal number string)                                   */
-/*   return: error code                                                                               */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_status_string_write(uint8_t message, char *data, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* *message: the string to write out that identifies the status message                               */
+    /*     data: an integer to be sent out (as a decimal number string)                                   */
+    /*   return: error code                                                                               */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
-    char status_message[5+128];
+    char status_message[5 + 128];
 
     sprintf(status_message, "$%i,%s\n", message, data);
-    ret=write(fd_status_fifo, status_message, strlen(status_message));
-    if (ret!=(int)strlen(status_message)) {
-        if(errno == EPIPE) {
+    ret = write(fd_status_fifo, status_message, strlen(status_message));
+    if (ret != (int)strlen(status_message))
+    {
+        if (errno == EPIPE)
+        {
             /* Broken Pipe, probably because the other end has disconnected */
             printf("WARNING: broken status fifo\n");
             *fifo_ready = false;
-        } else if(errno == EAGAIN) {
+        }
+        else if (errno == EAGAIN)
+        {
             /* Write temporarily blocked, ignore */
-        } else {
+        }
+        else
+        {
             printf("ERROR: status fifo string write (error: %s)\n", strerror(errno));
-            err=ERROR_TS_FIFO_WRITE;
+            err = ERROR_TS_FIFO_WRITE;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo status string write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo status string write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_status2_write(uint8_t message, uint32_t data, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* *message: the string to write out that identifies the status message for tuner 2                  */
-/*     data: an integer to be sent out (as a decimal number string)                                   */
-/*   return: error code                                                                               */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_status2_write(uint8_t message, uint32_t data, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* *message: the string to write out that identifies the status message for tuner 2                  */
+    /*     data: an integer to be sent out (as a decimal number string)                                   */
+    /*   return: error code                                                                               */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
     char status_message[30];
 
     /* WARNING: This currently prints as signed integer (int32_t), even though function appears to expect unsigned (uint32_t) */
     sprintf(status_message, "$%i,%i\n", message, data);
-    ret=write(fd_status2_fifo, status_message, strlen(status_message));
-    if (ret!=(int)strlen(status_message)) {
-        if(errno == EPIPE) {
+    ret = write(fd_status2_fifo, status_message, strlen(status_message));
+    if (ret != (int)strlen(status_message))
+    {
+        if (errno == EPIPE)
+        {
             /* Broken Pipe, probably because the other end has disconnected */
             printf("WARNING: broken status2 fifo\n");
             *fifo_ready = false;
-        } else if(errno == EAGAIN) {
+        }
+        else if (errno == EAGAIN)
+        {
             /* Write temporarily blocked, ignore */
-        } else {
+        }
+        else
+        {
             printf("ERROR: status2 fifo write (error: %s)\n", strerror(errno));
-            err=ERROR_TS_FIFO_WRITE;
+            err = ERROR_TS_FIFO_WRITE;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo status2 write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo status2 write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_status2_string_write(uint8_t message, char *data, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* *message: the string to write out that identifies the status message for tuner 2                  */
-/*     data: a string to be sent out                                                                  */
-/*   return: error code                                                                               */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+uint8_t fifo_status2_string_write(uint8_t message, char *data, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* *message: the string to write out that identifies the status message for tuner 2                  */
+    /*     data: a string to be sent out                                                                  */
+    /*   return: error code                                                                               */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     int ret;
-    char status_message[5+128];
+    char status_message[5 + 128];
 
     sprintf(status_message, "$%i,%s\n", message, data);
-    ret=write(fd_status2_fifo, status_message, strlen(status_message));
-    if (ret!=(int)strlen(status_message)) {
-        if(errno == EPIPE) {
+    ret = write(fd_status2_fifo, status_message, strlen(status_message));
+    if (ret != (int)strlen(status_message))
+    {
+        if (errno == EPIPE)
+        {
             /* Broken Pipe, probably because the other end has disconnected */
             printf("WARNING: broken status2 fifo\n");
             *fifo_ready = false;
-        } else if(errno == EAGAIN) {
+        }
+        else if (errno == EAGAIN)
+        {
             /* Write temporarily blocked, ignore */
-        } else {
+        }
+        else
+        {
             printf("ERROR: status2 fifo string write (error: %s)\n", strerror(errno));
-            err=ERROR_TS_FIFO_WRITE;
+            err = ERROR_TS_FIFO_WRITE;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo status2 string write\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo status2 string write\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-static uint8_t fifo_init(int *fd_ptr, char *fifo_path, bool *fifo_ready) {
-/* -------------------------------------------------------------------------------------------------- */
-/* initialises the ts and status fifos                                                                */
-/*     ts_fifo: the name of the fifo to use for the TS                                                */
-/* status_fifo: the name of the fifo to use for the status output                                     */
-/*      return: error code                                                                            */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
+static uint8_t fifo_init(int *fd_ptr, char *fifo_path, bool *fifo_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* initialises the ts and status fifos                                                                */
+    /*     ts_fifo: the name of the fifo to use for the TS                                                */
+    /* status_fifo: the name of the fifo to use for the status output                                     */
+    /*      return: error code                                                                            */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     *fifo_ready = false;
 
-    //printf("Flow: Fifo Init\n");
+    // printf("Flow: Fifo Init\n");
 
     /* First check the file exists */
-    struct stat   buffer;
-    if(stat(fifo_path, &buffer) < 0) {
-        printf("ERROR: Failed to open fifo %s (error: %s)\n",fifo_path,strerror(errno));
-        err=ERROR_OPEN_TS_FIFO;
+    struct stat buffer;
+    if (stat(fifo_path, &buffer) < 0)
+    {
+        printf("ERROR: Failed to open fifo %s (error: %s)\n", fifo_path, strerror(errno));
+        err = ERROR_OPEN_TS_FIFO;
     }
 
-    if (err==ERROR_NONE) {
+    if (err == ERROR_NONE)
+    {
         *fd_ptr = open(fifo_path, O_WRONLY | O_NONBLOCK);
         /* We already ensured it exists, so ENXIO now just means there's nothing listening yet */
-        if (*fd_ptr<0 && errno == ENXIO) {
-            //printf("      Status: fifo not ready\n");
-        } else if(*fd_ptr<0) {
-            err=ERROR_OPEN_TS_FIFO;
-            printf("ERROR: Failed to open fifo %s (error: %s)\n",fifo_path,strerror(errno));
-        } else {
+        if (*fd_ptr < 0 && errno == ENXIO)
+        {
+            // printf("      Status: fifo not ready\n");
+        }
+        else if (*fd_ptr < 0)
+        {
+            err = ERROR_OPEN_TS_FIFO;
+            printf("ERROR: Failed to open fifo %s (error: %s)\n", fifo_path, strerror(errno));
+        }
+        else
+        {
             printf("      Status: opened fifo ok\n");
             *fifo_ready = true;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo init\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo init\n");
 
     return err;
 }
 
-uint8_t fifo_ts_init(char *fifo_path, bool *fifo_ready) {
+uint8_t fifo_ts_init(char *fifo_path, bool *fifo_ready)
+{
     return fifo_init(&fd_ts_fifo, fifo_path, fifo_ready);
 }
 
-uint8_t fifo_ts2_init(char *fifo_path, bool *fifo_ready) {
+uint8_t fifo_ts2_init(char *fifo_path, bool *fifo_ready)
+{
     return fifo_init(&fd_ts2_fifo, fifo_path, fifo_ready);
 }
 
-uint8_t fifo_status_init(char *fifo_path, bool *fifo_ready) {
+uint8_t fifo_status_init(char *fifo_path, bool *fifo_ready)
+{
     return fifo_init(&fd_status_fifo, fifo_path, fifo_ready);
 }
 
-uint8_t fifo_status2_init(char *fifo_path, bool *fifo_ready) {
+uint8_t fifo_status2_init(char *fifo_path, bool *fifo_ready)
+{
     return fifo_init(&fd_status2_fifo, fifo_path, fifo_ready);
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_close(bool ignore_ts_fifo) {
-/* ------------------------------------------------------------------------------------------------- */
-/* closes the fifo's                                                                                  */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
+uint8_t fifo_close(bool ignore_ts_fifo)
+{
+    /* ------------------------------------------------------------------------------------------------- */
+    /* closes the fifo's                                                                                  */
+    /* return: error code                                                                                 */
+    /* -------------------------------------------------------------------------------------------------- */
     uint8_t err;
     int ret;
 
-    if (!ignore_ts_fifo) {
-        ret=close(fd_ts_fifo);
-        if (ret!=0) {
+    if (!ignore_ts_fifo)
+    {
+        ret = close(fd_ts_fifo);
+        if (ret != 0)
+        {
             printf("ERROR: ts fifo close\n");
-            err=ERROR_TS_FIFO_CLOSE;
+            err = ERROR_TS_FIFO_CLOSE;
         }
     }
 
-    ret=close(fd_status_fifo);
-    if (ret!=0) {
+    ret = close(fd_status_fifo);
+    if (ret != 0)
+    {
         printf("ERROR: status fifo close\n");
-        err=ERROR_STATUS_FIFO_CLOSE;
+        err = ERROR_STATUS_FIFO_CLOSE;
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo close\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo close\n");
 
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_close_ts2(bool ignore_ts2_fifo) {
-/* ------------------------------------------------------------------------------------------------- */
-/* closes the ts2 fifo                                                                                */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
+uint8_t fifo_close2(bool ignore_ts2_fifo)
+{
+    /* ------------------------------------------------------------------------------------------------- */
+    /* closes the ts2 fifo                                                                                */
+    /* return: error code                                                                                 */
+    /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
     int ret;
 
-    if (!ignore_ts2_fifo) {
-        ret=close(fd_ts2_fifo);
-        if (ret!=0) {
+    if (!ignore_ts2_fifo)
+    {
+        ret = close(fd_ts2_fifo);
+        if (ret != 0)
+        {
             printf("ERROR: ts2 fifo close\n");
-            err=ERROR_TS_FIFO_CLOSE;
+            err = ERROR_TS_FIFO_CLOSE;
         }
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo ts2 close\n");
-
-    return err;
-}
-
-/* -------------------------------------------------------------------------------------------------- */
-uint8_t fifo_close_status2(bool ignore_status2_fifo) {
-/* ------------------------------------------------------------------------------------------------- */
-/* closes the status2 fifo                                                                            */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t err = ERROR_NONE;
-    int ret;
-
-    if (!ignore_status2_fifo) {
-        ret=close(fd_status2_fifo);
-        if (ret!=0) {
-            printf("ERROR: status2 fifo close\n");
-            err=ERROR_STATUS_FIFO_CLOSE;
-        }
+    ret = close(fd_status2_fifo);
+    if (ret != 0)
+    {
+        printf("ERROR: status2 fifo close\n");
+        err = ERROR_STATUS_FIFO_CLOSE;
     }
 
-    if (err!=ERROR_NONE) printf("ERROR: fifo status2 close\n");
+    if (err != ERROR_NONE)
+        printf("ERROR: fifo ts2 close\n");
 
     return err;
 }
-

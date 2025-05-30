@@ -292,11 +292,22 @@ static void ts_callback_sdt_service(
 {
     pthread_mutex_lock(&ts_longmynd_status->mutex);
 
-    memcpy(ts_longmynd_status->service_name, service_name_ptr, *service_name_length_ptr);
-    ts_longmynd_status->service_name[*service_name_length_ptr] = '\0';
+    /* Bounds checking to prevent buffer overflow */
+    uint32_t service_name_len = *service_name_length_ptr;
+    if (service_name_len >= sizeof(ts_longmynd_status->service_name)) {
+        service_name_len = sizeof(ts_longmynd_status->service_name) - 1;
+    }
 
-    memcpy(ts_longmynd_status->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
-    ts_longmynd_status->service_provider_name[*service_provider_name_length_ptr] = '\0';
+    uint32_t provider_name_len = *service_provider_name_length_ptr;
+    if (provider_name_len >= sizeof(ts_longmynd_status->service_provider_name)) {
+        provider_name_len = sizeof(ts_longmynd_status->service_provider_name) - 1;
+    }
+
+    memcpy(ts_longmynd_status->service_name, service_name_ptr, service_name_len);
+    ts_longmynd_status->service_name[service_name_len] = '\0';
+
+    memcpy(ts_longmynd_status->service_provider_name, service_provider_name_ptr, provider_name_len);
+    ts_longmynd_status->service_provider_name[provider_name_len] = '\0';
 
     printf("TS: SDT parsed - Service: '%s', Provider: '%s'\n",
            ts_longmynd_status->service_name, ts_longmynd_status->service_provider_name);
@@ -308,8 +319,11 @@ static void ts_callback_pmt_pids(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es
 {
     pthread_mutex_lock(&ts_longmynd_status->mutex);
 
-    ts_longmynd_status->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
-    ts_longmynd_status->ts_elementary_streams[*ts_pmt_index_ptr][1] = *ts_pmt_es_type;
+    /* Bounds checking to prevent array index out of bounds */
+    if (*ts_pmt_index_ptr < NUM_ELEMENT_STREAMS) {
+        ts_longmynd_status->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
+        ts_longmynd_status->ts_elementary_streams[*ts_pmt_index_ptr][1] = *ts_pmt_es_type;
+    }
 
     pthread_mutex_unlock(&ts_longmynd_status->mutex);
 }
@@ -337,11 +351,22 @@ static void ts_callback_sdt_service_tuner2(
 {
     pthread_mutex_lock(&ts_longmynd_status_tuner2->mutex);
 
-    memcpy(ts_longmynd_status_tuner2->service_name, service_name_ptr, *service_name_length_ptr);
-    ts_longmynd_status_tuner2->service_name[*service_name_length_ptr] = '\0';
+    /* Bounds checking to prevent buffer overflow */
+    uint32_t service_name_len = *service_name_length_ptr;
+    if (service_name_len >= sizeof(ts_longmynd_status_tuner2->service_name)) {
+        service_name_len = sizeof(ts_longmynd_status_tuner2->service_name) - 1;
+    }
 
-    memcpy(ts_longmynd_status_tuner2->service_provider_name, service_provider_name_ptr, *service_provider_name_length_ptr);
-    ts_longmynd_status_tuner2->service_provider_name[*service_provider_name_length_ptr] = '\0';
+    uint32_t provider_name_len = *service_provider_name_length_ptr;
+    if (provider_name_len >= sizeof(ts_longmynd_status_tuner2->service_provider_name)) {
+        provider_name_len = sizeof(ts_longmynd_status_tuner2->service_provider_name) - 1;
+    }
+
+    memcpy(ts_longmynd_status_tuner2->service_name, service_name_ptr, service_name_len);
+    ts_longmynd_status_tuner2->service_name[service_name_len] = '\0';
+
+    memcpy(ts_longmynd_status_tuner2->service_provider_name, service_provider_name_ptr, provider_name_len);
+    ts_longmynd_status_tuner2->service_provider_name[provider_name_len] = '\0';
 
     printf("TS: Tuner2 SDT parsed - Service: '%s', Provider: '%s'\n",
            ts_longmynd_status_tuner2->service_name, ts_longmynd_status_tuner2->service_provider_name);
@@ -353,8 +378,11 @@ static void ts_callback_pmt_pids_tuner2(uint32_t *ts_pmt_index_ptr, uint32_t *ts
 {
     pthread_mutex_lock(&ts_longmynd_status_tuner2->mutex);
 
-    ts_longmynd_status_tuner2->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
-    ts_longmynd_status_tuner2->ts_elementary_streams[*ts_pmt_index_ptr][1] = *ts_pmt_es_type;
+    /* Bounds checking to prevent array index out of bounds */
+    if (*ts_pmt_index_ptr < NUM_ELEMENT_STREAMS) {
+        ts_longmynd_status_tuner2->ts_elementary_streams[*ts_pmt_index_ptr][0] = *ts_pmt_es_pid;
+        ts_longmynd_status_tuner2->ts_elementary_streams[*ts_pmt_index_ptr][1] = *ts_pmt_es_type;
+    }
 
     pthread_mutex_unlock(&ts_longmynd_status_tuner2->mutex);
 }

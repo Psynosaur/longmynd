@@ -35,8 +35,8 @@ uint8_t fifo_ts2_init(char *fifo_path, bool*);
 uint8_t fifo_status_init(char *fifo_path, bool*);
 uint8_t fifo_status2_init(char *fifo_path, bool*);
 uint8_t fifo_close(bool);
-uint8_t fifo_close_ts2(bool);
-uint8_t fifo_close_status2(bool);
+uint8_t fifo_close2(bool);
+
 
 #endif
 
