@@ -113,6 +113,12 @@ void config_set_frequency(uint32_t frequency)
         longmynd_config.freq_requested[3] = 0;
         longmynd_config.freq_index = 0;
 
+        /* BEACON MODE: Clear beacon mode on first frequency command */
+        if (longmynd_config.beacon_mode) {
+            longmynd_config.beacon_mode = false;
+            printf("Flow: Beacon mode cleared - first frequency command received, starting UDP streaming\n");
+        }
+
         /* FIXED: Only trigger tuner 1 config change, not both tuners */
         if (longmynd_config.dual_tuner_enabled) {
             longmynd_config.new_config = true;  // Only tuner 1
@@ -419,6 +425,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->polarisation_horizontal_tuner2 = false;  // Will be set properly after command line parsing
     config->new_config_tuner2 = false;
     config->tuners_initialized = false;  // Track if tuners have been initialized before
+    config->ts_streaming_enabled = false;  // Start with TS streaming disabled until first tuning
 
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
@@ -1315,6 +1322,16 @@ void *loop_i2c(void *arg)
 
                 pthread_mutex_unlock(&thread_vars->config->mutex);
                 printf("      Status: Tuners marked as initialized (tuner %d)\n", thread_vars->tuner_id);
+            }
+
+            /* Enable TS streaming after successful initialization */
+            if (*err == ERROR_NONE) {
+                pthread_mutex_lock(&thread_vars->config->mutex);
+                if (!thread_vars->config->ts_streaming_enabled) {
+                    thread_vars->config->ts_streaming_enabled = true;
+                    printf("      Status: TS streaming enabled after successful tuner %d initialization\n", thread_vars->tuner_id);
+                }
+                pthread_mutex_unlock(&thread_vars->config->mutex);
             }
 
             status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();

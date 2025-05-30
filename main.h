@@ -132,6 +132,7 @@ typedef struct {
     bool polarisation_horizontal_tuner2;
     bool new_config_tuner2;
     bool tuners_initialized;  // Track if tuners have been initialized before
+    bool ts_streaming_enabled;  // Flag to control when TS streaming should start
 
     int ts_timeout;
 

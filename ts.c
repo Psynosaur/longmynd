@@ -207,7 +207,13 @@ void *loop_ts(void *arg) {
         }
 
 
-            if(thread_vars->config->ts_use_ip || fifo_ready)
+            /* Check if TS streaming is enabled before writing */
+            bool streaming_allowed = false;
+            pthread_mutex_lock(&config->mutex);
+            streaming_allowed = config->ts_streaming_enabled;
+            pthread_mutex_unlock(&config->mutex);
+
+            if (streaming_allowed && (thread_vars->config->ts_use_ip || fifo_ready))
             {
                 static uint32_t write_count = 0;
                 write_count++;
@@ -216,6 +222,15 @@ void *loop_ts(void *arg) {
                            thread_vars->tuner_id, write_count, len-2, len > 2 ? buffer[2] : 0);
                 }
                 *err=ts_write(&buffer[2],len-2,&fifo_ready);
+            }
+            else if (!streaming_allowed)
+            {
+                /* TS streaming not yet enabled - wait for initial tuning to complete */
+                static uint32_t wait_count = 0;
+                wait_count++;
+                if (wait_count % 1000 == 1) {  /* Log every 1000th wait */
+                    printf("DEBUG: Tuner%d waiting for TS streaming to be enabled (initial tuning)\n", thread_vars->tuner_id);
+                }
             }
             else if(!thread_vars->config->ts_use_ip && !fifo_ready)
             {
