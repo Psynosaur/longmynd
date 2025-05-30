@@ -43,6 +43,7 @@
 uint8_t stv6120_init(uint32_t, uint32_t, bool);
 uint8_t stv6120_set_freq(uint8_t, uint32_t);
 uint8_t stv6120_set_freq_only(uint8_t, uint32_t);
+uint8_t stv6120_reinit_lna_for_tuner(uint8_t tuner, bool enable);
 uint8_t stv6120_cal_lowpass(uint8_t);
 void stv6120_print_settings();
 uint8_t stv6120_powerdown_both_paths(void);

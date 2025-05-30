@@ -844,7 +844,17 @@ uint8_t stv0910_init_dual(uint32_t sr1, uint32_t sr2) {
     printf("Flow: STV0910 dual init - CRITICAL TOP-first sequence\n");
     printf("      TOP demodulator SR: %d, BOTTOM demodulator SR: %d\n", sr1, sr2);
 
-    /* CRITICAL: Initialize register defaults first */
+    /* CRITICAL FIX: Stop both demodulators first (following open_tuner pattern) */
+    printf("      Status: Stopping both demodulators before initialization\n");
+    if (err == ERROR_NONE) err = stv0910_write_reg(RSTV0910_P1_DMDISTATE, 0x1c);
+    if (err == ERROR_NONE) err = stv0910_write_reg(RSTV0910_P2_DMDISTATE, 0x1c);
+
+    /* CRITICAL: Small delay after stopping demodulators for hardware stability */
+    if (err == ERROR_NONE) {
+        usleep(2000); /* 2ms delay - allows demodulators to fully stop */
+    }
+
+    /* CRITICAL: Initialize register defaults */
     printf("      Status: Initializing STV0910 register defaults\n");
     err = stv0910_init_regs();
     if (err != ERROR_NONE) {
@@ -860,6 +870,11 @@ uint8_t stv0910_init_dual(uint32_t sr1, uint32_t sr2) {
         return err;
     }
 
+    /* CRITICAL: Delay after clock setup for PLL stabilization */
+    if (err == ERROR_NONE) {
+        usleep(5000); /* 5ms delay - allows PLL to fully stabilize */
+    }
+
     /* CRITICAL: Initialize TOP demodulator FIRST (prevents I2C errors) */
     if (sr1 > 0) {
         printf("      Status: Initializing TOP demodulator FIRST (critical sequence)\n");
@@ -873,6 +888,9 @@ uint8_t stv0910_init_dual(uint32_t sr1, uint32_t sr2) {
             return err;
         }
         printf("      Status: TOP demodulator initialization successful\n");
+
+        /* CRITICAL: Delay after TOP demodulator initialization for stability */
+        usleep(3000); /* 3ms delay - allows TOP demodulator to stabilize before BOTTOM init */
     }
 
     /* CRITICAL: Initialize BOTTOM demodulator SECOND (after TOP is stable) */

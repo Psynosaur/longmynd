@@ -250,6 +250,73 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv6120_reinit_lna_for_tuner(uint8_t tuner, bool enable) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Reinitialize LNA for a specific tuner during reconfiguration                                       */
+/* This ensures the correct LNA path is enabled when tuner parameters change                         */
+/*   tuner: TUNER_1  |  TUNER_2 : which tuner LNA to reinitialize                                    */
+/*   enable: true to enable LNA, false to disable                                                     */
+/*  return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t ctrl10_val;
+
+    printf("Flow: STV6120 reinit LNA for tuner %d (enable=%s)\n", tuner + 1, enable ? "true" : "false");
+
+    /* Read current CTRL10 register value to preserve other settings */
+    if (err == ERROR_NONE) {
+        err = stv6120_read_reg(STV6120_CTRL10, &ctrl10_val);
+    }
+
+    if (err == ERROR_NONE) {
+        /* Determine LNA configuration based on current port swap setting */
+        /* Note: We need to read the current CTRL9 to determine swap state */
+        uint8_t ctrl9_val;
+        err = stv6120_read_reg(STV6120_CTRL9, &ctrl9_val);
+
+        if (err == ERROR_NONE) {
+            bool is_swapped = ((ctrl9_val & 0x0C) == 0x08); /* RFC for tuner 1, RFB for tuner 2 */
+
+            if (tuner == TUNER_1) {
+                if (is_swapped) {
+                    /* Swapped: tuner 1 uses RFC (LNAC) */
+                    ctrl10_val &= ~(0x01 << STV6120_CTRL10_LNACON_SHIFT);
+                    ctrl10_val |= (enable ? STV6120_CTRL10_LNA_ON : STV6120_CTRL10_LNA_OFF) << STV6120_CTRL10_LNACON_SHIFT;
+                } else {
+                    /* Normal: tuner 1 uses RFB (LNAB) */
+                    ctrl10_val &= ~(0x01 << STV6120_CTRL10_LNABON_SHIFT);
+                    ctrl10_val |= (enable ? STV6120_CTRL10_LNA_ON : STV6120_CTRL10_LNA_OFF) << STV6120_CTRL10_LNABON_SHIFT;
+                }
+            } else { /* TUNER_2 */
+                if (is_swapped) {
+                    /* Swapped: tuner 2 uses RFB (LNAB) */
+                    ctrl10_val &= ~(0x01 << STV6120_CTRL10_LNABON_SHIFT);
+                    ctrl10_val |= (enable ? STV6120_CTRL10_LNA_ON : STV6120_CTRL10_LNA_OFF) << STV6120_CTRL10_LNABON_SHIFT;
+                } else {
+                    /* Normal: tuner 2 uses RFC (LNAC) */
+                    ctrl10_val &= ~(0x01 << STV6120_CTRL10_LNACON_SHIFT);
+                    ctrl10_val |= (enable ? STV6120_CTRL10_LNA_ON : STV6120_CTRL10_LNA_OFF) << STV6120_CTRL10_LNACON_SHIFT;
+                }
+            }
+
+            /* Write back the updated CTRL10 register */
+            err = stv6120_write_reg(STV6120_CTRL10, ctrl10_val);
+
+            if (err == ERROR_NONE) {
+                printf("      Status: LNA for tuner %d %s (swap=%s)\n",
+                       tuner + 1, enable ? "enabled" : "disabled", is_swapped ? "yes" : "no");
+            }
+        }
+    }
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: Failed to reinit LNA for tuner %d\n", tuner + 1);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv6120_set_freq_only(uint8_t tuner, uint32_t freq) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Sets frequency for a specific tuner without affecting the other tuner or shared registers         */
@@ -276,6 +343,12 @@ uint8_t stv6120_set_freq_only(uint8_t tuner, uint32_t freq) {
                 err = stv6120_read_reg(STV6120_CTRL17, &ctrl17);
             }
         }
+    }
+
+    /* CRITICAL FIX: Ensure correct LNA is enabled for the tuner being reconfigured */
+    if (err == ERROR_NONE) {
+        printf("      Status: Ensuring correct LNA is enabled for tuner %d reconfiguration\n", tuner + 1);
+        err = stv6120_reinit_lna_for_tuner(tuner, freq > 0);
     }
 
     /* Only calibrate lowpass filter and set frequency for the specific tuner */
