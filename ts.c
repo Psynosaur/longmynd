@@ -162,6 +162,12 @@ void *loop_ts(void *arg) {
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
         if ((*err==ERROR_NONE) && (len>2)) {
+            static uint32_t read_count = 0;
+            read_count++;
+            if (read_count % 200 == 1) {  /* Log every 200th read to avoid spam */
+                printf("DEBUG: Tuner%d TS read #%u: len=%u, data_len=%u, first_ts_byte=0x%02x\n",
+                       thread_vars->tuner_id, read_count, len, len-2, len > 2 ? buffer[2] : 0);
+            }
 
 /*
             uint32_t matype1,matype2;
@@ -193,6 +199,12 @@ void *loop_ts(void *arg) {
 
             if(thread_vars->config->ts_use_ip || fifo_ready)
             {
+                static uint32_t write_count = 0;
+                write_count++;
+                if (write_count % 200 == 1) {  /* Log every 200th write */
+                    printf("DEBUG: Tuner%d calling ts_write #%u: data_len=%u, first_byte=0x%02x\n",
+                           thread_vars->tuner_id, write_count, len-2, len > 2 ? buffer[2] : 0);
+                }
                 *err=ts_write(&buffer[2],len-2,&fifo_ready);
             }
             else if(!thread_vars->config->ts_use_ip && !fifo_ready)

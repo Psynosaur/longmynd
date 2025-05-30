@@ -698,6 +698,22 @@ uint8_t udp_ts_init_dual(char *udp_ip1, int udp_port1, char *udp_ip2, int udp_po
     if (err == ERROR_NONE) {
         dual_udp_initialized = true;
         printf("Flow: UDP dual init successful\n");
+        printf("      Tuner 1 socket: fd=%d, IP=%s:%d\n", sockfd_ts1, udp_ip1, udp_port1);
+        printf("      Tuner 2 socket: fd=%d, IP=%s:%d\n", sockfd_ts2, udp_ip2, udp_port2);
+
+        /* Validate socket addresses */
+        struct sockaddr_in addr1, addr2;
+        socklen_t addr_len = sizeof(struct sockaddr_in);
+        if (getsockname(sockfd_ts1, (struct sockaddr*)&addr1, &addr_len) == 0) {
+            printf("      Tuner 1 socket bound successfully\n");
+        } else {
+            printf("WARNING: Tuner 1 socket binding issue\n");
+        }
+        if (getsockname(sockfd_ts2, (struct sockaddr*)&addr2, &addr_len) == 0) {
+            printf("      Tuner 2 socket bound successfully\n");
+        } else {
+            printf("WARNING: Tuner 2 socket binding issue\n");
+        }
     } else {
         printf("ERROR: UDP dual init failed\n");
     }
@@ -718,10 +734,17 @@ uint8_t udp_ts_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
     uint8_t err = ERROR_NONE;
     int32_t remaining_len;
     uint32_t write_size;
+    static uint32_t call_count = 0;
 
     if (!dual_udp_initialized) {
         printf("ERROR: Dual UDP not initialized\n");
         return ERROR_UDP_WRITE;
+    }
+
+    call_count++;
+    if (call_count % 100 == 1) {  /* Log every 100th call to avoid spam */
+        printf("DEBUG: Tuner1 UDP write called #%u: len=%u, first_byte=0x%02x\n",
+               call_count, len, len > 0 ? buffer[0] : 0);
     }
 
     remaining_len = len;
@@ -764,10 +787,17 @@ uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
     uint8_t err = ERROR_NONE;
     int32_t remaining_len;
     uint32_t write_size;
+    static uint32_t call_count = 0;
 
     if (!dual_udp_initialized) {
         printf("ERROR: Dual UDP not initialized\n");
         return ERROR_UDP_WRITE;
+    }
+
+    call_count++;
+    if (call_count % 100 == 1) {  /* Log every 100th call to avoid spam */
+        printf("DEBUG: Tuner2 UDP write called #%u: len=%u, first_byte=0x%02x\n",
+               call_count, len, len > 0 ? buffer[0] : 0);
     }
 
     remaining_len = len;
@@ -830,7 +860,7 @@ void udp_send_normalize_tuner2(uint8_t *b, int len)
         }
     }
 
-    if (Buffer_t2[0] != 0x47) {
+    if (Size_t2 > 0 && Buffer_t2[0] != 0x47) {
         if (Size_t2 >= 188) {
             IsSync_t2 = false;
             Size_t2 = 0;
@@ -847,9 +877,16 @@ void udp_send_normalize_tuner2(uint8_t *b, int len)
             /* ProcessTSTiming(Buffer_t2, BUFF_MAX_SIZE_T2, &video_pcrpts, &audio_pcrpts, &transmission_delay); */
         }
 
-        if (sendto(sockfd_ts2, Buffer_t2, BUFF_MAX_SIZE_T2, 0,
-                   (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr)) < 0) {
+        static uint32_t send_count_t2 = 0;
+        send_count_t2++;
+
+        ssize_t sent_bytes = sendto(sockfd_ts2, Buffer_t2, BUFF_MAX_SIZE_T2, 0,
+                                   (const struct sockaddr *)&servaddr_ts2, sizeof(struct sockaddr));
+        if (sent_bytes < 0) {
             fprintf(stderr, "Tuner2: UDP send failed\n");
+        } else if (send_count_t2 % 50 == 1) {  /* Log every 50th send */
+            printf("DEBUG: Tuner2 UDP sent #%u: %zd bytes to 230.0.0.3:1234\n",
+                   send_count_t2, sent_bytes);
         }
 
         memmove(Buffer_t2, Buffer_t2 + BUFF_MAX_SIZE_T2, Size_t2 - BUFF_MAX_SIZE_T2 + len);
@@ -894,7 +931,7 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
         }
     }
 
-    if (Buffer_t1[0] != 0x47) {
+    if (Size_t1 > 0 && Buffer_t1[0] != 0x47) {
         if (Size_t1 >= 188) {
             IsSync_t1 = false;
             Size_t1 = 0;
@@ -911,9 +948,16 @@ void udp_send_normalize_tuner1(uint8_t *b, int len)
             /* ProcessTSTiming(Buffer_t1, BUFF_MAX_SIZE_T1, &video_pcrpts, &audio_pcrpts, &transmission_delay); */
         }
 
-        if (sendto(sockfd_ts1, Buffer_t1, BUFF_MAX_SIZE_T1, 0,
-                   (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr)) < 0) {
+        static uint32_t send_count_t1 = 0;
+        send_count_t1++;
+
+        ssize_t sent_bytes = sendto(sockfd_ts1, Buffer_t1, BUFF_MAX_SIZE_T1, 0,
+                                   (const struct sockaddr *)&servaddr_ts1, sizeof(struct sockaddr));
+        if (sent_bytes < 0) {
             fprintf(stderr, "Tuner1: UDP send failed\n");
+        } else if (send_count_t1 % 50 == 1) {  /* Log every 50th send */
+            printf("DEBUG: Tuner1 UDP sent #%u: %zd bytes to 230.0.0.2:1234\n",
+                   send_count_t1, sent_bytes);
         }
 
         memmove(Buffer_t1, Buffer_t1 + BUFF_MAX_SIZE_T1, Size_t1 - BUFF_MAX_SIZE_T1 + len);
