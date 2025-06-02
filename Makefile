@@ -1,6 +1,6 @@
 # Makefile for longmynd
 
-SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c pcrpts.c
+SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c pcrpts.c register_logging.c
 OBJ = ${SRC:.c=.o}
 
 ifeq ($(env),local)

@@ -34,6 +34,7 @@
 #include "nim.h"
 #include "errors.h"
 #include "stv0910_regs_init.h"
+#include "register_logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -539,6 +540,10 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod, uint32_t halfscan_sr) {
 
     printf("Flow: Setup carrier loop %i\n", demod);
 
+    /* Set register logging context for carrier loop setup */
+    SET_REG_CONTEXT(REG_CONTEXT_CARRIER_LOOP);
+    LOG_SEQUENCE_START("STV0910 Carrier Loop Setup");
+
     /* start at 0 offset */
                          err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT0 : RSTV0910_P1_CFRINIT0), 0);
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT1 : RSTV0910_P1_CFRINIT1), 0);
@@ -559,7 +564,9 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod, uint32_t halfscan_sr) {
         err = stv0910_write_reg( (demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW0 : RSTV0910_P1_CFRLOW0), (uint8_t) (temp & 0xff));
         err = stv0910_write_reg( (demod==STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW1 : RSTV0910_P1_CFRLOW1), (uint8_t) ((temp >> 8) & 0xff));
     }
- 
+
+    LOG_SEQUENCE_END("STV0910 Carrier Loop Setup");
+
     return err;
 }
 
@@ -602,14 +609,21 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 
     printf("Flow: Setup timing loop %i\n", demod);
 
+    /* Set register logging context for symbol rate setup */
+    SET_REG_CONTEXT(REG_CONTEXT_SYMBOL_RATE_SETUP);
+    LOG_SEQUENCE_START("STV0910 Symbol Rate Setup");
+
     /* SR (MHz) = ckadc (135MHz) * SFRINIT / 2^16 */
     /* we have sr in KHz, ckadc in MHz) */
     sr_reg=(uint16_t)((((uint32_t)sr) << 16) / 135 / 1000);
 
+    SET_REG_CONTEXT(REG_CONTEXT_TIMING_LOOP);
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT1 : RSTV0910_P1_SFRINIT0),
                                                                            (uint8_t)(sr_reg >> 8)     );
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT0 : RSTV0910_P1_SFRINIT1),
                                                                            (uint8_t)(sr_reg & 0xFF)   );
+
+    LOG_SEQUENCE_END("STV0910 Symbol Rate Setup");
 
     return err;
 }
@@ -668,8 +682,14 @@ uint8_t stv0910_start_scan(uint8_t demod) {
 
     printf("Flow: STV0910 start scan\n");
 
+    /* Set register logging context for demodulator control */
+    SET_REG_CONTEXT(REG_CONTEXT_DEMOD_CONTROL);
+    LOG_SEQUENCE_START("STV0910 Start Scan");
+
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_DMDISTATE : RSTV0910_P1_DMDISTATE),
                                                                                    STV0910_SCAN_BLIND_BEST_GUESS);
+
+    LOG_SEQUENCE_END("STV0910 Start Scan");
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 start scan\n");
 

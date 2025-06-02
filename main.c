@@ -47,6 +47,7 @@
 #include "udp.h"
 #include "beep.h"
 #include "ts.h"
+#include "register_logging.h"
 #include "mymqtt.h"
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -1459,6 +1460,9 @@ int main(int argc, char *argv[])
     bool status_output_ready = true;
 
     printf("Flow: main\n");
+
+    /* Initialize register logging system */
+    register_logging_init();
 
     /* Initialize signal handlers */
     if (err == ERROR_NONE)

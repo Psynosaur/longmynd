@@ -31,6 +31,7 @@
 #include "stv0910_utils.h"
 #include "errors.h"
 #include "nim.h"
+#include "register_logging.h"
 
 /* in order to do bitfields efficiently, we need to keep a shadow register set */
 uint8_t stv0910_shadow_regs[STV0910_END_ADDR - STV0910_START_ADDR + 1];
@@ -93,10 +94,18 @@ uint8_t stv0910_write_reg(uint16_t reg, uint8_t val) {
 /* abstracts a hardware register write to the stv0910                                                 */
 /*    return: error code                                                                              */
 /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err;
 
+    /* Log the register write operation */
+    LOG_STV0910_WRITE(reg, val, register_logging_get_context());
+
+    /* Update shadow register */
     stv0910_shadow_regs[reg-STV0910_START_ADDR]=val;
 
-    return nim_write_demod(reg, val);
+    /* Perform the actual register write */
+    err = nim_write_demod(reg, val);
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -105,7 +114,16 @@ uint8_t stv0910_read_reg(uint16_t reg, uint8_t *val) {
 /* abstracts a hardware register read from the stv0910                                                */
 /*    return: error code                                                                              */
 /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err;
 
-    return nim_read_demod(reg, val);
+    /* Perform the actual register read */
+    err = nim_read_demod(reg, val);
+
+    /* Log the register read operation if successful */
+    if (err == 0 && val != NULL) {
+        LOG_STV0910_READ(reg, *val, register_logging_get_context());
+    }
+
+    return err;
 }
 
