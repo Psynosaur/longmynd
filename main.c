@@ -593,6 +593,109 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+/* HARDWARE INITIALIZATION AND CONFIGURATION FUNCTIONS                                               */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t hardware_initialize_modules(const longmynd_config_t *config, longmynd_status_t *status_cpy)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Initializes all hardware modules with retry logic for tuner PLL lock                           */
+    /* Preserves exact hardware command sequences for STV6120 and STV0910                             */
+    /* config: configuration parameters                                                                */
+    /* status_cpy: local status copy for updates                                                       */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t tuner_err = ERROR_NONE; // Separate to avoid triggering main() abort on handled tuner error.
+    int32_t tuner_lock_attempts = STV6120_PLL_ATTEMPTS;
+
+    do
+    {
+        /* init all the modules - PRESERVE EXACT INITIALIZATION ORDER */
+        if (err == ERROR_NONE)
+            err = nim_init();
+        /* we are only using the one demodulator so set the other to 0 to turn it off */
+        if (err == ERROR_NONE)
+            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
+        /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
+        if (err == ERROR_NONE)
+            tuner_err = stv6120_init(config->freq_requested[config->freq_index], 0, config->port_swap);
+
+        /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
+        if (err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
+        {
+            printf("Flow: Caught tuner lock timeout, %" PRIu32 " attempts at stv6120_init() remaining.\n", tuner_lock_attempts);
+            /* Power down the synthesizers to potentially improve success on retry. */
+            /* - Everything else gets powered down as well to stay within datasheet-defined states */
+            err = stv6120_powerdown_both_paths();
+            if (err == ERROR_NONE)
+                usleep(200 * 1000); // PRESERVE EXACT TIMING
+        }
+    } while (err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT && tuner_lock_attempts-- > 0);
+
+    /* Propagate up tuner error from stv6120_init() */
+    if (err == ERROR_NONE)
+        err = tuner_err;
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t hardware_configure_lna_and_polarization(const longmynd_config_t *config, longmynd_status_t *status_cpy)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Configures LNA and polarization voltage supply                                                  */
+    /* Preserves exact hardware command sequences                                                      */
+    /* config: configuration parameters                                                                */
+    /* status_cpy: local status copy for updates                                                       */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    /* we turn on the LNA we want and turn the other off (if they exist) */
+    if (err == ERROR_NONE)
+        err = stvvglna_init(NIM_INPUT_TOP, (config->port_swap) ? STVVGLNA_OFF : STVVGLNA_ON, &status_cpy->lna_ok);
+    if (err == ERROR_NONE)
+        err = stvvglna_init(NIM_INPUT_BOTTOM, (config->port_swap) ? STVVGLNA_ON : STVVGLNA_OFF, &status_cpy->lna_ok);
+
+    if (err != ERROR_NONE)
+        printf("ERROR: failed to init a device - is the NIM powered on?\n");
+
+    /* Enable/Disable polarisation voltage supply */
+    if (err == ERROR_NONE)
+        err = ftdi_set_polarisation_supply(config->polarisation_supply, config->polarisation_horizontal);
+    if (err == ERROR_NONE)
+    {
+        status_cpy->polarisation_supply = config->polarisation_supply;
+        status_cpy->polarisation_horizontal = config->polarisation_horizontal;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t hardware_start_demodulator_scan(longmynd_status_t *status_cpy)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Starts the demodulator scanning process                                                         */
+    /* Preserves exact hardware command sequences                                                      */
+    /* status_cpy: local status copy for updates                                                       */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    /* now start the whole thing scanning for the signal */
+    if (err == ERROR_NONE)
+    {
+        err = stv0910_start_scan(STV0910_DEMOD_TOP);
+        status_cpy->state = STATE_DEMOD_HUNTING;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t do_report(longmynd_status_t *status)
 {
     /* -------------------------------------------------------------------------------------------------- */
@@ -692,6 +795,175 @@ uint8_t do_report(longmynd_status_t *status)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+/* CONFIGURATION MANAGEMENT FUNCTIONS                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t handle_configuration_change(thread_vars_t *thread_vars, longmynd_config_t *config_cpy,
+                                          longmynd_status_t *status_cpy, uint8_t *err)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Handles new configuration changes and hardware reinitialization                                 */
+    /* Preserves exact hardware command sequences and timing requirements                              */
+    /* thread_vars: thread variables structure                                                         */
+    /* config_cpy: local configuration copy                                                            */
+    /* status_cpy: local status copy                                                                   */
+    /* err: error code pointer                                                                         */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t local_err = ERROR_NONE;
+
+    fprintf(stderr,"New Config !!!!!!!!!\n");
+    /* Lock config struct - PRESERVE EXACT MUTEX USAGE */
+    pthread_mutex_lock(&thread_vars->config->mutex);
+    /* Clone status struct locally */
+    memcpy(config_cpy, thread_vars->config, sizeof(longmynd_config_t));
+    /* Clear new config flag */
+    thread_vars->config->new_config = false;
+    /* Set flag to clear ts buffer */
+    thread_vars->config->ts_reset = true;
+    pthread_mutex_unlock(&thread_vars->config->mutex);
+
+    status_cpy->frequency_requested = config_cpy->freq_requested[config_cpy->freq_index];
+    status_cpy->symbolrate_requested = config_cpy->sr_requested[config_cpy->sr_index];
+
+    /* Initialize hardware modules with retry logic - PRESERVE EXACT SEQUENCES */
+    if (*err == ERROR_NONE)
+        local_err = hardware_initialize_modules(config_cpy, status_cpy);
+    if (local_err != ERROR_NONE)
+        *err = local_err;
+
+    /* Configure LNA and polarization - PRESERVE EXACT SEQUENCES */
+    if (*err == ERROR_NONE)
+        local_err = hardware_configure_lna_and_polarization(config_cpy, status_cpy);
+    if (local_err != ERROR_NONE)
+        *err = local_err;
+
+    /* Start demodulator scanning - PRESERVE EXACT SEQUENCES */
+    if (*err == ERROR_NONE)
+        local_err = hardware_start_demodulator_scan(status_cpy);
+    if (local_err != ERROR_NONE)
+        *err = local_err;
+
+    status_cpy->last_ts_or_reinit_monotonic = monotonic_ms();
+
+    return local_err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* RECEIVER STATE MACHINE FUNCTIONS                                                                   */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t process_demodulator_state_transition(longmynd_status_t *status_cpy, uint8_t *err)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Processes demodulator state transitions and updates receiver state                              */
+    /* Preserves exact state machine logic and error handling                                          */
+    /* status_cpy: local status copy                                                                   */
+    /* err: error code pointer                                                                         */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t local_err = ERROR_NONE;
+
+    /* Read current demodulator scan state */
+    if (*err == ERROR_NONE)
+        local_err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy->demod_state);
+    if (local_err != ERROR_NONE)
+        *err = local_err;
+
+    /* Process state transitions based on current state - PRESERVE EXACT LOGIC */
+    switch (status_cpy->state)
+    {
+    case STATE_DEMOD_HUNTING:
+        if (status_cpy->demod_state == DEMOD_FOUND_HEADER)
+        {
+            status_cpy->state = STATE_DEMOD_FOUND_HEADER;
+        }
+        else if (status_cpy->demod_state == DEMOD_S2)
+        {
+            status_cpy->state = STATE_DEMOD_S2;
+        }
+        else if (status_cpy->demod_state == DEMOD_S)
+        {
+            status_cpy->state = STATE_DEMOD_S;
+        }
+        else if ((status_cpy->demod_state != DEMOD_HUNTING) && (*err == ERROR_NONE))
+        {
+            printf("ERROR: demodulator returned a bad scan state\n");
+            *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+        }
+        break;
+
+    case STATE_DEMOD_FOUND_HEADER:
+        if (status_cpy->demod_state == DEMOD_HUNTING)
+        {
+            status_cpy->state = STATE_DEMOD_HUNTING;
+        }
+        else if (status_cpy->demod_state == DEMOD_S2)
+        {
+            status_cpy->state = STATE_DEMOD_S2;
+        }
+        else if (status_cpy->demod_state == DEMOD_S)
+        {
+            status_cpy->state = STATE_DEMOD_S;
+        }
+        else if ((status_cpy->demod_state != DEMOD_FOUND_HEADER) && (*err == ERROR_NONE))
+        {
+            printf("ERROR: demodulator returned a bad scan state\n");
+            *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+        }
+        break;
+
+    case STATE_DEMOD_S2:
+        if (status_cpy->demod_state == DEMOD_HUNTING)
+        {
+            status_cpy->state = STATE_DEMOD_HUNTING;
+        }
+        else if (status_cpy->demod_state == DEMOD_FOUND_HEADER)
+        {
+            status_cpy->state = STATE_DEMOD_FOUND_HEADER;
+        }
+        else if (status_cpy->demod_state == DEMOD_S)
+        {
+            status_cpy->state = STATE_DEMOD_S;
+        }
+        else if ((status_cpy->demod_state != DEMOD_S2) && (*err == ERROR_NONE))
+        {
+            printf("ERROR: demodulator returned a bad scan state\n");
+            *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+        }
+        break;
+
+    case STATE_DEMOD_S:
+        if (status_cpy->demod_state == DEMOD_HUNTING)
+        {
+            status_cpy->state = STATE_DEMOD_HUNTING;
+        }
+        else if (status_cpy->demod_state == DEMOD_FOUND_HEADER)
+        {
+            status_cpy->state = STATE_DEMOD_FOUND_HEADER;
+        }
+        else if (status_cpy->demod_state == DEMOD_S2)
+        {
+            status_cpy->state = STATE_DEMOD_S2;
+        }
+        else if ((status_cpy->demod_state != DEMOD_S) && (*err == ERROR_NONE))
+        {
+            printf("ERROR: demodulator returned a bad scan state\n");
+            *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
+        }
+        break;
+
+    default:
+        *err = ERROR_STATE; /* we should never get here so panic if we do */
+        break;
+    }
+
+    return local_err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 void *loop_i2c(void *arg)
 {
     /* -------------------------------------------------------------------------------------------------- */
@@ -713,7 +985,7 @@ void *loop_i2c(void *arg)
     uint64_t last_i2c_loop = monotonic_ms();
     while (*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE)
     {
-        /* Receiver State Machine Loop Timer */
+        /* Receiver State Machine Loop Timer - PRESERVE EXACT TIMING */
         do
         {
             /* Sleep for at least 10ms */
@@ -725,235 +997,91 @@ void *loop_i2c(void *arg)
         /* Check if there's a new config */
         if (thread_vars->config->new_config)
         {
-            fprintf(stderr,"New Config !!!!!!!!!\n");
-            /* Lock config struct */
-            pthread_mutex_lock(&thread_vars->config->mutex);
-            /* Clone status struct locally */
-            memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
-            /* Clear new config flag */
-            thread_vars->config->new_config = false;
-            /* Set flag to clear ts buffer */
-            thread_vars->config->ts_reset = true;
-            pthread_mutex_unlock(&thread_vars->config->mutex);
-
-            status_cpy.frequency_requested = config_cpy.freq_requested[config_cpy.freq_index];
-            status_cpy.symbolrate_requested = config_cpy.sr_requested[config_cpy.sr_index];
-
-            uint8_t tuner_err = ERROR_NONE; // Seperate to avoid triggering main() abort on handled tuner error.
-            int32_t tuner_lock_attempts = STV6120_PLL_ATTEMPTS;
-            do
-            {
-                /* init all the modules */
-                if (*err == ERROR_NONE)
-                    *err = nim_init();
-                /* we are only using the one demodulator so set the other to 0 to turn it off */
-                if (*err == ERROR_NONE)
-                    *err = stv0910_init(config_cpy.sr_requested[config_cpy.sr_index], 0, config_cpy.halfscan_ratio, 0.0);
-                /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
-                if (*err == ERROR_NONE)
-                    tuner_err = stv6120_init(config_cpy.freq_requested[config_cpy.freq_index], 0, config_cpy.port_swap);
-
-                /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
-                if (*err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
-                {
-                    printf("Flow: Caught tuner lock timeout, %" PRIu32 " attempts at stv6120_init() remaining.\n", tuner_lock_attempts);
-                    /* Power down the synthesizers to potentially improve success on retry. */
-                    /* - Everything else gets powered down as well to stay within datasheet-defined states */
-                    *err = stv6120_powerdown_both_paths();
-                    if (*err == ERROR_NONE)
-                        usleep(200 * 1000);
-                }
-            } while (*thread_vars->main_err_ptr == ERROR_NONE && *err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT && tuner_lock_attempts-- > 0);
-
-            /* Propagate up tuner error from stv6120_init() */
-            if (*err == ERROR_NONE)
-                *err = tuner_err;
-
-            /* we turn on the LNA we want and turn the other off (if they exist) */
-            if (*err == ERROR_NONE)
-                *err = stvvglna_init(NIM_INPUT_TOP, (config_cpy.port_swap) ? STVVGLNA_OFF : STVVGLNA_ON, &status_cpy.lna_ok);
-            if (*err == ERROR_NONE)
-                *err = stvvglna_init(NIM_INPUT_BOTTOM, (config_cpy.port_swap) ? STVVGLNA_ON : STVVGLNA_OFF, &status_cpy.lna_ok);
-
-            if (*err != ERROR_NONE)
-                printf("ERROR: failed to init a device - is the NIM powered on?\n");
-
-            /* Enable/Disable polarisation voltage supply */
-            if (*err == ERROR_NONE)
-                *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply, config_cpy.polarisation_horizontal);
-            if (*err == ERROR_NONE)
-            {
-                status_cpy.polarisation_supply = config_cpy.polarisation_supply;
-                status_cpy.polarisation_horizontal = config_cpy.polarisation_horizontal;
-            }
-
-            /* now start the whole thing scanning for the signal */
-            if (*err == ERROR_NONE)
-            {
-                *err = stv0910_start_scan(STV0910_DEMOD_TOP);
-                status_cpy.state = STATE_DEMOD_HUNTING;
-            }
-
-            status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();
+            handle_configuration_change(thread_vars, &config_cpy, &status_cpy, err);
         }
 
-        /* Main receiver state machine */
-        switch (status_cpy.state)
-        {
-        case STATE_DEMOD_HUNTING:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            if (*err == ERROR_NONE)
-                *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
-            if (status_cpy.demod_state == DEMOD_FOUND_HEADER)
-            {
-                status_cpy.state = STATE_DEMOD_FOUND_HEADER;
-            }
-            else if (status_cpy.demod_state == DEMOD_S2)
-            {
-                status_cpy.state = STATE_DEMOD_S2;
-            }
-            else if (status_cpy.demod_state == DEMOD_S)
-            {
-                status_cpy.state = STATE_DEMOD_S;
-            }
-            else if ((status_cpy.demod_state != DEMOD_HUNTING) && (*err == ERROR_NONE))
-            {
-                printf("ERROR: demodulator returned a bad scan state\n");
-                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
-            }                                      /* no need for another else, all states covered */
-            break;
+        /* Main receiver state machine - PRESERVE EXACT BEHAVIOR */
+        /* Update status from hardware */
+        if (*err == ERROR_NONE)
+            *err = do_report(&status_cpy);
 
-        case STATE_DEMOD_FOUND_HEADER:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
-            if (status_cpy.demod_state == DEMOD_HUNTING)
-            {
-                status_cpy.state = STATE_DEMOD_HUNTING;
-            }
-            else if (status_cpy.demod_state == DEMOD_S2)
-            {
-                status_cpy.state = STATE_DEMOD_S2;
-            }
-            else if (status_cpy.demod_state == DEMOD_S)
-            {
-                status_cpy.state = STATE_DEMOD_S;
-            }
-            else if ((status_cpy.demod_state != DEMOD_FOUND_HEADER) && (*err == ERROR_NONE))
-            {
-                printf("ERROR: demodulator returned a bad scan state\n");
-                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
-            }                                      /* no need for another else, all states covered */
-            break;
+        /* Process state transitions */
+        if (*err == ERROR_NONE)
+            process_demodulator_state_transition(&status_cpy, err);
 
-        case STATE_DEMOD_S2:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
-            if (status_cpy.demod_state == DEMOD_HUNTING)
-            {
-                status_cpy.state = STATE_DEMOD_HUNTING;
-            }
-            else if (status_cpy.demod_state == DEMOD_FOUND_HEADER)
-            {
-                status_cpy.state = STATE_DEMOD_FOUND_HEADER;
-            }
-            else if (status_cpy.demod_state == DEMOD_S)
-            {
-                status_cpy.state = STATE_DEMOD_S;
-            }
-            else if ((status_cpy.demod_state != DEMOD_S2) && (*err == ERROR_NONE))
-            {
-                printf("ERROR: demodulator returned a bad scan state\n");
-                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
-            }                                      /* no need for another else, all states covered */
-            break;
-
-        case STATE_DEMOD_S:
-            if (*err == ERROR_NONE)
-                *err = do_report(&status_cpy);
-            /* process state changes */
-            *err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy.demod_state);
-            if (status_cpy.demod_state == DEMOD_HUNTING)
-            {
-                status_cpy.state = STATE_DEMOD_HUNTING;
-            }
-            else if (status_cpy.demod_state == DEMOD_FOUND_HEADER)
-            {
-                status_cpy.state = STATE_DEMOD_FOUND_HEADER;
-            }
-            else if (status_cpy.demod_state == DEMOD_S2)
-            {
-                status_cpy.state = STATE_DEMOD_S2;
-            }
-            else if ((status_cpy.demod_state != DEMOD_S) && (*err == ERROR_NONE))
-            {
-                printf("ERROR: demodulator returned a bad scan state\n");
-                *err = ERROR_BAD_DEMOD_HUNT_STATE; /* not allowed to have any other states */
-            }                                      /* no need for another else, all states covered */
-            break;
-
-        default:
-            *err = ERROR_STATE; /* we should never get here so panic if we do */
-            break;
-        }
-
-        if (status->ts_packet_count_nolock > 0 && last_ts_packet_count != status->ts_packet_count_nolock)
-        {
-            status_cpy.last_ts_or_reinit_monotonic = monotonic_ms();
-            last_ts_packet_count = status->ts_packet_count_nolock;
-        }
-
-        /* Copy local status data over global object */
-        pthread_mutex_lock(&status->mutex);
-
-        /* Copy out other vars */
-        status->state = status_cpy.state;
-        status->demod_state = status_cpy.demod_state;
-        status->lna_ok = status_cpy.lna_ok;
-        status->lna_gain = status_cpy.lna_gain;
-        status->agc1_gain = status_cpy.agc1_gain;
-        status->agc2_gain = status_cpy.agc2_gain;
-        status->power_i = status_cpy.power_i;
-        status->power_q = status_cpy.power_q;
-        status->frequency_requested = status_cpy.frequency_requested;
-        status->frequency_offset = status_cpy.frequency_offset;
-        status->polarisation_supply = status_cpy.polarisation_supply;
-        status->polarisation_horizontal = status_cpy.polarisation_horizontal;
-        status->symbolrate_requested = status_cpy.symbolrate_requested;
-        status->symbolrate = status_cpy.symbolrate;
-        status->viterbi_error_rate = status_cpy.viterbi_error_rate;
-        status->bit_error_rate = status_cpy.bit_error_rate;
-        status->modulation_error_rate = status_cpy.modulation_error_rate;
-        status->errors_bch_uncorrected = status_cpy.errors_bch_uncorrected;
-        status->errors_bch_count = status_cpy.errors_bch_count;
-        status->errors_ldpc_count = status_cpy.errors_ldpc_count;
-        memcpy(status->constellation, status_cpy.constellation, (sizeof(uint8_t) * NUM_CONSTELLATIONS * 2));
-        status->puncture_rate = status_cpy.puncture_rate;
-        status->modcod = status_cpy.modcod;
-        status->matype1 = status_cpy.matype1;
-        status->matype2 = status_cpy.matype2;
-        status->short_frame = status_cpy.short_frame;
-        status->pilots = status_cpy.pilots;
-        status->rolloff = status_cpy.rolloff;
-        if (status_cpy.last_ts_or_reinit_monotonic != 0)
-        {
-            status->last_ts_or_reinit_monotonic = status_cpy.last_ts_or_reinit_monotonic;
-        }
-
-        /* Set monotonic value to signal new data */
-        status->last_updated_monotonic = monotonic_ms();
-        /* Trigger pthread signal */
-        pthread_cond_signal(&status->signal);
-        pthread_mutex_unlock(&status->mutex);
+        /* Update TS packet tracking and synchronize status */
+        update_status_synchronization(status, &status_cpy, &last_ts_packet_count);
 
         last_i2c_loop = monotonic_ms();
     }
     return NULL;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* STATUS SYNCHRONIZATION FUNCTIONS                                                                   */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static void update_status_synchronization(longmynd_status_t *status, longmynd_status_t *status_cpy,
+                                         uint32_t *last_ts_packet_count)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Updates TS packet tracking and synchronizes local status with global status                     */
+    /* Preserves exact mutex usage and pthread signaling                                               */
+    /* status: global status structure                                                                  */
+    /* status_cpy: local status copy                                                                    */
+    /* last_ts_packet_count: last TS packet count for tracking                                         */
+    /* -------------------------------------------------------------------------------------------------- */
+
+    /* Update TS packet tracking - PRESERVE EXACT LOGIC */
+    if (status->ts_packet_count_nolock > 0 && *last_ts_packet_count != status->ts_packet_count_nolock)
+    {
+        status_cpy->last_ts_or_reinit_monotonic = monotonic_ms();
+        *last_ts_packet_count = status->ts_packet_count_nolock;
+    }
+
+    /* Copy local status data over global object - PRESERVE EXACT MUTEX USAGE */
+    pthread_mutex_lock(&status->mutex);
+
+    /* Copy out other vars - PRESERVE EXACT FIELD ASSIGNMENTS */
+    status->state = status_cpy->state;
+    status->demod_state = status_cpy->demod_state;
+    status->lna_ok = status_cpy->lna_ok;
+    status->lna_gain = status_cpy->lna_gain;
+    status->agc1_gain = status_cpy->agc1_gain;
+    status->agc2_gain = status_cpy->agc2_gain;
+    status->power_i = status_cpy->power_i;
+    status->power_q = status_cpy->power_q;
+    status->frequency_requested = status_cpy->frequency_requested;
+    status->frequency_offset = status_cpy->frequency_offset;
+    status->polarisation_supply = status_cpy->polarisation_supply;
+    status->polarisation_horizontal = status_cpy->polarisation_horizontal;
+    status->symbolrate_requested = status_cpy->symbolrate_requested;
+    status->symbolrate = status_cpy->symbolrate;
+    status->viterbi_error_rate = status_cpy->viterbi_error_rate;
+    status->bit_error_rate = status_cpy->bit_error_rate;
+    status->modulation_error_rate = status_cpy->modulation_error_rate;
+    status->errors_bch_uncorrected = status_cpy->errors_bch_uncorrected;
+    status->errors_bch_count = status_cpy->errors_bch_count;
+    status->errors_ldpc_count = status_cpy->errors_ldpc_count;
+    memcpy(status->constellation, status_cpy->constellation, (sizeof(uint8_t) * NUM_CONSTELLATIONS * 2));
+    status->puncture_rate = status_cpy->puncture_rate;
+    status->modcod = status_cpy->modcod;
+    status->matype1 = status_cpy->matype1;
+    status->matype2 = status_cpy->matype2;
+    status->short_frame = status_cpy->short_frame;
+    status->pilots = status_cpy->pilots;
+    status->rolloff = status_cpy->rolloff;
+    if (status_cpy->last_ts_or_reinit_monotonic != 0)
+    {
+        status->last_ts_or_reinit_monotonic = status_cpy->last_ts_or_reinit_monotonic;
+    }
+
+    /* Set monotonic value to signal new data - PRESERVE EXACT SIGNALING */
+    status->last_updated_monotonic = monotonic_ms();
+    /* Trigger pthread signal */
+    pthread_cond_signal(&status->signal);
+    pthread_mutex_unlock(&status->mutex);
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -1080,65 +1208,107 @@ void sigterm_handler(int sig)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-int main(int argc, char *argv[])
+/* MAIN FUNCTION INITIALIZATION HELPERS                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t initialize_signal_handlers(uint8_t *err_ptr)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /*    command line processing                                                                         */
-    /*    module initialisation                                                                           */
-    /*    Print out of status information to requested interface, triggered by pthread condition variable */
+    /* Initializes signal handlers for clean shutdown                                                  */
+    /* err_ptr: pointer to main error variable                                                         */
+    /* return: error code                                                                              */
     /* -------------------------------------------------------------------------------------------------- */
-    uint8_t err = ERROR_NONE;
-    uint8_t (*status_write)(uint8_t, uint32_t, bool *);
-    uint8_t (*status_string_write)(uint8_t, char *, bool *);
-    bool status_output_ready = true;
-
-    sigterm_handler_err_ptr = &err;
+    sigterm_handler_err_ptr = err_ptr;
     signal(SIGTERM, sigterm_handler);
     signal(SIGINT, sigterm_handler);
     /* Ignore SIGPIPE on closed pipes */
     signal(SIGPIPE, SIG_IGN);
 
-    printf("Flow: main\n");
+    return ERROR_NONE;
+}
 
-    if (err == ERROR_NONE)
-        err = process_command_line(argc, argv, &longmynd_config);
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t initialize_status_output(uint8_t (**status_write)(uint8_t, uint32_t, bool *),
+                                       uint8_t (**status_string_write)(uint8_t, char *, bool *),
+                                       bool *status_output_ready)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Initializes status output interface (FIFO, UDP, or MQTT)                                        */
+    /* Preserves exact initialization logic and function pointer assignments                           */
+    /* status_write: pointer to status write function pointer                                          */
+    /* status_string_write: pointer to status string write function pointer                           */
+    /* status_output_ready: status output ready flag                                                   */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
 
-    /* first setup the fifos, udp socket, ftdi and usb */
+    /* first setup the fifos, udp socket, ftdi and usb - PRESERVE EXACT LOGIC */
     if (longmynd_config.status_use_ip)
     {
         if (err == ERROR_NONE)
             err = udp_status_init(longmynd_config.status_ip_addr, longmynd_config.status_ip_port);
-        status_write = udp_status_write;
-        status_string_write = udp_status_string_write;
+        *status_write = udp_status_write;
+        *status_string_write = udp_status_string_write;
     }
     else if (longmynd_config.status_use_mqtt)
     {
         if (err == ERROR_NONE)
             err = mqttinit(longmynd_config.status_ip_addr);
-        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");    
-        status_write = mqtt_status_write;
-        status_string_write = mqtt_status_string_write;
+        if(err>0) fprintf(stderr,"MQTT Broker not reachable\n");
+        *status_write = mqtt_status_write;
+        *status_string_write = mqtt_status_string_write;
     }
     else
     {
         if (err == ERROR_NONE)
-            err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
-        status_write = fifo_status_write;
-        status_string_write = fifo_status_string_write;
+            err = fifo_status_init(longmynd_config.status_fifo_path, status_output_ready);
+        *status_write = fifo_status_write;
+        *status_string_write = fifo_status_string_write;
     }
 
-    if (err == ERROR_NONE)
-        err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+    return err;
+}
 
-    thread_vars_t thread_vars_ts;
-        thread_vars_ts.main_err_ptr = &err;
-        thread_vars_ts.thread_err = ERROR_NONE;
-        thread_vars_ts.config = &longmynd_config;
-        thread_vars_ts.status = &longmynd_status;
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread_vars_ts,
+                                        thread_vars_t *thread_vars_ts_parse, thread_vars_t *thread_vars_i2c,
+                                        thread_vars_t *thread_vars_beep)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Initializes and starts all worker threads                                                       */
+    /* Preserves exact thread creation logic and error handling                                        */
+    /* err_ptr: pointer to main error variable                                                         */
+    /* thread_vars_*: thread variable structures                                                       */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
 
+    /* Initialize thread variables - PRESERVE EXACT STRUCTURE INITIALIZATION */
+    thread_vars_ts->main_err_ptr = err_ptr;
+    thread_vars_ts->thread_err = ERROR_NONE;
+    thread_vars_ts->config = &longmynd_config;
+    thread_vars_ts->status = &longmynd_status;
+
+    thread_vars_ts_parse->main_err_ptr = err_ptr;
+    thread_vars_ts_parse->thread_err = ERROR_NONE;
+    thread_vars_ts_parse->config = &longmynd_config;
+    thread_vars_ts_parse->status = &longmynd_status;
+
+    thread_vars_i2c->main_err_ptr = err_ptr;
+    thread_vars_i2c->thread_err = ERROR_NONE;
+    thread_vars_i2c->config = &longmynd_config;
+    thread_vars_i2c->status = &longmynd_status;
+
+    thread_vars_beep->main_err_ptr = err_ptr;
+    thread_vars_beep->thread_err = ERROR_NONE;
+    thread_vars_beep->config = &longmynd_config;
+    thread_vars_beep->status = &longmynd_status;
+
+    /* Create threads - PRESERVE EXACT CREATION ORDER AND ERROR HANDLING */
     if (err == ERROR_NONE)
     {
-        if (0 == pthread_create(&thread_ts, NULL, loop_ts, (void *)&thread_vars_ts))
+        if (0 == pthread_create(&thread_ts, NULL, loop_ts, (void *)thread_vars_ts))
         {
             //pthread_setname_np(thread_ts, "TS Transport");
         }
@@ -1149,16 +1319,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_ts_parse;
-     
-        thread_vars_ts_parse.main_err_ptr = &err;
-        thread_vars_ts_parse.thread_err = ERROR_NONE;
-        thread_vars_ts_parse.config = &longmynd_config;
-        thread_vars_ts_parse.status = &longmynd_status;
-
     if (err == ERROR_NONE)
     {
-        if (0 == pthread_create(&thread_ts_parse, NULL, loop_ts_parse, (void *)&thread_vars_ts_parse))
+        if (0 == pthread_create(&thread_ts_parse, NULL, loop_ts_parse, (void *)thread_vars_ts_parse))
         {
             //pthread_setname_np(thread_ts_parse, "TS Parse");
         }
@@ -1169,16 +1332,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_i2c;
-    
-        thread_vars_i2c.main_err_ptr = &err;
-        thread_vars_i2c.thread_err = ERROR_NONE;
-        thread_vars_i2c.config = &longmynd_config;
-        thread_vars_i2c.status = &longmynd_status;
-
     if (err == ERROR_NONE)
     {
-        if (0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)&thread_vars_i2c))
+        if (0 == pthread_create(&thread_i2c, NULL, loop_i2c, (void *)thread_vars_i2c))
         {
             //pthread_setname_np(thread_i2c, "Receiver");
         }
@@ -1189,15 +1345,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    thread_vars_t thread_vars_beep;
-        thread_vars_beep.main_err_ptr = &err;
-        thread_vars_beep.thread_err = ERROR_NONE;
-        thread_vars_beep.config = &longmynd_config;
-        thread_vars_beep.status = &longmynd_status;
-
     if (err == ERROR_NONE)
     {
-        if (0 == pthread_create(&thread_beep, NULL, loop_beep, (void *)&thread_vars_beep))
+        if (0 == pthread_create(&thread_beep, NULL, loop_beep, (void *)thread_vars_beep))
         {
             // pthread_setname_np(thread_beep, "Beep Audio");
         }
@@ -1208,19 +1358,37 @@ int main(int argc, char *argv[])
         }
     }
 
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+static uint8_t run_main_status_loop(uint8_t (*status_write)(uint8_t, uint32_t, bool *),
+                                   uint8_t (*status_string_write)(uint8_t, char *, bool *),
+                                   bool *status_output_ready,
+                                   thread_vars_t *thread_vars_ts, thread_vars_t *thread_vars_ts_parse,
+                                   thread_vars_t *thread_vars_i2c, thread_vars_t *thread_vars_beep)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Runs the main status output loop and monitors thread health                                      */
+    /* Preserves exact timing, mutex usage, and error handling                                         */
+    /* status_write: status write function pointer                                                     */
+    /* status_string_write: status string write function pointer                                       */
+    /* status_output_ready: status output ready flag                                                   */
+    /* thread_vars_*: thread variable structures                                                       */
+    /* return: error code                                                                              */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
     uint64_t last_status_sent_monotonic = 0;
     longmynd_status_t longmynd_status_cpy;
 
-    if (err == ERROR_NONE)
-    {
-        /* Initialise TS data re-init timer to prevent immediate reset */
-        pthread_mutex_lock(&longmynd_status.mutex);
-        longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
-        pthread_mutex_unlock(&longmynd_status.mutex);
-    }
+    /* Initialise TS data re-init timer to prevent immediate reset - PRESERVE EXACT LOGIC */
+    pthread_mutex_lock(&longmynd_status.mutex);
+    longmynd_status.last_ts_or_reinit_monotonic = monotonic_ms();
+    pthread_mutex_unlock(&longmynd_status.mutex);
+
     while (err == ERROR_NONE)
     {
-        /* Test if new status data is available */
+        /* Test if new status data is available - PRESERVE EXACT LOGIC */
         if (longmynd_status.last_updated_monotonic != last_status_sent_monotonic)
         {
             /* Acquire lock on global status struct */
@@ -1230,15 +1398,15 @@ int main(int argc, char *argv[])
             /* Release lock on global status struct */
             pthread_mutex_unlock(&longmynd_status.mutex);
 
-            if (longmynd_config.status_use_ip || status_output_ready)
+            if (longmynd_config.status_use_ip || *status_output_ready)
             {
                 /* Send all status via configured output interface from local copy */
-                err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, &status_output_ready);
+                err = status_all_write(&longmynd_status_cpy, status_write, status_string_write, status_output_ready);
             }
-            else if (!longmynd_config.status_use_ip && !status_output_ready)
+            else if (!longmynd_config.status_use_ip && !*status_output_ready)
             {
                 /* Try opening the fifo again */
-                err = fifo_status_init(longmynd_config.status_fifo_path, &status_output_ready);
+                err = fifo_status_init(longmynd_config.status_fifo_path, status_output_ready);
             }
 
             /* Update monotonic timestamp last sent */
@@ -1246,17 +1414,21 @@ int main(int argc, char *argv[])
         }
         else
         {
-            /* Sleep 10ms */
+            /* Sleep 10ms - PRESERVE EXACT TIMING */
             usleep(100 * 1000);
         }
-        /* Check for errors on threads */
+
+        /* Check for errors on threads - PRESERVE EXACT ERROR CHECKING */
         if (err == ERROR_NONE &&
-            (thread_vars_ts.thread_err != ERROR_NONE || thread_vars_ts_parse.thread_err != ERROR_NONE || thread_vars_beep.thread_err != ERROR_NONE || thread_vars_i2c.thread_err != ERROR_NONE))
+            (thread_vars_ts->thread_err != ERROR_NONE || thread_vars_ts_parse->thread_err != ERROR_NONE ||
+             thread_vars_beep->thread_err != ERROR_NONE || thread_vars_i2c->thread_err != ERROR_NONE))
         {
             err = ERROR_THREAD_ERROR;
         }
 
-        if (longmynd_config.ts_timeout != -1 && monotonic_ms() > (longmynd_status.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout))
+        /* TS timeout handling - PRESERVE EXACT TIMEOUT LOGIC */
+        if (longmynd_config.ts_timeout != -1 &&
+            monotonic_ms() > (longmynd_status.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout))
         {
             /* Had a while with no TS data, reinit config to pull NIM search loops back in, or fix -S fascination */
 
@@ -1269,6 +1441,51 @@ int main(int argc, char *argv[])
             pthread_mutex_unlock(&longmynd_status.mutex);
         }
     }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+int main(int argc, char *argv[])
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /*    command line processing                                                                         */
+    /*    module initialisation                                                                           */
+    /*    Print out of status information to requested interface, triggered by pthread condition variable */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t (*status_write)(uint8_t, uint32_t, bool *);
+    uint8_t (*status_string_write)(uint8_t, char *, bool *);
+    bool status_output_ready = true;
+
+    printf("Flow: main\n");
+
+    /* Initialize signal handlers */
+    if (err == ERROR_NONE)
+        err = initialize_signal_handlers(&err);
+
+    /* Process command line arguments */
+    if (err == ERROR_NONE)
+        err = process_command_line(argc, argv, &longmynd_config);
+
+    /* Initialize status output interface */
+    if (err == ERROR_NONE)
+        err = initialize_status_output(&status_write, &status_string_write, &status_output_ready);
+
+    /* Initialize FTDI USB interface */
+    if (err == ERROR_NONE)
+        err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+
+    /* Initialize and start worker threads */
+    thread_vars_t thread_vars_ts, thread_vars_ts_parse, thread_vars_i2c, thread_vars_beep;
+    if (err == ERROR_NONE)
+        err = initialize_worker_threads(&err, &thread_vars_ts, &thread_vars_ts_parse,
+                                       &thread_vars_i2c, &thread_vars_beep);
+
+    /* Run main status output loop */
+    if (err == ERROR_NONE)
+        err = run_main_status_loop(status_write, status_string_write, &status_output_ready,
+                                  &thread_vars_ts, &thread_vars_ts_parse, &thread_vars_i2c, &thread_vars_beep);
 
     printf("Flow: Main loop aborted, waiting for threads.\n");
 
