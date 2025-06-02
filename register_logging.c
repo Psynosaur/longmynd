@@ -55,6 +55,7 @@ static const stv6120_register_info_t stv6120_register_table[] = {
     { STV6120_CTRL6,  "STV6120_CTRL6",  "ICP current, F divider bits 17-15 (tuner 1)" },
     { STV6120_CTRL7,  "STV6120_CTRL7",  "RC clock, P divider, CF filter (tuner 1)" },
     { STV6120_CTRL8,  "STV6120_CTRL8",  "TCAL, calibration time, CFHF filter (tuner 1)" },
+    { STV6120_STAT1,  "STV6120_STAT1",  "Status register (tuner 1)" },
     { STV6120_CTRL9,  "STV6120_CTRL9",  "Status register (tuner 1)" },
     { STV6120_CTRL10, "STV6120_CTRL10", "Path control, LNA control" },
     { STV6120_CTRL11, "STV6120_CTRL11", "N divider LSB (tuner 2)" },
@@ -82,33 +83,84 @@ static const stv0910_register_info_t stv0910_register_table[] = {
     /* System registers */
     { RSTV0910_MID,           "RSTV0910_MID",           "Chip identification" },
     { RSTV0910_DID,           "RSTV0910_DID",           "Device identification" },
-    { RSTV0910_OUTCFG,        "RSTV0910_OUTCFG",        "Output configuration" },
+    { RSTV0910_DACR1,         "RSTV0910_DACR1",         "DAC register 1" },
+    { RSTV0910_DACR2,         "RSTV0910_DACR2",         "DAC register 2" },
+    { RSTV0910_PADCFG,        "RSTV0910_PADCFG",        "PAD configuration" },
     { RSTV0910_OUTCFG2,       "RSTV0910_OUTCFG2",       "Output configuration 2" },
-    
+    { RSTV0910_OUTCFG,        "RSTV0910_OUTCFG",        "Output configuration" },
+
     /* P2 (TOP) Demodulator registers */
     { RSTV0910_P2_DMDISTATE,  "RSTV0910_P2_DMDISTATE",  "P2 demodulator state control" },
     { RSTV0910_P2_SFRINIT1,   "RSTV0910_P2_SFRINIT1",   "P2 symbol rate init MSB" },
     { RSTV0910_P2_SFRINIT0,   "RSTV0910_P2_SFRINIT0",   "P2 symbol rate init LSB" },
+
+    /* P2 Carrier frequency registers */
+    { RSTV0910_P2_LDT2,       "RSTV0910_P2_LDT2",       "P2 carrier lock threshold 2" },
+    { RSTV0910_P2_CFRICFG,    "RSTV0910_P2_CFRICFG",    "P2 carrier frequency init config" },
     { RSTV0910_P2_CFRUP1,     "RSTV0910_P2_CFRUP1",     "P2 carrier frequency upper limit MSB" },
     { RSTV0910_P2_CFRUP0,     "RSTV0910_P2_CFRUP0",     "P2 carrier frequency upper limit LSB" },
+    { RSTV0910_P2_CFRIBASE1,  "RSTV0910_P2_CFRIBASE1",  "P2 carrier frequency init base MSB" },
+    { RSTV0910_P2_CFRIBASE0,  "RSTV0910_P2_CFRIBASE0",  "P2 carrier frequency init base LSB" },
     { RSTV0910_P2_CFRLOW1,    "RSTV0910_P2_CFRLOW1",    "P2 carrier frequency lower limit MSB" },
     { RSTV0910_P2_CFRLOW0,    "RSTV0910_P2_CFRLOW0",    "P2 carrier frequency lower limit LSB" },
+    { RSTV0910_P2_CFRINIT1,   "RSTV0910_P2_CFRINIT1",   "P2 carrier frequency init MSB" },
+    { RSTV0910_P2_CFRINIT0,   "RSTV0910_P2_CFRINIT0",   "P2 carrier frequency init LSB" },
+    { RSTV0910_P2_CFRINC1,    "RSTV0910_P2_CFRINC1",    "P2 carrier frequency increment MSB" },
+    { RSTV0910_P2_CFRINC0,    "RSTV0910_P2_CFRINC0",    "P2 carrier frequency increment LSB" },
+    { RSTV0910_P2_CFR2,       "RSTV0910_P2_CFR2",       "P2 carrier frequency 2" },
+    { RSTV0910_P2_CFR1,       "RSTV0910_P2_CFR1",       "P2 carrier frequency 1" },
+    { RSTV0910_P2_CFR0,       "RSTV0910_P2_CFR0",       "P2 carrier frequency 0" },
+
+    /* P2 Transport stream registers */
     { RSTV0910_P2_TSCFGH,     "RSTV0910_P2_TSCFGH",     "P2 transport stream config high" },
     { RSTV0910_P2_TSCFGM,     "RSTV0910_P2_TSCFGM",     "P2 transport stream config medium" },
     { RSTV0910_P2_TSCFGL,     "RSTV0910_P2_TSCFGL",     "P2 transport stream config low" },
-    
+
     /* P1 (BOTTOM) Demodulator registers */
     { RSTV0910_P1_DMDISTATE,  "RSTV0910_P1_DMDISTATE",  "P1 demodulator state control" },
     { RSTV0910_P1_SFRINIT1,   "RSTV0910_P1_SFRINIT1",   "P1 symbol rate init MSB" },
     { RSTV0910_P1_SFRINIT0,   "RSTV0910_P1_SFRINIT0",   "P1 symbol rate init LSB" },
+
+    /* P1 Carrier frequency registers */
+    { RSTV0910_P1_LDT2,       "RSTV0910_P1_LDT2",       "P1 carrier lock threshold 2" },
+    { RSTV0910_P1_CFRICFG,    "RSTV0910_P1_CFRICFG",    "P1 carrier frequency init config" },
     { RSTV0910_P1_CFRUP1,     "RSTV0910_P1_CFRUP1",     "P1 carrier frequency upper limit MSB" },
     { RSTV0910_P1_CFRUP0,     "RSTV0910_P1_CFRUP0",     "P1 carrier frequency upper limit LSB" },
+    { RSTV0910_P1_CFRIBASE1,  "RSTV0910_P1_CFRIBASE1",  "P1 carrier frequency init base MSB" },
+    { RSTV0910_P1_CFRIBASE0,  "RSTV0910_P1_CFRIBASE0",  "P1 carrier frequency init base LSB" },
     { RSTV0910_P1_CFRLOW1,    "RSTV0910_P1_CFRLOW1",    "P1 carrier frequency lower limit MSB" },
     { RSTV0910_P1_CFRLOW0,    "RSTV0910_P1_CFRLOW0",    "P1 carrier frequency lower limit LSB" },
+    { RSTV0910_P1_CFRINIT1,   "RSTV0910_P1_CFRINIT1",   "P1 carrier frequency init MSB" },
+    { RSTV0910_P1_CFRINIT0,   "RSTV0910_P1_CFRINIT0",   "P1 carrier frequency init LSB" },
+    { RSTV0910_P1_CFRINC1,    "RSTV0910_P1_CFRINC1",    "P1 carrier frequency increment MSB" },
+    { RSTV0910_P1_CFRINC0,    "RSTV0910_P1_CFRINC0",    "P1 carrier frequency increment LSB" },
+    { RSTV0910_P1_CFR2,       "RSTV0910_P1_CFR2",       "P1 carrier frequency 2" },
+    { RSTV0910_P1_CFR1,       "RSTV0910_P1_CFR1",       "P1 carrier frequency 1" },
+    { RSTV0910_P1_CFR0,       "RSTV0910_P1_CFR0",       "P1 carrier frequency 0" },
+
+    /* P1 Transport stream registers */
     { RSTV0910_P1_TSCFGH,     "RSTV0910_P1_TSCFGH",     "P1 transport stream config high" },
     { RSTV0910_P1_TSCFGM,     "RSTV0910_P1_TSCFGM",     "P1 transport stream config medium" },
     { RSTV0910_P1_TSCFGL,     "RSTV0910_P1_TSCFGL",     "P1 transport stream config low" },
-    
+
+    /* Additional commonly accessed registers */
+    { RSTV0910_P2_LDI,        "RSTV0910_P2_LDI",        "P2 lock detector integrator" },
+    { RSTV0910_P1_LDI,        "RSTV0910_P1_LDI",        "P1 lock detector integrator" },
+    { RSTV0910_P2_TMGCFG,     "RSTV0910_P2_TMGCFG",     "P2 timing configuration" },
+    { RSTV0910_P1_TMGCFG,     "RSTV0910_P1_TMGCFG",     "P1 timing configuration" },
+    { RSTV0910_P2_CARFREQ,    "RSTV0910_P2_CARFREQ",    "P2 carrier frequency control" },
+    { RSTV0910_P1_CARFREQ,    "RSTV0910_P1_CARFREQ",    "P1 carrier frequency control" },
+    { RSTV0910_P2_DMDSTATE,   "RSTV0910_P2_DMDSTATE",   "P2 demodulator state" },
+    { RSTV0910_P1_DMDSTATE,   "RSTV0910_P1_DMDSTATE",   "P1 demodulator state" },
+    { RSTV0910_P2_DSTATUS,    "RSTV0910_P2_DSTATUS",    "P2 demodulator status" },
+    { RSTV0910_P1_DSTATUS,    "RSTV0910_P1_DSTATUS",    "P1 demodulator status" },
+    { RSTV0910_P2_DSTATUS2,   "RSTV0910_P2_DSTATUS2",   "P2 demodulator status 2" },
+    { RSTV0910_P1_DSTATUS2,   "RSTV0910_P1_DSTATUS2",   "P1 demodulator status 2" },
+    { RSTV0910_P2_DSTATUS3,   "RSTV0910_P2_DSTATUS3",   "P2 demodulator status 3" },
+    { RSTV0910_P1_DSTATUS3,   "RSTV0910_P1_DSTATUS3",   "P1 demodulator status 3" },
+    { RSTV0910_P2_VERROR,     "RSTV0910_P2_VERROR",     "P2 Viterbi error rate" },
+    { RSTV0910_P1_VERROR,     "RSTV0910_P1_VERROR",     "P1 Viterbi error rate" },
+
     { 0xFFFF, NULL, NULL }  /* End marker */
 };
 
