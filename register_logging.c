@@ -244,6 +244,18 @@ static const stv0910_register_info_t stv0910_register_table[] = {
     { RSTV0910_P2_AGCIQIN1,   "RSTV0910_P2_AGCIQIN1",   "P2 AGC IQ input MSB" },
     { RSTV0910_P2_AGCIQIN0,   "RSTV0910_P2_AGCIQIN0",   "P2 AGC IQ input LSB" },
 
+    /* P2 demodulator control registers */
+    { RSTV0910_P2_DEMOD,      "RSTV0910_P2_DEMOD",      "P2 demodulator control" },
+    { RSTV0910_P2_DMDMODCOD,  "RSTV0910_P2_DMDMODCOD",  "P2 demodulator MODCOD" },
+    { RSTV0910_P2_DMDCFGMD,   "RSTV0910_P2_DMDCFGMD",   "P2 demodulator config mode" },
+    { RSTV0910_P2_DMDCFG2,    "RSTV0910_P2_DMDCFG2",    "P2 demodulator config 2" },
+    { RSTV0910_P2_DMDT0M,     "RSTV0910_P2_DMDT0M",     "P2 demodulator T0 minimum" },
+    { RSTV0910_P2_DMDFLYW,    "RSTV0910_P2_DMDFLYW",    "P2 demodulator flywheel" },
+    { RSTV0910_P2_DMDCFG3,    "RSTV0910_P2_DMDCFG3",    "P2 demodulator config 3" },
+    { RSTV0910_P2_DMDCFG4,    "RSTV0910_P2_DMDCFG4",    "P2 demodulator config 4" },
+    { RSTV0910_P2_CORRELMANT, "RSTV0910_P2_CORRELMANT", "P2 correlation mantissa" },
+    { RSTV0910_P2_CORRELABS,  "RSTV0910_P2_CORRELABS",  "P2 correlation absolute" },
+
     /* Additional commonly accessed registers */
     { RSTV0910_P2_LDI,        "RSTV0910_P2_LDI",        "P2 lock detector integrator" },
     { RSTV0910_P1_LDI,        "RSTV0910_P1_LDI",        "P1 lock detector integrator" },
@@ -261,6 +273,137 @@ static const stv0910_register_info_t stv0910_register_table[] = {
     { RSTV0910_P1_DSTATUS3,   "RSTV0910_P1_DSTATUS3",   "P1 demodulator status 3" },
     { RSTV0910_P2_VERROR,     "RSTV0910_P2_VERROR",     "P2 Viterbi error rate" },
     { RSTV0910_P1_VERROR,     "RSTV0910_P1_VERROR",     "P1 Viterbi error rate" },
+
+    /* P2 timing registers */
+    { RSTV0910_P2_RTC,        "RSTV0910_P2_RTC",        "P2 timing control" },
+    { RSTV0910_P2_RTCS2,      "RSTV0910_P2_RTCS2",      "P2 timing control S2" },
+    { RSTV0910_P2_TMGTHRISE,  "RSTV0910_P2_TMGTHRISE",  "P2 timing threshold rise" },
+    { RSTV0910_P2_TMGTHFALL,  "RSTV0910_P2_TMGTHFALL",  "P2 timing threshold fall" },
+
+    /* P2 Viterbi registers */
+    { RSTV0910_P2_VITSCALE,   "RSTV0910_P2_VITSCALE",   "P2 Viterbi scale" },
+    { RSTV0910_P2_FECM,       "RSTV0910_P2_FECM",       "P2 FEC mode" },
+    { RSTV0910_P2_VTH12,      "RSTV0910_P2_VTH12",      "P2 Viterbi threshold 1/2" },
+    { RSTV0910_P2_VTH23,      "RSTV0910_P2_VTH23",      "P2 Viterbi threshold 2/3" },
+    { RSTV0910_P2_VTH34,      "RSTV0910_P2_VTH34",      "P2 Viterbi threshold 3/4" },
+    { RSTV0910_P2_VTH56,      "RSTV0910_P2_VTH56",      "P2 Viterbi threshold 5/6" },
+    { RSTV0910_P2_VTH67,      "RSTV0910_P2_VTH67",      "P2 Viterbi threshold 6/7" },
+    { RSTV0910_P2_VTH78,      "RSTV0910_P2_VTH78",      "P2 Viterbi threshold 7/8" },
+    { RSTV0910_P2_PRVIT,      "RSTV0910_P2_PRVIT",      "P2 Viterbi puncture rate" },
+    { RSTV0910_P2_VAVSRVIT,   "RSTV0910_P2_VAVSRVIT",   "P2 Viterbi average/status" },
+    { RSTV0910_P2_VSTATUSVIT, "RSTV0910_P2_VSTATUSVIT", "P2 Viterbi status" },
+
+    /* P2 Transport stream registers */
+    { RSTV0910_P2_TSPIDFLT1,  "RSTV0910_P2_TSPIDFLT1",  "P2 TS PID filter 1" },
+    { RSTV0910_P2_TSPIDFLT0,  "RSTV0910_P2_TSPIDFLT0",  "P2 TS PID filter 0" },
+    { RSTV0910_P2_PDELCTRL0,  "RSTV0910_P2_PDELCTRL0",  "P2 packet delineator control 0" },
+    { RSTV0910_P2_PDELCTRL1,  "RSTV0910_P2_PDELCTRL1",  "P2 packet delineator control 1" },
+    { RSTV0910_P2_PDELCTRL2,  "RSTV0910_P2_PDELCTRL2",  "P2 packet delineator control 2" },
+    { RSTV0910_P2_HYSTTHRESH, "RSTV0910_P2_HYSTTHRESH", "P2 hysteresis threshold" },
+    { RSTV0910_P2_UPLCCST0,   "RSTV0910_P2_UPLCCST0",   "P2 UPL constant 0" },
+    { RSTV0910_P2_ISIENTRY,   "RSTV0910_P2_ISIENTRY",   "P2 ISI entry" },
+    { RSTV0910_P2_ISIBITENA,  "RSTV0910_P2_ISIBITENA",  "P2 ISI bit enable" },
+    { RSTV0910_P2_TSINSDELM,  "RSTV0910_P2_TSINSDELM",  "P2 TS insertion/deletion MSB" },
+    { RSTV0910_P2_TSINSDELL,  "RSTV0910_P2_TSINSDELL",  "P2 TS insertion/deletion LSB" },
+
+    /* P1 demodulator control registers (mirror of P2) */
+    { RSTV0910_P1_DEMOD,      "RSTV0910_P1_DEMOD",      "P1 demodulator control" },
+    { RSTV0910_P1_DMDMODCOD,  "RSTV0910_P1_DMDMODCOD",  "P1 demodulator MODCOD" },
+    { RSTV0910_P1_DMDCFGMD,   "RSTV0910_P1_DMDCFGMD",   "P1 demodulator config mode" },
+    { RSTV0910_P1_DMDCFG2,    "RSTV0910_P1_DMDCFG2",    "P1 demodulator config 2" },
+    { RSTV0910_P1_DMDT0M,     "RSTV0910_P1_DMDT0M",     "P1 demodulator T0 minimum" },
+    { RSTV0910_P1_DMDFLYW,    "RSTV0910_P1_DMDFLYW",    "P1 demodulator flywheel" },
+    { RSTV0910_P1_DMDCFG3,    "RSTV0910_P1_DMDCFG3",    "P1 demodulator config 3" },
+    { RSTV0910_P1_DMDCFG4,    "RSTV0910_P1_DMDCFG4",    "P1 demodulator config 4" },
+    { RSTV0910_P1_CORRELMANT, "RSTV0910_P1_CORRELMANT", "P1 correlation mantissa" },
+    { RSTV0910_P1_CORRELABS,  "RSTV0910_P1_CORRELABS",  "P1 correlation absolute" },
+
+    /* P1 timing registers */
+    { RSTV0910_P1_RTC,        "RSTV0910_P1_RTC",        "P1 timing control" },
+    { RSTV0910_P1_RTCS2,      "RSTV0910_P1_RTCS2",      "P1 timing control S2" },
+    { RSTV0910_P1_TMGTHRISE,  "RSTV0910_P1_TMGTHRISE",  "P1 timing threshold rise" },
+    { RSTV0910_P1_TMGTHFALL,  "RSTV0910_P1_TMGTHFALL",  "P1 timing threshold fall" },
+
+    /* P1 Viterbi registers */
+    { RSTV0910_P1_VITSCALE,   "RSTV0910_P1_VITSCALE",   "P1 Viterbi scale" },
+    { RSTV0910_P1_FECM,       "RSTV0910_P1_FECM",       "P1 FEC mode" },
+    { RSTV0910_P1_VTH12,      "RSTV0910_P1_VTH12",      "P1 Viterbi threshold 1/2" },
+    { RSTV0910_P1_VTH23,      "RSTV0910_P1_VTH23",      "P1 Viterbi threshold 2/3" },
+    { RSTV0910_P1_VTH34,      "RSTV0910_P1_VTH34",      "P1 Viterbi threshold 3/4" },
+    { RSTV0910_P1_VTH56,      "RSTV0910_P1_VTH56",      "P1 Viterbi threshold 5/6" },
+    { RSTV0910_P1_VTH67,      "RSTV0910_P1_VTH67",      "P1 Viterbi threshold 6/7" },
+    { RSTV0910_P1_VTH78,      "RSTV0910_P1_VTH78",      "P1 Viterbi threshold 7/8" },
+    { RSTV0910_P1_PRVIT,      "RSTV0910_P1_PRVIT",      "P1 Viterbi puncture rate" },
+    { RSTV0910_P1_VAVSRVIT,   "RSTV0910_P1_VAVSRVIT",   "P1 Viterbi average/status" },
+    { RSTV0910_P1_VSTATUSVIT, "RSTV0910_P1_VSTATUSVIT", "P1 Viterbi status" },
+
+    /* P1 Transport stream registers */
+    { RSTV0910_P1_TSPIDFLT1,  "RSTV0910_P1_TSPIDFLT1",  "P1 TS PID filter 1" },
+    { RSTV0910_P1_TSPIDFLT0,  "RSTV0910_P1_TSPIDFLT0",  "P1 TS PID filter 0" },
+    { RSTV0910_P1_PDELCTRL0,  "RSTV0910_P1_PDELCTRL0",  "P1 packet delineator control 0" },
+    { RSTV0910_P1_PDELCTRL1,  "RSTV0910_P1_PDELCTRL1",  "P1 packet delineator control 1" },
+    { RSTV0910_P1_PDELCTRL2,  "RSTV0910_P1_PDELCTRL2",  "P1 packet delineator control 2" },
+    { RSTV0910_P1_HYSTTHRESH, "RSTV0910_P1_HYSTTHRESH", "P1 hysteresis threshold" },
+    { RSTV0910_P1_UPLCCST0,   "RSTV0910_P1_UPLCCST0",   "P1 UPL constant 0" },
+    { RSTV0910_P1_ISIENTRY,   "RSTV0910_P1_ISIENTRY",   "P1 ISI entry" },
+    { RSTV0910_P1_ISIBITENA,  "RSTV0910_P1_ISIBITENA",  "P1 ISI bit enable" },
+    { RSTV0910_P1_TSINSDELM,  "RSTV0910_P1_TSINSDELM",  "P1 TS insertion/deletion MSB" },
+    { RSTV0910_P1_TSINSDELL,  "RSTV0910_P1_TSINSDELL",  "P1 TS insertion/deletion LSB" },
+
+    /* Reed-Solomon and BCH registers */
+    { RSTV0910_RCINSDEL1,     "RSTV0910_RCINSDEL1",     "Reed-Solomon insertion/deletion 1" },
+    { RSTV0910_RCINSDEL0,     "RSTV0910_RCINSDEL0",     "Reed-Solomon insertion/deletion 0" },
+
+    /* LDPC and BCH error correction registers */
+    { RSTV0910_CFGEXT,        "RSTV0910_CFGEXT",        "Configuration extension" },
+    { RSTV0910_GENCFG,        "RSTV0910_GENCFG",        "General configuration" },
+    { RSTV0910_LDPCERR1,      "RSTV0910_LDPCERR1",      "LDPC error count MSB" },
+    { RSTV0910_LDPCERR0,      "RSTV0910_LDPCERR0",      "LDPC error count LSB" },
+    { RSTV0910_BCHERR,        "RSTV0910_BCHERR",        "BCH error count" },
+
+    /* P2 additional registers */
+    { RSTV0910_P2_LOCKTIME3,  "RSTV0910_P2_LOCKTIME3",  "P2 demodulator lock time 3" },
+    { RSTV0910_P2_LOCKTIME2,  "RSTV0910_P2_LOCKTIME2",  "P2 demodulator lock time 2" },
+    { RSTV0910_P2_LOCKTIME1,  "RSTV0910_P2_LOCKTIME1",  "P2 demodulator lock time 1" },
+    { RSTV0910_P2_LOCKTIME0,  "RSTV0910_P2_LOCKTIME0",  "P2 demodulator lock time 0" },
+
+    /* P2 Transport stream debug registers */
+    { RSTV0910_P2_TSDEBUGL,   "RSTV0910_P2_TSDEBUGL",   "P2 transport stream debug LSB" },
+    { RSTV0910_P2_TSSYNC,     "RSTV0910_P2_TSSYNC",     "P2 transport stream sync" },
+
+    /* P2 Transport stream state registers */
+    { RSTV0910_P2_TSSTATEM,   "RSTV0910_P2_TSSTATEM",   "P2 transport stream state MSB" },
+    { RSTV0910_P2_TSSTATEL,   "RSTV0910_P2_TSSTATEL",   "P2 transport stream state LSB" },
+
+    /* P1 additional registers */
+    { RSTV0910_P1_LOCKTIME3,  "RSTV0910_P1_LOCKTIME3",  "P1 demodulator lock time 3" },
+    { RSTV0910_P1_LOCKTIME2,  "RSTV0910_P1_LOCKTIME2",  "P1 demodulator lock time 2" },
+    { RSTV0910_P1_LOCKTIME1,  "RSTV0910_P1_LOCKTIME1",  "P1 demodulator lock time 1" },
+    { RSTV0910_P1_LOCKTIME0,  "RSTV0910_P1_LOCKTIME0",  "P1 demodulator lock time 0" },
+
+    /* P1 Transport stream debug registers */
+    { RSTV0910_P1_TSDEBUGL,   "RSTV0910_P1_TSDEBUGL",   "P1 transport stream debug LSB" },
+    { RSTV0910_P1_TSSYNC,     "RSTV0910_P1_TSSYNC",     "P1 transport stream sync" },
+
+    /* P1 Transport stream state registers */
+    { RSTV0910_P1_TSSTATEM,   "RSTV0910_P1_TSSTATEM",   "P1 transport stream state MSB" },
+    { RSTV0910_P1_TSSTATEL,   "RSTV0910_P1_TSSTATEL",   "P1 transport stream state LSB" },
+
+    /* P1 LDPC registers */
+    { RSTV0910_P1_MAXEXTRAITER, "RSTV0910_P1_MAXEXTRAITER", "P1 maximum extra iterations" },
+
+    /* Test registers (high range) */
+    { RSTV0910_TSTOUT,        "RSTV0910_TSTOUT",        "Test output" },
+    { RSTV0910_TSTIN,         "RSTV0910_TSTIN",         "Test input" },
+    { RSTV0910_P2_TSTDMD,     "RSTV0910_P2_TSTDMD",     "P2 test demodulator" },
+    { RSTV0910_P2_TCTL1,      "RSTV0910_P2_TCTL1",      "P2 test control 1" },
+    { RSTV0910_P2_TCTL4,      "RSTV0910_P2_TCTL4",      "P2 test control 4" },
+    { RSTV0910_P2_TPKTDELIN,  "RSTV0910_P2_TPKTDELIN",  "P2 test packet delineator" },
+    { RSTV0910_P1_TSTDMD,     "RSTV0910_P1_TSTDMD",     "P1 test demodulator" },
+    { RSTV0910_P1_TCTL1,      "RSTV0910_P1_TCTL1",      "P1 test control 1" },
+    { RSTV0910_P1_TCTL4,      "RSTV0910_P1_TCTL4",      "P1 test control 4" },
+    { RSTV0910_P1_TPKTDELIN,  "RSTV0910_P1_TPKTDELIN",  "P1 test packet delineator" },
+    { RSTV0910_TSTTSRS,       "RSTV0910_TSTTSRS",       "Test transport stream Reed-Solomon" },
 
     { 0xFFFF, NULL, NULL }  /* End marker */
 };
