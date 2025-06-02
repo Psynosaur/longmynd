@@ -94,6 +94,7 @@ typedef struct {
 void register_logging_init(void);
 void register_logging_enable(bool enable);
 bool register_logging_is_enabled(void);
+void register_logging_set_demod_suppression_disabled(bool disabled);
 
 /* Context management */
 void register_logging_set_context(register_context_t context);

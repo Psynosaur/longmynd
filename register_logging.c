@@ -36,6 +36,7 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 bool register_logging_enabled = true;  /* Runtime enable/disable flag */
+static bool demod_suppression_disabled = false;  /* Flag to disable demod suppression */
 static register_context_t current_context = REG_CONTEXT_UNKNOWN;
 
 /* Rate limiting for demod sequence logging */
@@ -1120,6 +1121,12 @@ static bool should_log_demod_sequence(void)
     /* Checks if enough time has passed to log demod sequence again                                    */
     /* return: true if demod sequence should be logged                                                 */
     /* -------------------------------------------------------------------------------------------------- */
+
+    /* If demod suppression is disabled, always log */
+    if (demod_suppression_disabled) {
+        return true;
+    }
+
     uint64_t current_time = get_timestamp_ms();
 
     if (current_time - last_demod_sequence_log_time >= DEMOD_SEQUENCE_LOG_INTERVAL_MS) {
@@ -1194,10 +1201,26 @@ void register_logging_enable(bool enable)
     /* enable: true to enable, false to disable                                                        */
     /* -------------------------------------------------------------------------------------------------- */
     register_logging_enabled = enable;
-    
-    printf("[%llu] REGISTER_LOG: Logging %s\n", 
+
+    printf("[%llu] REGISTER_LOG: Logging %s\n",
            (unsigned long long)get_timestamp_ms(),
            enable ? "ENABLED" : "DISABLED");
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void register_logging_set_demod_suppression_disabled(bool disabled)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Sets whether demod sequence suppression is disabled                                             */
+    /* disabled: true to disable suppression (always log), false to enable suppression               */
+    /* -------------------------------------------------------------------------------------------------- */
+    demod_suppression_disabled = disabled;
+
+    if (register_logging_enabled) {
+        printf("[%llu] REGISTER_LOG: Demod suppression %s\n",
+               (unsigned long long)get_timestamp_ms(),
+               disabled ? "DISABLED" : "ENABLED");
+    }
 }
 
 /* -------------------------------------------------------------------------------------------------- */

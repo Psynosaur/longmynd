@@ -267,6 +267,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->polarisation_supply = false;
     char polarisation_str[8];
     config->ts_timeout = 50 * 1000;
+    config->disable_demod_suppression = false;
 
     param = 1;
     while (param < argc - 2)
@@ -323,6 +324,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'r':
                 config->ts_timeout = strtol(argv[param], NULL, 10);
+                break;
+            case 'D':
+                config->disable_demod_suppression = true;
+                param--; /* there is no data for this so go back */
                 break;
             }
         }
@@ -579,6 +584,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              TS Timeout Period =%i milliseconds\n", config->ts_timeout);
             else
                 printf("              TS Timeout Disabled.\n");
+            if (config->disable_demod_suppression)
+                printf("              Demod Suppression Disabled\n");
         }
     }
 
@@ -1475,6 +1482,10 @@ int main(int argc, char *argv[])
     /* Process command line arguments */
     if (err == ERROR_NONE)
         err = process_command_line(argc, argv, &longmynd_config);
+
+    /* Configure register logging based on command line options */
+    if (err == ERROR_NONE)
+        register_logging_set_demod_suppression_disabled(longmynd_config.disable_demod_suppression);
 
     /* Initialize status output interface */
     if (err == ERROR_NONE)

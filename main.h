@@ -101,6 +101,8 @@ typedef struct {
 
     int ts_timeout;
 
+    bool disable_demod_suppression;
+
     bool new_config=false;
     pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 } longmynd_config_t;
