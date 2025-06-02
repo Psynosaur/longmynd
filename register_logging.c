@@ -255,6 +255,29 @@ static const stv0910_register_info_t stv0910_register_table[] = {
     { RSTV0910_P2_DMDCFG4,    "RSTV0910_P2_DMDCFG4",    "P2 demodulator config 4" },
     { RSTV0910_P2_CORRELMANT, "RSTV0910_P2_CORRELMANT", "P2 correlation mantissa" },
     { RSTV0910_P2_CORRELABS,  "RSTV0910_P2_CORRELABS",  "P2 correlation absolute" },
+    { RSTV0910_P2_CORRELEXP,  "RSTV0910_P2_CORRELEXP",  "P2 correlation exponent" },
+
+    /* P2 PLH and AGC registers */
+    { RSTV0910_P2_PLHMODCOD,  "RSTV0910_P2_PLHMODCOD",  "P2 PLH MODCOD" },
+    { RSTV0910_P2_DMDREG,     "RSTV0910_P2_DMDREG",     "P2 demodulator register" },
+    { RSTV0910_P2_AGCNADJ,    "RSTV0910_P2_AGCNADJ",    "P2 AGC N adjustment" },
+    { RSTV0910_P2_AGCKS,      "RSTV0910_P2_AGCKS",      "P2 AGC KS" },
+    { RSTV0910_P2_AGCKQ,      "RSTV0910_P2_AGCKQ",      "P2 AGC KQ" },
+    { RSTV0910_P2_AGCK8,      "RSTV0910_P2_AGCK8",      "P2 AGC K8PSK" },
+    { RSTV0910_P2_AGCK16,     "RSTV0910_P2_AGCK16",     "P2 AGC K16APSK" },
+    { RSTV0910_P2_AGCK32,     "RSTV0910_P2_AGCK32",     "P2 AGC K32APSK" },
+    { RSTV0910_P2_AGC2O,      "RSTV0910_P2_AGC2O",      "P2 AGC2 output" },
+    { RSTV0910_P2_AGC2REF,    "RSTV0910_P2_AGC2REF",    "P2 AGC2 reference" },
+    { RSTV0910_P2_AGC1ADJ,    "RSTV0910_P2_AGC1ADJ",    "P2 AGC1 adjustment" },
+    { RSTV0910_P2_AGCRSADJ,   "RSTV0910_P2_AGCRSADJ",   "P2 AGC RS adjustment" },
+
+    /* P2 carrier frequency registers */
+    { RSTV0910_P2_CARCFG,     "RSTV0910_P2_CARCFG",     "P2 carrier configuration" },
+    { RSTV0910_P2_ACLC,       "RSTV0910_P2_ACLC",       "P2 automatic carrier loop control" },
+    { RSTV0910_P2_BCLC,       "RSTV0910_P2_BCLC",       "P2 bandwidth carrier loop control" },
+    { RSTV0910_P2_CARFREQ,    "RSTV0910_P2_CARFREQ",    "P2 carrier frequency control" },
+    { RSTV0910_P2_CARHDR,     "RSTV0910_P2_CARHDR",     "P2 carrier header" },
+    { RSTV0910_P2_LDT,        "RSTV0910_P2_LDT",        "P2 lock detector threshold" },
 
     /* Additional commonly accessed registers */
     { RSTV0910_P2_LDI,        "RSTV0910_P2_LDI",        "P2 lock detector integrator" },
@@ -404,6 +427,9 @@ static const stv0910_register_info_t stv0910_register_table[] = {
     { RSTV0910_P1_TCTL4,      "RSTV0910_P1_TCTL4",      "P1 test control 4" },
     { RSTV0910_P1_TPKTDELIN,  "RSTV0910_P1_TPKTDELIN",  "P1 test packet delineator" },
     { RSTV0910_TSTTSRS,       "RSTV0910_TSTTSRS",       "Test transport stream Reed-Solomon" },
+
+    /* Final test register at highest address */
+    { RSTV0910_TSTRES0,       "RSTV0910_TSTRES0",       "Test reset register 0" },
 
     { 0xFFFF, NULL, NULL }  /* End marker */
 };
