@@ -38,6 +38,10 @@
 bool register_logging_enabled = true;  /* Runtime enable/disable flag */
 static register_context_t current_context = REG_CONTEXT_UNKNOWN;
 
+/* Rate limiting for demod sequence logging */
+static uint64_t last_demod_sequence_log_time = 0;
+static bool demod_sequence_suppressed = false;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* STV6120 REGISTER NAME LOOKUP TABLE                                                                */
 /* -------------------------------------------------------------------------------------------------- */
@@ -135,6 +139,40 @@ static const char *context_strings[] = {
 /* -------------------------------------------------------------------------------------------------- */
 /* UTILITY FUNCTIONS                                                                                  */
 /* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static bool should_log_demod_sequence(void)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Checks if enough time has passed to log demod sequence again                                    */
+    /* return: true if demod sequence should be logged                                                 */
+    /* -------------------------------------------------------------------------------------------------- */
+    uint64_t current_time = get_timestamp_ms();
+
+    if (current_time - last_demod_sequence_log_time >= DEMOD_SEQUENCE_LOG_INTERVAL_MS) {
+        last_demod_sequence_log_time = current_time;
+
+        /* If we were suppressing logs, indicate that we're resuming */
+        if (demod_sequence_suppressed) {
+            printf("[%llu] STV0910: Resuming demod sequence logging (suppressed for %llu ms)\n",
+                   (unsigned long long)current_time,
+                   (unsigned long long)(current_time - (last_demod_sequence_log_time - DEMOD_SEQUENCE_LOG_INTERVAL_MS)));
+            demod_sequence_suppressed = false;
+        }
+
+        return true;
+    }
+
+    /* Mark that we're suppressing logs */
+    if (!demod_sequence_suppressed) {
+        printf("[%llu] STV0910: Suppressing demod sequence logging for %d ms\n",
+               (unsigned long long)current_time,
+               DEMOD_SEQUENCE_LOG_INTERVAL_MS);
+        demod_sequence_suppressed = true;
+    }
+
+    return false;
+}
 
 /* -------------------------------------------------------------------------------------------------- */
 uint64_t get_timestamp_ms(void)
@@ -372,12 +410,19 @@ void log_stv0910_register_write(uint16_t reg, uint8_t val, register_context_t co
 void log_stv0910_register_read(uint16_t reg, uint8_t val, register_context_t context)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /* Logs an STV0910 register read operation                                                         */
+    /* Logs an STV0910 register read operation with rate limiting for demod sequences                  */
     /* reg: register address                                                                           */
     /* val: value that was read                                                                        */
     /* context: operation context                                                                      */
     /* -------------------------------------------------------------------------------------------------- */
     if (!register_logging_enabled) return;
+
+    /* Apply rate limiting for demod control context */
+    if (context == REG_CONTEXT_DEMOD_CONTROL) {
+        if (!should_log_demod_sequence()) {
+            return;  /* Skip logging this register read */
+        }
+    }
 
     printf("[%llu] STV0910: Reading %s (0x%04x) = 0x%02x (%d) - %s [%s]\n",
            (unsigned long long)get_timestamp_ms(),

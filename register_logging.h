@@ -34,6 +34,11 @@
 #define ENABLE_REGISTER_LOGGING 1  /* Set to 0 to disable all register logging */
 #endif
 
+/* Rate limiting configuration for demod sequence logging (in milliseconds) */
+#ifndef DEMOD_SEQUENCE_LOG_INTERVAL_MS
+#define DEMOD_SEQUENCE_LOG_INTERVAL_MS 5000  /* Log demod sequence once every 5 seconds */
+#endif
+
 /* Runtime enable/disable register logging */
 extern bool register_logging_enabled;
 
