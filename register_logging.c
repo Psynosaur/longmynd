@@ -22,7 +22,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/time.h>
+#endif
 #include "register_logging.h"
 #include "stv6120_regs.h"
 #include "stv0910_regs.h"
@@ -139,9 +143,21 @@ uint64_t get_timestamp_ms(void)
     /* Gets current timestamp in milliseconds                                                          */
     /* return: timestamp in milliseconds                                                               */
     /* -------------------------------------------------------------------------------------------------- */
+#ifdef _WIN32
+    /* Windows implementation */
+    FILETIME ft;
+    ULARGE_INTEGER uli;
+    GetSystemTimeAsFileTime(&ft);
+    uli.LowPart = ft.dwLowDateTime;
+    uli.HighPart = ft.dwHighDateTime;
+    /* Convert from 100ns intervals since 1601 to milliseconds since 1970 */
+    return (uli.QuadPart / 10000ULL) - 11644473600000ULL;
+#else
+    /* Unix/Linux implementation */
     struct timeval tv;
     gettimeofday(&tv, NULL);
     return (uint64_t)(tv.tv_sec) * 1000 + (uint64_t)(tv.tv_usec) / 1000;
+#endif
 }
 
 /* -------------------------------------------------------------------------------------------------- */

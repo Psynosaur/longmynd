@@ -852,6 +852,73 @@ static uint8_t handle_configuration_change(thread_vars_t *thread_vars, longmynd_
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+/* STATUS SYNCHRONIZATION FUNCTIONS                                                                   */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+static void update_status_synchronization(longmynd_status_t *status, longmynd_status_t *status_cpy,
+                                         uint32_t *last_ts_packet_count)
+{
+    /* -------------------------------------------------------------------------------------------------- */
+    /* Updates TS packet tracking and synchronizes local status with global status                     */
+    /* Preserves exact mutex usage and pthread signaling                                               */
+    /* status: global status structure                                                                  */
+    /* status_cpy: local status copy                                                                    */
+    /* last_ts_packet_count: last TS packet count for tracking                                         */
+    /* -------------------------------------------------------------------------------------------------- */
+
+    /* Update TS packet tracking - PRESERVE EXACT LOGIC */
+    if (status->ts_packet_count_nolock > 0 && *last_ts_packet_count != status->ts_packet_count_nolock)
+    {
+        status_cpy->last_ts_or_reinit_monotonic = monotonic_ms();
+        *last_ts_packet_count = status->ts_packet_count_nolock;
+    }
+
+    /* Copy local status data over global object - PRESERVE EXACT MUTEX USAGE */
+    pthread_mutex_lock(&status->mutex);
+
+    /* Copy out other vars - PRESERVE EXACT FIELD ASSIGNMENTS */
+    status->state = status_cpy->state;
+    status->demod_state = status_cpy->demod_state;
+    status->lna_ok = status_cpy->lna_ok;
+    status->lna_gain = status_cpy->lna_gain;
+    status->agc1_gain = status_cpy->agc1_gain;
+    status->agc2_gain = status_cpy->agc2_gain;
+    status->power_i = status_cpy->power_i;
+    status->power_q = status_cpy->power_q;
+    status->frequency_requested = status_cpy->frequency_requested;
+    status->frequency_offset = status_cpy->frequency_offset;
+    status->polarisation_supply = status_cpy->polarisation_supply;
+    status->polarisation_horizontal = status_cpy->polarisation_horizontal;
+    status->symbolrate_requested = status_cpy->symbolrate_requested;
+    status->symbolrate = status_cpy->symbolrate;
+    status->viterbi_error_rate = status_cpy->viterbi_error_rate;
+    status->bit_error_rate = status_cpy->bit_error_rate;
+    status->modulation_error_rate = status_cpy->modulation_error_rate;
+    status->errors_bch_uncorrected = status_cpy->errors_bch_uncorrected;
+    status->errors_bch_count = status_cpy->errors_bch_count;
+    status->errors_ldpc_count = status_cpy->errors_ldpc_count;
+    memcpy(status->constellation, status_cpy->constellation, (sizeof(uint8_t) * NUM_CONSTELLATIONS * 2));
+    status->puncture_rate = status_cpy->puncture_rate;
+    status->modcod = status_cpy->modcod;
+    status->matype1 = status_cpy->matype1;
+    status->matype2 = status_cpy->matype2;
+    status->short_frame = status_cpy->short_frame;
+    status->pilots = status_cpy->pilots;
+    status->rolloff = status_cpy->rolloff;
+    if (status_cpy->last_ts_or_reinit_monotonic != 0)
+    {
+        status->last_ts_or_reinit_monotonic = status_cpy->last_ts_or_reinit_monotonic;
+    }
+
+    /* Set monotonic value to signal new data - PRESERVE EXACT SIGNALING */
+    status->last_updated_monotonic = monotonic_ms();
+    /* Trigger pthread signal */
+    pthread_cond_signal(&status->signal);
+    pthread_mutex_unlock(&status->mutex);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 /* RECEIVER STATE MACHINE FUNCTIONS                                                                   */
 /* -------------------------------------------------------------------------------------------------- */
 
