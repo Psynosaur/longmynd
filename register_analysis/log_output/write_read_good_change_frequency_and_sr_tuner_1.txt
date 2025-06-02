@@ -1,0 +1,76 @@
+New Config !!!!!!!!!
+Flow: NIM init
+Flow: STV0910 init
+[1748877320787] STV0910: Writing RSTV0910_P1_DMDISTATE (0xf416) = 0x1c (28) - P1 demodulator state control [DEMOD_CTRL]
+[1748877320788] STV0910: Writing RSTV0910_P2_DMDISTATE (0xf216) = 0x1c (28) - P2 demodulator state control [DEMOD_CTRL]
+Flow: stv0910 init regs
+      Status: STV0910 MID = 0x51, DID = 0x20
+[1748877320793] STV0910: Writing RSTV0910_DACR1 (0xf113) = 0x00 (0) - DAC register 1 [DEMOD_CTRL]...
+[1748877321489] STV0910: Writing RSTV0910_TSTRES0 (0xff11) = 0x00 (0) - Test reset register 0 [DEMOD_CTRL]
+Flow: STV0910 set MCLK
+Flow: Setup equlaizers 1
+Flow: Setup carrier loop 1
+[1748877321495] SEQUENCE_START: STV0910 Carrier Loop Setup
+[1748877321495] STV0910: Writing RSTV0910_P2_CFRINIT0 (0xf249) = 0x00 (0) - P2 carrier frequency init LSB [CARRIER_LOOP]
+[1748877321496] STV0910: Writing RSTV0910_P2_CFRINIT1 (0xf248) = 0x00 (0) - P2 carrier frequency init MSB [CARRIER_LOOP]
+[1748877321497] STV0910: Writing RSTV0910_P2_CFRUP0 (0xf243) = 0xf2 (242) - P2 carrier frequency upper limit LSB [CARRIER_LOOP]
+[1748877321498] STV0910: Writing RSTV0910_P2_CFRUP1 (0xf242) = 0x00 (0) - P2 carrier frequency upper limit MSB [CARRIER_LOOP]
+[1748877321499] STV0910: Writing RSTV0910_P2_CFRLOW0 (0xf247) = 0x0e (14) - P2 carrier frequency lower limit LSB [CARRIER_LOOP]
+[1748877321499] STV0910: Writing RSTV0910_P2_CFRLOW1 (0xf246) = 0xff (255) - P2 carrier frequency lower limit MSB [CARRIER_LOOP]
+[1748877321501] SEQUENCE_END: STV0910 Carrier Loop Setup
+Flow: Setup timing loop 1
+[1748877321501] SEQUENCE_START: STV0910 Symbol Rate Setup
+[1748877321501] STV0910: Writing RSTV0910_P2_SFRINIT1 (0xf25e) = 0x00 (0) - P2 symbol rate init MSB [TIMING_LOOP]
+[1748877321502] STV0910: Writing RSTV0910_P2_SFRINIT0 (0xf25f) = 0xa1 (161) - P2 symbol rate init LSB [TIMING_LOOP]
+[1748877321503] SEQUENCE_END: STV0910 Symbol Rate Setup
+Flow: Tuner init
+[1748877321503] SEQUENCE_START: STV6120 Initialization
+[1748877321503] STV6120: Writing STV6120_CTRL1 (0x00) = 0x75 (117) - K divider, RDIV, output shape, MCLK divider [INIT]
+[1748877321505] STV6120: Writing STV6120_CTRL2 (0x01) = 0x30 (48) - DC loop, shutdown, synthesizer, reference, baseband gain [INIT]
+[1748877321506] STV6120: Writing STV6120_CTRL7 (0x06) = 0x80 (128) - RC clock, P divider, CF filter (tuner 1) [INIT]
+[1748877321506] STV6120: Writing STV6120_CTRL8 (0x07) = 0x40 (64) - TCAL, calibration time, CFHF filter (tuner 1) [INIT]
+[1748877321507] STV6120: Writing STV6120_CTRL9 (0x09) = 0xf9 (249) - Status register (tuner 1) [INIT]
+[1748877321507] STV6120: Writing STV6120_CTRL10 (0x0a) = 0x09 (9) - Path control, LNA control [INIT]
+[1748877321508] STV6120: Writing STV6120_CTRL11 (0x0b) = 0xd0 (208) - N divider LSB (tuner 2) [INIT]
+[1748877321508] STV6120: Writing STV6120_CTRL16 (0x10) = 0x80 (128) - TCAL, calibration time, CFHF filter (tuner 2) [INIT]
+[1748877321509] STV6120: Writing STV6120_CTRL17 (0x11) = 0x40 (64) - Status register (tuner 2) [INIT]
+[1748877321509] STV6120: Writing STV6120_CTRL18 (0x13) = 0x00 (0) - Test register [INIT]
+[1748877321510] STV6120: Writing STV6120_CTRL19 (0x14) = 0x00 (0) - Test register [INIT]
+[1748877321510] STV6120: Writing STV6120_CTRL20 (0x15) = 0x8c (140) - VCO 1 amplifier control [INIT]
+[1748877321511] STV6120: Writing STV6120_CTRL21 (0x16) = 0x00 (0) - Test register [INIT]
+[1748877321511] STV6120: Writing STV6120_CTRL22 (0x17) = 0x00 (0) - Test register [INIT]
+[1748877321512] STV6120: Writing STV6120_CTRL23 (0x18) = 0x8c (140) - VCO 2 amplifier control [INIT]
+Flow: Tuner cal lowpass
+[1748877321512] STV6120: Writing STV6120_CTRL7 (0x06) = 0x00 (0) - RC clock, P divider, CF filter (tuner 1) [INIT]
+[1748877321513] STV6120: Writing STV6120_STAT1 (0x08) = 0x02 (2) - Status register (tuner 1) [INIT]
+[1748877321514] STV6120: Reading STV6120_STAT1 (0x08) = 0x03 (3) - Status register (tuner 1) [INIT]
+[1748877321514] STV6120: Reading STV6120_STAT1 (0x08) = 0x01 (1) - Status register (tuner 1) [INIT]
+[1748877321514] STV6120: Writing STV6120_CTRL7 (0x06) = 0x80 (128) - RC clock, P divider, CF filter (tuner 1) [INIT]
+Flow: Tuner set freq
+[1748877321515] SEQUENCE_START: STV6120 Frequency Tuning
+Flow: Tuner set freq
+      Status: tuner:0, f_vco=0x2d41f0, icp=0x2, f=0x2eeee, n=0xc5,
+              rdiv=0x1, p=0x1, freq=741500, cfhf=2331
+[1748877321515] STV6120: Writing STV6120_CTRL3 (0x02) = 0xc5 (197) - N divider LSB (tuner 1) [PLL_CONFIG]
+[1748877321516] STV6120: Writing STV6120_CTRL4 (0x03) = 0xdc (220) - F divider bits 6-0, N divider MSB (tuner 1) [PLL_CONFIG]
+[1748877321516] STV6120: Writing STV6120_CTRL5 (0x04) = 0xdd (221) - F divider bits 14-7 (tuner 1) [PLL_CONFIG]
+[1748877321517] STV6120: Writing STV6120_CTRL6 (0x05) = 0x2d (45) - ICP current, F divider bits 17-15 (tuner 1) [PLL_CONFIG]
+[1748877321517] STV6120: Writing STV6120_CTRL7 (0x06) = 0xa0 (160) - RC clock, P divider, CF filter (tuner 1) [PLL_CONFIG]
+[1748877321518] STV6120: Writing STV6120_CTRL8 (0x07) = 0x48 (72) - TCAL, calibration time, CFHF filter (tuner 1) [PLL_CONFIG]
+[1748877321518] STV6120: Writing STV6120_STAT1 (0x08) = 0x0c (12) - Status register (tuner 1) [PLL_CAL]
+[1748877321519] STV6120: Reading STV6120_STAT1 (0x08) = 0x0c (12) - Status register (tuner 1) [STATUS_READ]
+[1748877321520] STV6120: Reading STV6120_STAT1 (0x08) = 0x0c (12) - Status register (tuner 1) [STATUS_READ]
+[1748877321521] STV6120: Reading STV6120_STAT1 (0x08) = 0x08 (8) - Status register (tuner 1) [STATUS_READ]
+[1748877321521] STV6120: Reading STV6120_STAT1 (0x08) = 0x09 (9) - Status register (tuner 1) [STATUS_READ]
+[1748877321521] SEQUENCE_END: STV6120 Frequency Tuning
+[1748877321521] SEQUENCE_END: STV6120 Initialization
+Flow: LNA init 1
+      Status: found new NIM with LNAs
+Flow: LNA init 2
+      Status: found new NIM with LNAs
+Flow: FTDI GPIO Write: pin 7 -> value 1
+Flow: FTDI GPIO Write: pin 4 -> value 1
+Flow: STV0910 start scan
+[1748877321526] SEQUENCE_START: STV0910 Start Scan
+[1748877321526] STV0910: Writing RSTV0910_P2_DMDISTATE (0xf216) = 0x15 (21) - P2 demodulator state control [DEMOD_CTRL]
+[1748877321530] SEQUENCE_END: STV0910 Start Scan

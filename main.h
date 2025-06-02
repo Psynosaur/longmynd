@@ -103,6 +103,32 @@ typedef struct {
 
     bool disable_demod_suppression;
 
+    // Tuner 2 configuration
+    bool tuner2_enabled;
+    uint32_t tuner2_freq_requested[4];
+    uint32_t tuner2_sr_requested[4];
+    uint8_t tuner2_freq_index=0;
+    uint8_t tuner2_sr_index=0;
+    float tuner2_halfscan_ratio;
+    bool tuner2_port_swap;
+
+    // Tuner 2 TS output
+    bool tuner2_ts_use_ip;
+    char tuner2_ts_fifo_path[128];
+    char tuner2_ts_ip_addr[16];
+    int tuner2_ts_ip_port;
+
+    // Tuner 2 status output
+    bool tuner2_status_use_ip;
+    bool tuner2_status_use_mqtt;
+    char tuner2_status_fifo_path[128];
+    char tuner2_status_ip_addr[16];
+    int tuner2_status_ip_port;
+
+    // Tuner 2 polarisation (independent LNB control)
+    bool tuner2_polarisation_supply;
+    bool tuner2_polarisation_horizontal;
+
     bool new_config=false;
     pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
 } longmynd_config_t;
@@ -155,6 +181,7 @@ typedef struct {
     uint8_t thread_err;
     longmynd_config_t *config;
     longmynd_status_t *status;
+    longmynd_status_t *status2;  // Tuner 2 status
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);
