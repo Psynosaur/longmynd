@@ -45,7 +45,11 @@ ftdi_device_context_t ftdi_tuner1_context = {
     .usb_bus = 0,
     .usb_addr = 0,
     .initialized = false,
-    .active = false
+    .active = false,
+    .usb_device_handle_i2c = NULL,
+    .usb_device_handle_ts = NULL,
+    .usb_context_i2c = NULL,
+    .usb_context_ts = NULL
 };
 
 ftdi_device_context_t ftdi_tuner2_context = {
@@ -53,7 +57,11 @@ ftdi_device_context_t ftdi_tuner2_context = {
     .usb_bus = 0,
     .usb_addr = 0,
     .initialized = false,
-    .active = false
+    .active = false,
+    .usb_device_handle_i2c = NULL,
+    .usb_device_handle_ts = NULL,
+    .usb_context_i2c = NULL,
+    .usb_context_ts = NULL
 };
 
 /* Current active tuner context */
@@ -132,9 +140,15 @@ uint8_t ftdi_init_tuner(uint8_t tuner_id, uint8_t usb_bus, uint8_t usb_addr)
     
     /* Use existing FTDI initialization but with tuner-specific context */
     err = ftdi_init(usb_bus, usb_addr);
-    
+
     if (err == ERROR_NONE) {
-        printf("      Status: Tuner %d FTDI initialized successfully\n", tuner_id);
+        /* Store the USB handles for this tuner */
+        err = ftdi_store_usb_handles(tuner_id);
+        if (err == ERROR_NONE) {
+            printf("      Status: Tuner %d FTDI initialized successfully\n", tuner_id);
+        } else {
+            printf("ERROR: Failed to store USB handles for tuner %d\n", tuner_id);
+        }
     } else {
         printf("ERROR: Failed to initialize FTDI for tuner %d\n", tuner_id);
     }
@@ -156,8 +170,12 @@ static uint8_t ftdi_select_tuner_internal(uint8_t tuner_id)
 
     if (tuner_id == TUNER_1_ID && ftdi_tuner1_context.initialized) {
         current_tuner_id = TUNER_1_ID;
+        /* Switch USB handles to tuner 1 */
+        err = ftdi_switch_usb_handles(TUNER_1_ID);
     } else if (tuner_id == TUNER_2_ID && ftdi_tuner2_context.initialized) {
         current_tuner_id = TUNER_2_ID;
+        /* Switch USB handles to tuner 2 */
+        err = ftdi_switch_usb_handles(TUNER_2_ID);
     } else {
         printf("ERROR: Cannot select tuner %d - not initialized\n", tuner_id);
         err = ERROR_FTDI_USB_BAD_DEVICE_NUM;
@@ -559,6 +577,67 @@ uint8_t ftdi_dual_cleanup(void)
 
     /* Reset to default state */
     current_tuner_id = TUNER_1_ID;
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_store_usb_handles(uint8_t tuner_id)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Store current global USB handles into tuner context                                               */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    void *i2c_handle, *ts_handle, *i2c_context, *ts_context;
+
+    /* Get current USB handles from ftdi_usb module */
+    ftdi_usb_get_handles(&i2c_handle, &ts_handle, &i2c_context, &ts_context);
+
+    if (tuner_id == TUNER_1_ID) {
+        ftdi_tuner1_context.usb_device_handle_i2c = i2c_handle;
+        ftdi_tuner1_context.usb_device_handle_ts = ts_handle;
+        ftdi_tuner1_context.usb_context_i2c = i2c_context;
+        ftdi_tuner1_context.usb_context_ts = ts_context;
+    } else if (tuner_id == TUNER_2_ID) {
+        ftdi_tuner2_context.usb_device_handle_i2c = i2c_handle;
+        ftdi_tuner2_context.usb_device_handle_ts = ts_handle;
+        ftdi_tuner2_context.usb_context_i2c = i2c_context;
+        ftdi_tuner2_context.usb_context_ts = ts_context;
+    } else {
+        err = ERROR_FTDI_USB_BAD_DEVICE_NUM;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_switch_usb_handles(uint8_t tuner_id)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Switch global USB handles to specified tuner context                                              */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (tuner_id == TUNER_1_ID && ftdi_tuner1_context.initialized) {
+        /* Set global USB handles to tuner 1's context */
+        ftdi_usb_set_handles(ftdi_tuner1_context.usb_device_handle_i2c,
+                            ftdi_tuner1_context.usb_device_handle_ts,
+                            ftdi_tuner1_context.usb_context_i2c,
+                            ftdi_tuner1_context.usb_context_ts);
+    } else if (tuner_id == TUNER_2_ID && ftdi_tuner2_context.initialized) {
+        /* Set global USB handles to tuner 2's context */
+        ftdi_usb_set_handles(ftdi_tuner2_context.usb_device_handle_i2c,
+                            ftdi_tuner2_context.usb_device_handle_ts,
+                            ftdi_tuner2_context.usb_context_i2c,
+                            ftdi_tuner2_context.usb_context_ts);
+    } else {
+        printf("ERROR: Cannot switch to tuner %d - not initialized\n", tuner_id);
+        err = ERROR_FTDI_USB_BAD_DEVICE_NUM;
+    }
 
     return err;
 }

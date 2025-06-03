@@ -374,3 +374,27 @@ uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
 
     return err;
 }
+
+/* -------------------------------------------------------------------------------------------------- */
+void ftdi_usb_get_handles(void **i2c_handle, void **ts_handle, void **i2c_context, void **ts_context)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Get current USB device handles and contexts                                                       */
+/* -------------------------------------------------------------------------------------------------- */
+    *i2c_handle = usb_device_handle_i2c;
+    *ts_handle = usb_device_handle_ts;
+    *i2c_context = usb_context_i2c;
+    *ts_context = usb_context_ts;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void ftdi_usb_set_handles(void *i2c_handle, void *ts_handle, void *i2c_context, void *ts_context)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Set USB device handles and contexts                                                               */
+/* -------------------------------------------------------------------------------------------------- */
+    usb_device_handle_i2c = (libusb_device_handle *)i2c_handle;
+    usb_device_handle_ts = (libusb_device_handle *)ts_handle;
+    usb_context_i2c = (libusb_context *)i2c_context;
+    usb_context_ts = (libusb_context *)ts_context;
+}

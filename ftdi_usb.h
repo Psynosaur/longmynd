@@ -38,5 +38,9 @@ uint8_t ftdi_usb_ts_read(uint8_t *, uint16_t *, uint32_t);
 uint8_t ftdi_usb_init_i2c(uint8_t, uint8_t, uint16_t, uint16_t);
 uint8_t ftdi_usb_init_ts(uint8_t, uint8_t, uint16_t, uint16_t);
 
+/* USB handle management for dual tuner support */
+void ftdi_usb_get_handles(void **i2c_handle, void **ts_handle, void **i2c_context, void **ts_context);
+void ftdi_usb_set_handles(void *i2c_handle, void *ts_handle, void *i2c_context, void *ts_context);
+
 #endif
 

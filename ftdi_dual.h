@@ -38,6 +38,11 @@ typedef struct {
     uint8_t usb_addr;
     bool initialized;
     bool active;
+    /* USB device handles for this tuner */
+    void *usb_device_handle_i2c;
+    void *usb_device_handle_ts;
+    void *usb_context_i2c;
+    void *usb_context_ts;
 } ftdi_device_context_t;
 
 /* Global device contexts */
@@ -73,5 +78,9 @@ bool ftdi_is_tuner_active(uint8_t tuner_id);
 /* Context switching helpers */
 uint8_t ftdi_switch_context(uint8_t tuner_id);
 uint8_t ftdi_restore_context(void);
+
+/* USB device handle management */
+uint8_t ftdi_store_usb_handles(uint8_t tuner_id);
+uint8_t ftdi_switch_usb_handles(uint8_t tuner_id);
 
 #endif
