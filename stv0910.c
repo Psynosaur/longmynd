@@ -745,18 +745,44 @@ uint8_t stv0910_init_regs() {
     printf("Flow: STV0910 fast initialization (%d essential registers)\n", STV0910_ESSENTIAL_REGS);
 
     for (i = 0; (err == ERROR_NONE) && (i < STV0910_ESSENTIAL_REGS); i++) {
+        /* Bounds check for shadow register array access */
+        uint16_t reg = STV0910EssentialRegs[i].reg;
+        if (reg < STV0910_START_ADDR || reg > STV0910_END_ADDR) {
+            printf("ERROR: STV0910 register 0x%.4x out of bounds (0x%.4x-0x%.4x) at index %d\n",
+                   reg, STV0910_START_ADDR, STV0910_END_ADDR, i);
+            err = ERROR_DEMOD_INIT;
+            break;
+        }
+
+        /* Debug: Print progress every 50 registers */
+        if (i % 50 == 0) {
+            printf("STV0910 init progress: %d/%d registers (current: 0x%.4x)\n", i, STV0910_ESSENTIAL_REGS, reg);
+        }
+
         /* Update shadow register */
-        stv0910_shadow_regs[STV0910EssentialRegs[i].reg-STV0910_START_ADDR]=STV0910EssentialRegs[i].val;
+        stv0910_shadow_regs[reg-STV0910_START_ADDR]=STV0910EssentialRegs[i].val;
         /* Use bulk write function to avoid context switching - skip logging for speed */
-        err=nim_write_demod_bulk(STV0910EssentialRegs[i].reg, STV0910EssentialRegs[i].val);
+        err=nim_write_demod_bulk(reg, STV0910EssentialRegs[i].val);
+
+        if (err != ERROR_NONE) {
+            printf("ERROR: Failed to write register 0x%.4x at index %d\n", reg, i);
+            break;
+        }
     }
 
     /* finally (from ST example code) reset the LDPC decoder */
     if (err==ERROR_NONE) {
-        /* Update shadow register */
-        stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x80;
-        /* Skip logging for speed during initialization */
-        err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x80);
+        /* Bounds check for RSTV0910_TSTRES0 */
+        if (RSTV0910_TSTRES0 < STV0910_START_ADDR || RSTV0910_TSTRES0 > STV0910_END_ADDR) {
+            printf("ERROR: RSTV0910_TSTRES0 register 0x%.4x out of bounds (0x%.4x-0x%.4x)\n",
+                   RSTV0910_TSTRES0, STV0910_START_ADDR, STV0910_END_ADDR);
+            err = ERROR_DEMOD_INIT;
+        } else {
+            /* Update shadow register */
+            stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x80;
+            /* Skip logging for speed during initialization */
+            err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x80);
+        }
     }
     if (err==ERROR_NONE) {
         /* Update shadow register */
