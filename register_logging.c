@@ -1132,22 +1132,16 @@ static bool should_log_demod_sequence(void)
     if (current_time - last_demod_sequence_log_time >= DEMOD_SEQUENCE_LOG_INTERVAL_MS) {
         last_demod_sequence_log_time = current_time;
 
-        /* If we were suppressing logs, indicate that we're resuming */
+        /* Reset suppression flag if we were suppressing logs */
         if (demod_sequence_suppressed) {
-            printf("[%llu] STV0910: Resuming demod sequence logging (suppressed for %llu ms)\n",
-                   (unsigned long long)current_time,
-                   (unsigned long long)(current_time - (last_demod_sequence_log_time - DEMOD_SEQUENCE_LOG_INTERVAL_MS)));
             demod_sequence_suppressed = false;
         }
 
         return true;
     }
 
-    /* Mark that we're suppressing logs */
+    /* Mark that we're suppressing logs (without verbose output) */
     if (!demod_sequence_suppressed) {
-        printf("[%llu] STV0910: Suppressing demod sequence logging for %d ms\n",
-               (unsigned long long)current_time,
-               DEMOD_SEQUENCE_LOG_INTERVAL_MS);
         demod_sequence_suppressed = true;
     }
 
