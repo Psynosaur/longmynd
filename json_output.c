@@ -57,15 +57,14 @@ const char *json_get_demod_state_name(uint8_t demod_state)
 {
     /* -------------------------------------------------------------------------------------------------- */
     /* Converts demod state number to string name                                                      */
-    /* demod_state: demodulator state number                                                           */
+    /* demod_state: demodulator state number (hardware states from STV0910)                           */
     /* return: string name of demod state                                                              */
     /* -------------------------------------------------------------------------------------------------- */
     switch (demod_state) {
-        case 0: return "init";
-        case 1: return "hunting";
-        case 2: return "found_header";
+        case 0: return "hunting";
+        case 1: return "found_header";
+        case 2: return "demod_s2";
         case 3: return "demod_s";
-        case 4: return "demod_s2";
         default: return "unknown";
     }
 }
