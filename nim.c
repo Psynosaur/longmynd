@@ -276,8 +276,14 @@ uint8_t nim_write_demod_bulk_end(void) {
     uint8_t err=ERROR_NONE;
 
     if (dual_tuner_mode) {
+        /* Ensure I2C repeater is turned off after bulk operations */
+        if (repeater_on) {
+            repeater_on=false;
+            err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0x38);
+        }
+
         /* Release the FTDI context lock */
-        err = ftdi_bulk_write_end();
+        if (err==ERROR_NONE) err = ftdi_bulk_write_end();
     }
 
     return err;
@@ -335,7 +341,7 @@ uint8_t nim_init_tuner(uint8_t tuner_id) {
     }
 
     /* we always want to start with the i2c repeater turned off */
-    if (err!=ERROR_NONE) err=nim_write_demod_tuner(tuner_id, 0xf12a, 0x38);
+    if (err==ERROR_NONE) err=nim_write_demod_tuner(tuner_id, 0xf12a, 0x38);
 
     if (err!=ERROR_NONE) printf("ERROR: nim_init_tuner %d\n", tuner_id);
 
@@ -367,7 +373,7 @@ uint8_t nim_init() {
     }
 
     /* we always want to start with the i2c repeater turned off */
-    if (err!=ERROR_NONE) err=nim_write_demod(0xf12a,0x38);
+    if (err==ERROR_NONE) err=nim_write_demod(0xf12a,0x38);
 
     if (err!=ERROR_NONE) printf("ERROR: nim_init\n");
 
