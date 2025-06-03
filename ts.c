@@ -79,8 +79,12 @@ void *loop_ts(void *arg) {
     }
 
     if(thread_vars->config->ts_use_ip) {
-        *err=udp_ts_init(thread_vars->config->ts_ip_addr, thread_vars->config->ts_ip_port);
-        ts_write = udp_ts_write;
+        /* UDP initialization is now done in main() */
+        if (thread_vars->config->tuner2_enabled) {
+            ts_write = udp_ts_write_tuner1;  /* Use tuner1 function in dual tuner mode */
+        } else {
+            ts_write = udp_ts_write;  /* Use standard function in single tuner mode */
+        }
     } else {
         *err=fifo_ts_init(thread_vars->config->ts_fifo_path, &fifo_ready);
         ts_write = fifo_ts_write;
@@ -126,15 +130,20 @@ void *loop_ts(void *arg) {
          
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 3)
         {
-             
-           
-            ts_write = udp_ts_write;
-            //ts_write = udp_bb_write;
+            if (thread_vars->config->tuner2_enabled) {
+                ts_write = udp_ts_write_tuner1;
+            } else {
+                ts_write = udp_ts_write;
+            }
         }
         if(thread_vars->config->ts_use_ip && (status->matype1&0xC0)>>6 == 1)
         {
-            ts_write = udp_bb_write;
-        }    
+            if (thread_vars->config->tuner2_enabled) {
+                ts_write = udp_bb_write_tuner1;
+            } else {
+                ts_write = udp_bb_write;
+            }
+        }
 
 
             if(thread_vars->config->ts_use_ip || fifo_ready)

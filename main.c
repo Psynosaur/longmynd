@@ -1900,6 +1900,36 @@ int main(int argc, char *argv[])
     if (err == ERROR_NONE)
         err = initialize_status_output(&status_write, &status_string_write, &status_output_ready);
 
+    /* Initialize TS output interface */
+    if (err == ERROR_NONE) {
+        if (longmynd_config.tuner2_enabled) {
+            /* Initialize dual tuner TS UDP outputs */
+            if (longmynd_config.ts_use_ip) {
+                printf("Flow: Initializing Tuner 1 TS UDP output\n");
+                err = udp_ts_init_tuner1(longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port);
+                if (err != ERROR_NONE) {
+                    printf("ERROR: Failed to initialize Tuner 1 TS UDP output\n");
+                }
+            }
+            if (err == ERROR_NONE && longmynd_config.tuner2_ts_use_ip) {
+                printf("Flow: Initializing Tuner 2 TS UDP output\n");
+                err = udp_ts_init_tuner2(longmynd_config.tuner2_ts_ip_addr, longmynd_config.tuner2_ts_ip_port);
+                if (err != ERROR_NONE) {
+                    printf("ERROR: Failed to initialize Tuner 2 TS UDP output\n");
+                }
+            }
+        } else {
+            /* Single tuner mode */
+            if (longmynd_config.ts_use_ip) {
+                printf("Flow: Initializing TS UDP output\n");
+                err = udp_ts_init(longmynd_config.ts_ip_addr, longmynd_config.ts_ip_port);
+                if (err != ERROR_NONE) {
+                    printf("ERROR: Failed to initialize TS UDP output\n");
+                }
+            }
+        }
+    }
+
     /* Initialize FTDI USB interface(s) */
     if (err == ERROR_NONE) {
         if (longmynd_config.tuner2_enabled) {

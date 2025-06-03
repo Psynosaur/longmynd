@@ -137,9 +137,8 @@ void *loop_ts_tuner2(void *arg)
 
     /* Initialize output method based on configuration */
     if (config->tuner2_ts_use_ip) {
-        if (*err == ERROR_NONE)
-            *err = udp_ts_init(config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
-        ts_write = udp_ts_write;
+        /* UDP initialization is now done in main() */
+        ts_write = udp_ts_write_tuner2;
         fifo_ready = true;
     } else {
         *err = fifo_ts_init(config->tuner2_ts_fifo_path, &fifo_ready);

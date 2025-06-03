@@ -1,6 +1,26 @@
 # Makefile for longmynd
 
-SRC = main.c nim.c ftdi.c stv0910.c stv0910_utils.c stvvglna.c stvvglna_utils.c stv6120.c stv6120_utils.c ftdi_usb.c fifo.c udp.c beep.c ts.c libts.c mymqtt.c pcrpts.c register_logging.c json_output.c ftdi_dual.c tuner2.c
+SRC = main.c \
+      nim.c \
+      ftdi.c \
+      ftdi_dual.c \
+      ftdi_usb.c \
+      stv0910.c \
+      stv0910_utils.c \
+      stv6120.c \
+      stv6120_utils.c \
+      stvvglna.c \
+      stvvglna_utils.c \
+      fifo.c \
+      udp.c \
+      beep.c \
+      ts.c \
+      tuner2.c \
+      libts.c \
+      mymqtt.c \
+      pcrpts.c \
+      register_logging.c \
+      json_output.c
 OBJ = ${SRC:.c=.o}
 
 ifeq ($(env),local)
@@ -17,11 +37,11 @@ ifeq ($(env),local)
 CXX=$(CROSS_COMPILE)g++
 CC=$(CROSS_COMPILE)gcc
 #HOST_DIR=/home/linuxdev/prog/pluto/firm033/pluto_radar/plutosdr-fw/buildroot/output/host
-CFLAGS = -fpermissive -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -O2 -mfpu=neon -mfloat-abi=hard
+CFLAGS = -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -O2 -mfpu=neon -mfloat-abi=hard
 else
 CXX=g++
 CC=gcc
-CFLAGS = -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -g -O2 -fpermissive
+CFLAGS = -Wall -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -g -O2
 endif
 # Build parallel
 MAKEFLAGS += -j$(shell nproc || printf 1)
