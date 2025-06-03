@@ -48,6 +48,7 @@
 #include "beep.h"
 #include "ts.h"
 #include "register_logging.h"
+#include "json_output.h"
 #include "mymqtt.h"
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -269,6 +270,12 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->ts_timeout = 50 * 1000;
     config->disable_demod_suppression = false;
 
+    /* JSON output defaults */
+    config->json_output_enabled = false;
+    config->json_output_interval_ms = 1000;
+    config->json_output_format = 0;  /* 0=full, 1=compact, 2=minimal */
+    config->json_include_constellation = false;
+
     param = 1;
     while (param < argc - 2)
     {
@@ -327,6 +334,31 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'D':
                 config->disable_demod_suppression = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'j':
+                config->json_output_enabled = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'J':
+                config->json_output_interval_ms = (uint32_t)strtol(argv[param], NULL, 10);
+                config->json_output_enabled = true;
+                break;
+            case 'F':
+                if (strcmp(argv[param], "full") == 0) {
+                    config->json_output_format = 0;
+                } else if (strcmp(argv[param], "compact") == 0) {
+                    config->json_output_format = 1;
+                } else if (strcmp(argv[param], "minimal") == 0) {
+                    config->json_output_format = 2;
+                } else {
+                    err = ERROR_ARGS_INPUT;
+                    printf("ERROR: JSON format must be 'full', 'compact', or 'minimal'\n");
+                }
+                config->json_output_enabled = true;
+                break;
+            case 'C':
+                config->json_include_constellation = true;
                 param--; /* there is no data for this so go back */
                 break;
             }
@@ -586,6 +618,13 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              TS Timeout Disabled.\n");
             if (config->disable_demod_suppression)
                 printf("              Demod Suppression Disabled\n");
+            if (config->json_output_enabled) {
+                const char *format_names[] = {"full", "compact", "minimal"};
+                printf("              JSON Output Enabled: format=%s, interval=%ums\n",
+                       format_names[config->json_output_format], config->json_output_interval_ms);
+                if (config->json_include_constellation)
+                    printf("              JSON includes constellation data\n");
+            }
         }
     }
 
@@ -1087,6 +1126,9 @@ void *loop_i2c(void *arg)
         /* Update TS packet tracking and synchronize status */
         update_status_synchronization(status, &status_cpy, &last_ts_packet_count);
 
+        /* Output JSON demodulator cycle data if enabled */
+        JSON_OUTPUT_DEMOD_CYCLE(1, &status_cpy);
+
         last_i2c_loop = monotonic_ms();
     }
     return NULL;
@@ -1475,6 +1517,9 @@ int main(int argc, char *argv[])
     /* Initialize register logging system */
     register_logging_init();
 
+    /* Initialize JSON output system */
+    JSON_OUTPUT_INIT();
+
     /* Initialize signal handlers */
     if (err == ERROR_NONE)
         err = initialize_signal_handlers(&err);
@@ -1486,6 +1531,18 @@ int main(int argc, char *argv[])
     /* Configure register logging based on command line options */
     if (err == ERROR_NONE)
         register_logging_set_demod_suppression_disabled(longmynd_config.disable_demod_suppression);
+
+    /* Configure JSON output based on command line options */
+    if (err == ERROR_NONE) {
+        json_output_config_t json_config;
+        json_config.enabled = longmynd_config.json_output_enabled;
+        json_config.format = (json_format_t)longmynd_config.json_output_format;
+        json_config.interval_ms = longmynd_config.json_output_interval_ms;
+        json_config.include_constellation = longmynd_config.json_include_constellation;
+        json_config.include_timestamp = true;
+        json_config.pretty_print = false;
+        json_output_set_config(&json_config);
+    }
 
     /* Initialize status output interface */
     if (err == ERROR_NONE)

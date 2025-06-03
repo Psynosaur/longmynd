@@ -103,6 +103,12 @@ typedef struct {
 
     bool disable_demod_suppression;
 
+    // JSON output configuration
+    bool json_output_enabled;
+    uint32_t json_output_interval_ms;
+    uint8_t json_output_format;  // 0=full, 1=compact, 2=minimal
+    bool json_include_constellation;
+
     // Tuner 2 configuration
     bool tuner2_enabled;
     uint32_t tuner2_freq_requested[4];
