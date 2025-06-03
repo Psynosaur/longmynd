@@ -829,16 +829,185 @@ uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
     return err;
 }
 
+/* -------------------------------------------------------------------------------------------------- */
+/* Tuner-specific BB frame defragmentation functions                                                  */
+/* -------------------------------------------------------------------------------------------------- */
+
+static void udp_bb_defrag_tuner(u_int8_t *b, int len, bool withheader, int sockfd, struct sockaddr_in *servaddr, int tuner_id)
+{
+    static unsigned char BBFrame_tuner1[BBFRAME_MAX_LEN];
+    static unsigned char BBFrame_tuner2[BBFRAME_MAX_LEN];
+    static int offset_tuner1 = 0;
+    static int offset_tuner2 = 0;
+    static int dfl_tuner1 = 0;
+    static int dfl_tuner2 = 0;
+    static int count_tuner1 = 0;
+    static int count_tuner2 = 0;
+
+    unsigned char *BBFrame;
+    int *offset;
+    int *dfl;
+    int *count;
+
+    /* Select appropriate state variables based on tuner */
+    if (tuner_id == 1) {
+        BBFrame = BBFrame_tuner1;
+        offset = &offset_tuner1;
+        dfl = &dfl_tuner1;
+        count = &count_tuner1;
+    } else {
+        BBFrame = BBFrame_tuner2;
+        offset = &offset_tuner2;
+        dfl = &dfl_tuner2;
+        count = &count_tuner2;
+    }
+
+    if (*offset + len > BBFRAME_MAX_LEN)
+    {
+        fprintf(stderr, "bbframe overflow tuner %d! %d/%d\n", tuner_id, *offset, len);
+        *offset = 0;
+        return;
+    }
+
+    /* Check for BB frame start (0x72) when offset is 0 */
+    if ((*offset == 0) && (b[0] != 0x72))
+    {
+        fprintf(stderr, "BBFRAME padding tuner %d? %x\n", tuner_id, b[0]);
+        return;
+    }
+
+    /* Validate BB frame header and calculate DFL */
+    if ((*offset == 0) && (len >= 10) && (calc_crc8(b, 9) == b[9]))
+    {
+        /* Calculate Data Field Length from bytes 4-5, convert from bits to bytes and add 10-byte header */
+        *dfl = (((int)b[4] << 8) + (int)b[5]) / 8 + 10;
+    }
+
+    if (*dfl == 0)
+    {
+        fprintf(stderr, "wrong dfl size tuner %d: %d\n", tuner_id, len);
+        return;
+    }
+
+    /* Case 1: Incomplete frame - accumulate data */
+    if (*offset + len < *dfl)
+    {
+        memcpy(BBFrame + *offset, b, len);
+        *offset += len;
+        return;
+    }
+
+    /* Case 2: Complete frame - send it */
+    if (*offset + len == *dfl)
+    {
+        memcpy(BBFrame + *offset, b, len);
+        fprintf(stderr, "Complete bbframe tuner %d # %d : %d/%d\n", tuner_id, *count, *offset + len, *dfl);
+        sendto(sockfd, BBFrame, *dfl, 0, (const struct sockaddr *)servaddr, sizeof(struct sockaddr));
+        *offset = 0;
+        (*count)++;
+        return;
+    }
+
+    /* Case 3: Frame overflow - complete current frame and start next */
+    if (*offset + len > *dfl)
+    {
+        /* Complete current frame */
+        memcpy(BBFrame + *offset, b, *dfl - *offset);
+        sendto(sockfd, BBFrame, *dfl, 0, (const struct sockaddr *)servaddr, sizeof(struct sockaddr));
+        fprintf(stderr, "First Complete bbframe tuner %d # %d : %d/%d\n", tuner_id, *count, *offset + *dfl - *offset, *dfl);
+
+        /* Calculate remaining data size */
+        int size = len - (*dfl - *offset);
+        int oldoffset = *offset;
+        int olddfl = *dfl;
+        *offset = 0;
+        *dfl = 0;
+        (*count)++;
+
+        fprintf(stderr, "Recursive tuner %d with size %d\n", tuner_id, size);
+        for (int i = 0; i < size; i++)
+        {
+            fprintf(stderr, "%x ", b[i + olddfl - oldoffset]);
+        }
+        fprintf(stderr, "\n");
+
+        /* Recursively process remaining data */
+        udp_bb_defrag_tuner(b + olddfl - oldoffset, size, true, sockfd, servaddr, tuner_id);
+    }
+}
+
 uint8_t udp_bb_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
 {
-    /* For now, use the same implementation as udp_ts_write_tuner1 */
-    /* TODO: Implement proper BB frame handling for tuner 1 */
-    return udp_ts_write_tuner1(buffer, len, output_ready);
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    /* Process data in 510-byte chunks to handle FTDI USB packet structure */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_bb_defrag_tuner(&buffer[len - remaining_len], write_size, true, sockfd_ts_tuner1, &servaddr_ts_tuner1, 1);
+            remaining_len -= 512; /* Skip 2 bytes inserted by FTDI */
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_bb_defrag_tuner(&buffer[len - remaining_len], write_size, true, sockfd_ts_tuner1, &servaddr_ts_tuner1, 1);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: UDP socket bb write tuner 1\n");
+
+    return err;
 }
 
 uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
 {
-    /* For now, use the same implementation as udp_ts_write_tuner2 */
-    /* TODO: Implement proper BB frame handling for tuner 2 */
-    return udp_ts_write_tuner2(buffer, len, output_ready);
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    /* Process data in 510-byte chunks to handle FTDI USB packet structure */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_bb_defrag_tuner(&buffer[len - remaining_len], write_size, true, sockfd_ts_tuner2, &servaddr_ts_tuner2, 2);
+            remaining_len -= 512; /* Skip 2 bytes inserted by FTDI */
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_bb_defrag_tuner(&buffer[len - remaining_len], write_size, true, sockfd_ts_tuner2, &servaddr_ts_tuner2, 2);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: UDP socket bb write tuner 2\n");
+
+    return err;
 }
