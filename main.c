@@ -422,20 +422,25 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
             {
             case 'u':
                 /* Check if this is -u2 (tuner 2) */
+                printf("DEBUG: Processing option '%s', checking [2]='%c'\n", argv[param-1], argv[param-1][2]);
                 if (argv[param-1][2] == '2') {
                     /* -u2 <bus> <addr> for tuner 2 USB device */
                     config->tuner2_device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
                     config->tuner2_device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
                     config->tuner2_enabled = true;
+                    printf("DEBUG: Set tuner2 USB %d,%d, enabled=%d\n",
+                           config->tuner2_device_usb_bus, config->tuner2_device_usb_addr, config->tuner2_enabled);
                 } else {
                     /* -u <bus> <addr> for main USB device */
                     config->device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
                     config->device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
                     main_usb_set = true;
+                    printf("DEBUG: Set main USB %d,%d\n", config->device_usb_bus, config->device_usb_addr);
                 }
                 break;
             case 'i':
                 /* Check if this is -i2 (tuner 2) */
+                printf("DEBUG: Processing option '%s', checking [2]='%c'\n", argv[param-1], argv[param-1][2]);
                 if (argv[param-1][2] == '2') {
                     /* -i2 <ip_addr> <port> for tuner 2 TS UDP output */
                     strncpy(config->tuner2_ts_ip_addr, argv[param++], (16 - 1));
@@ -443,6 +448,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                     config->tuner2_ts_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
                     config->tuner2_ts_use_ip = true;
                     config->tuner2_enabled = true;
+                    printf("DEBUG: Set tuner2 TS %s:%d, enabled=%d\n",
+                           config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port, config->tuner2_enabled);
                 } else {
                     /* -i <ip_addr> <port> for main TS UDP output */
                     strncpy(config->ts_ip_addr, argv[param++], (16 - 1));
@@ -450,6 +457,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                     config->ts_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
                     config->ts_use_ip = true;
                     ts_ip_set = true;
+                    printf("DEBUG: Set main TS %s:%d\n", config->ts_ip_addr, config->ts_ip_port);
                 }
                 break;
             case 't':
@@ -824,7 +832,14 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 
     config->new_config = true;
 
-
+    /* Debug output for final configuration */
+    printf("DEBUG: FINAL - Main USB: %d,%d  Tuner2 USB: %d,%d\n",
+           config->device_usb_bus, config->device_usb_addr,
+           config->tuner2_device_usb_bus, config->tuner2_device_usb_addr);
+    printf("DEBUG: FINAL - Main TS: %s:%d  Tuner2 TS: %s:%d\n",
+           config->ts_ip_addr, config->ts_ip_port,
+           config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
+    printf("DEBUG: FINAL - tuner2_enabled: %d\n", config->tuner2_enabled);
 
     return err;
 }
