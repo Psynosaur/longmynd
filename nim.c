@@ -174,10 +174,24 @@ uint8_t nim_read_tuner(uint8_t reg, uint8_t *val) {
     uint8_t err=ERROR_NONE;
 
     if (!repeater_on) {
-        err=nim_write_demod(0xf12a,0xb8);
+        /* In dual tuner mode, use tuner-aware function to turn on repeater */
+        if (dual_tuner_mode) {
+            err=nim_write_demod_tuner(primary_tuner_id, 0xf12a, 0xb8);
+        } else {
+            err=nim_write_demod(0xf12a, 0xb8);
+        }
         repeater_on=true;
     }
-    if (err==ERROR_NONE) err=ftdi_i2c_read_reg8(NIM_TUNER_ADDR,reg,val);
+
+    /* Use appropriate I2C function based on mode */
+    if (err==ERROR_NONE) {
+        if (dual_tuner_mode) {
+            err=ftdi_i2c_read_reg8_tuner(primary_tuner_id, NIM_TUNER_ADDR, reg, val);
+        } else {
+            err=ftdi_i2c_read_reg8(NIM_TUNER_ADDR, reg, val);
+        }
+    }
+
     if (err!=ERROR_NONE) printf("ERROR: tuner read 0x%.2x\n",reg);
 
     return err;
@@ -194,10 +208,24 @@ uint8_t nim_write_tuner(uint8_t reg, uint8_t val) {
     uint8_t err=ERROR_NONE;
 
     if (!repeater_on) {
-        err=nim_write_demod(0xf12a,0xb8);
+        /* In dual tuner mode, use tuner-aware function to turn on repeater */
+        if (dual_tuner_mode) {
+            err=nim_write_demod_tuner(primary_tuner_id, 0xf12a, 0xb8);
+        } else {
+            err=nim_write_demod(0xf12a, 0xb8);
+        }
         repeater_on=true;
     }
-    if (err==ERROR_NONE) err=ftdi_i2c_write_reg8(NIM_TUNER_ADDR,reg,val);
+
+    /* Use appropriate I2C function based on mode */
+    if (err==ERROR_NONE) {
+        if (dual_tuner_mode) {
+            err=ftdi_i2c_write_reg8_tuner(primary_tuner_id, NIM_TUNER_ADDR, reg, val);
+        } else {
+            err=ftdi_i2c_write_reg8(NIM_TUNER_ADDR, reg, val);
+        }
+    }
+
     if (err!=ERROR_NONE) printf("ERROR: tuner write %i,%i\n",reg,val);
 
     return err;
