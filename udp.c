@@ -270,15 +270,19 @@ void udp_send_normalize(u_int8_t *b, int len)
                 len = len - start_packet;
                 IsSync = true;
                 fprintf(stderr, "Recover Sync %d\n", start_packet);
-                
+
                 break;
             }
         }
-        
-        fprintf(stderr, "Not Sync!\n");
+
+        /* Only print "Not Sync!" if we didn't find sync */
+        if (!IsSync) {
+            fprintf(stderr, "Not Sync!\n");
+        }
     }
 
-    if (Buffer[0] != 0x47)
+    /* Only check buffer sync if we have data */
+    if (Size > 0 && Buffer[0] != 0x47)
     {
         if (Size >= 188)
         {

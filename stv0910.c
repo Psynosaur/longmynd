@@ -34,6 +34,7 @@
 #include "nim.h"
 #include "errors.h"
 #include "stv0910_regs_init.h"
+#include "stv0910_essential_regs.h"
 #include "register_logging.h"
 #include "ftdi_dual.h"
 
@@ -736,35 +737,31 @@ uint8_t stv0910_init_regs() {
         return ERROR_DEMOD_INIT;
     }
 
-    /* next we initialise all the registers in the list */
+    /* Initialize only essential registers for fast startup */
     /* Use bulk write optimization for dual tuner mode to avoid context switching overhead */
     if (err==ERROR_NONE) err=nim_write_demod_bulk_start(TUNER_1_ID);
 
-    do {
-        if (err==ERROR_NONE) {
-            /* Update shadow register */
-            stv0910_shadow_regs[STV0910DefVal[i].reg-STV0910_START_ADDR]=STV0910DefVal[i].val;
-            /* Log the register write operation */
-            LOG_STV0910_WRITE(STV0910DefVal[i].reg, STV0910DefVal[i].val, register_logging_get_context());
-            /* Use bulk write function to avoid context switching */
-            err=nim_write_demod_bulk(STV0910DefVal[i].reg, STV0910DefVal[i].val);
-        }
+    /* Fast initialization mode - only write essential registers */
+    printf("Flow: STV0910 fast initialization (%d essential registers)\n", STV0910_ESSENTIAL_REGS);
+
+    for (i = 0; (err == ERROR_NONE) && (i < STV0910_ESSENTIAL_REGS); i++) {
+        /* Update shadow register */
+        stv0910_shadow_regs[STV0910EssentialRegs[i].reg-STV0910_START_ADDR]=STV0910EssentialRegs[i].val;
+        /* Use bulk write function to avoid context switching - skip logging for speed */
+        err=nim_write_demod_bulk(STV0910EssentialRegs[i].reg, STV0910EssentialRegs[i].val);
     }
-    while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
 
     /* finally (from ST example code) reset the LDPC decoder */
     if (err==ERROR_NONE) {
         /* Update shadow register */
         stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x80;
-        /* Log the register write operation */
-        LOG_STV0910_WRITE(RSTV0910_TSTRES0, 0x80, register_logging_get_context());
+        /* Skip logging for speed during initialization */
         err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x80);
     }
     if (err==ERROR_NONE) {
         /* Update shadow register */
         stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x00;
-        /* Log the register write operation */
-        LOG_STV0910_WRITE(RSTV0910_TSTRES0, 0x00, register_logging_get_context());
+        /* Skip logging for speed during initialization */
         err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x00);
     }
 
