@@ -48,4 +48,7 @@ uint8_t nim_write_demod_tuner(uint8_t tuner_id, uint16_t reg, uint8_t val);
 uint8_t nim_read_lna   (uint8_t,  uint8_t, uint8_t*);
 uint8_t nim_write_lna  (uint8_t,  uint8_t, uint8_t );
 
+/* Dual tuner mode control */
+void nim_set_dual_tuner_mode(bool enabled, uint8_t primary_tuner);
+
 #endif

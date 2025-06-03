@@ -38,14 +38,31 @@
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
 
-/* The tuner and LNAs are accessed by turning on the I2C bus repeater in the demodulator 
+/* The tuner and LNAs are accessed by turning on the I2C bus repeater in the demodulator
    this reduces the noise on the tuner I2C lines as they are inactive when the repeater
    is turned off. We need to keep track of this when we access the NIM  */
 bool repeater_on;
 
+/* Global flag to track dual tuner mode for automatic function selection */
+static bool dual_tuner_mode = false;
+static uint8_t primary_tuner_id = TUNER_1_ID;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+void nim_set_dual_tuner_mode(bool enabled, uint8_t primary_tuner) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Set dual tuner mode for automatic function selection                                              */
+/* enabled: true to enable dual tuner mode, false for single tuner mode                             */
+/* primary_tuner: TUNER_1_ID or TUNER_2_ID - which tuner controls the shared demodulator            */
+/* -------------------------------------------------------------------------------------------------- */
+    dual_tuner_mode = enabled;
+    primary_tuner_id = primary_tuner;
+    printf("Flow: NIM dual tuner mode %s, primary tuner %d\n",
+           enabled ? "ENABLED" : "DISABLED", primary_tuner);
+}
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_read_demod(uint16_t reg, uint8_t *val) {
@@ -57,8 +74,14 @@ uint8_t nim_read_demod(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
+    /* In dual tuner mode, use tuner-aware function */
+    if (dual_tuner_mode) {
+        return nim_read_demod_tuner(primary_tuner_id, reg, val);
+    }
+
+    /* Single tuner mode - use original implementation */
     /* if we are not using the tuner or lna any more then we can turn off
-       the repeater to reduce noise 
+       the repeater to reduce noise
        this is bit 7 of the Px_I2CRPT register. Other bits define I2C speed etc. */
     if (repeater_on) {
         repeater_on=false;
@@ -82,9 +105,15 @@ uint8_t nim_write_demod(uint16_t reg, uint8_t val) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    if (repeater_on) {
+    /* In dual tuner mode, use tuner-aware function */
+    if (dual_tuner_mode) {
+        return nim_write_demod_tuner(primary_tuner_id, reg, val);
+    }
+
+    /* Single tuner mode - use original implementation */
+    if (repeater_on && reg != 0xf12a) {
         repeater_on=false;
-        err=nim_write_demod(0xf12a,0x38);
+        err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0x38);
     }
     if (err==ERROR_NONE) err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: demod write 0x%.4x, 0x%.2x\n",reg,val);

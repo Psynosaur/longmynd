@@ -1909,11 +1909,17 @@ int main(int argc, char *argv[])
             printf("Flow: Dual tuner mode - Tuner 1: %d,%d  Tuner 2: %d,%d\n",
                    longmynd_config.device_usb_bus, longmynd_config.device_usb_addr,
                    longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
+
+            /* Enable dual tuner mode in NIM functions - tuner 1 controls shared demodulator */
+            nim_set_dual_tuner_mode(true, TUNER_1_ID);
         } else {
             /* Initialize single FTDI device */
             err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
             printf("Flow: Single tuner mode - Tuner 1: %d,%d\n",
                    longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+
+            /* Ensure dual tuner mode is disabled */
+            nim_set_dual_tuner_mode(false, TUNER_1_ID);
         }
     }
 
