@@ -369,7 +369,7 @@ void json_output_demod_cycle(uint8_t tuner, const longmynd_status_t *status)
     switch (json_config.format) {
         case JSON_FORMAT_FULL:
             buffer_size = JSON_BUFFER_SIZE_FULL;
-            buffer = malloc(buffer_size);
+            buffer = (char*)malloc(buffer_size);
             if (buffer != NULL) {
                 result = json_format_demod_status_full(buffer, buffer_size, tuner, status, timestamp);
             }
@@ -377,7 +377,7 @@ void json_output_demod_cycle(uint8_t tuner, const longmynd_status_t *status)
 
         case JSON_FORMAT_COMPACT:
             buffer_size = JSON_BUFFER_SIZE_COMPACT;
-            buffer = malloc(buffer_size);
+            buffer = (char*)malloc(buffer_size);
             if (buffer != NULL) {
                 result = json_format_demod_status_compact(buffer, buffer_size, tuner, status, timestamp);
             }
@@ -385,7 +385,7 @@ void json_output_demod_cycle(uint8_t tuner, const longmynd_status_t *status)
 
         case JSON_FORMAT_MINIMAL:
             buffer_size = JSON_BUFFER_SIZE_MINIMAL;
-            buffer = malloc(buffer_size);
+            buffer = (char*)malloc(buffer_size);
             if (buffer != NULL) {
                 result = json_format_demod_status_minimal(buffer, buffer_size, tuner, status, timestamp);
             }
