@@ -145,16 +145,14 @@ uint8_t ftdi_init_tuner(uint8_t tuner_id, uint8_t usb_bus, uint8_t usb_addr)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t ftdi_select_tuner(uint8_t tuner_id)
+static uint8_t ftdi_select_tuner_internal(uint8_t tuner_id)
 {
 /* -------------------------------------------------------------------------------------------------- */
-/* Select the active tuner for subsequent operations                                                 */
+/* Internal function to select tuner - assumes mutex is already held                                 */
 /* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
-
-    pthread_mutex_lock(&ftdi_context_mutex);
 
     if (tuner_id == TUNER_1_ID && ftdi_tuner1_context.initialized) {
         current_tuner_id = TUNER_1_ID;
@@ -165,6 +163,21 @@ uint8_t ftdi_select_tuner(uint8_t tuner_id)
         err = ERROR_FTDI_USB_BAD_DEVICE_NUM;
     }
 
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_select_tuner(uint8_t tuner_id)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Select the active tuner for subsequent operations                                                 */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    pthread_mutex_lock(&ftdi_context_mutex);
+    err = ftdi_select_tuner_internal(tuner_id);
     pthread_mutex_unlock(&ftdi_context_mutex);
 
     return err;
@@ -217,7 +230,7 @@ uint8_t ftdi_i2c_read_reg16_tuner(uint8_t tuner_id, uint8_t addr, uint16_t reg, 
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -226,7 +239,7 @@ uint8_t ftdi_i2c_read_reg16_tuner(uint8_t tuner_id, uint8_t addr, uint16_t reg, 
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -255,7 +268,7 @@ uint8_t ftdi_i2c_write_reg16_tuner(uint8_t tuner_id, uint8_t addr, uint16_t reg,
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -264,7 +277,7 @@ uint8_t ftdi_i2c_write_reg16_tuner(uint8_t tuner_id, uint8_t addr, uint16_t reg,
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -293,7 +306,7 @@ uint8_t ftdi_i2c_read_reg8_tuner(uint8_t tuner_id, uint8_t addr, uint8_t reg, ui
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -302,7 +315,7 @@ uint8_t ftdi_i2c_read_reg8_tuner(uint8_t tuner_id, uint8_t addr, uint8_t reg, ui
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -331,7 +344,7 @@ uint8_t ftdi_i2c_write_reg8_tuner(uint8_t tuner_id, uint8_t addr, uint8_t reg, u
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -340,7 +353,7 @@ uint8_t ftdi_i2c_write_reg8_tuner(uint8_t tuner_id, uint8_t addr, uint8_t reg, u
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -368,7 +381,7 @@ uint8_t ftdi_gpio_write_tuner(uint8_t tuner_id, uint8_t pin_id, bool pin_value)
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -377,7 +390,7 @@ uint8_t ftdi_gpio_write_tuner(uint8_t tuner_id, uint8_t pin_id, bool pin_value)
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -403,7 +416,7 @@ uint8_t ftdi_nim_reset_tuner(uint8_t tuner_id)
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -412,7 +425,7 @@ uint8_t ftdi_nim_reset_tuner(uint8_t tuner_id)
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -440,7 +453,7 @@ uint8_t ftdi_set_polarisation_supply_tuner(uint8_t tuner_id, bool supply_enable,
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -449,7 +462,7 @@ uint8_t ftdi_set_polarisation_supply_tuner(uint8_t tuner_id, bool supply_enable,
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
@@ -478,7 +491,7 @@ uint8_t ftdi_usb_ts_read_tuner(uint8_t tuner_id, uint8_t *buffer, uint16_t *len,
     pthread_mutex_lock(&ftdi_context_mutex);
 
     if (current_tuner_id != tuner_id) {
-        err = ftdi_select_tuner(tuner_id);
+        err = ftdi_select_tuner_internal(tuner_id);
     }
 
     if (err == ERROR_NONE) {
@@ -487,7 +500,7 @@ uint8_t ftdi_usb_ts_read_tuner(uint8_t tuner_id, uint8_t *buffer, uint16_t *len,
 
     /* Restore previous context if needed */
     if (saved_tuner != tuner_id && err == ERROR_NONE) {
-        ftdi_select_tuner(saved_tuner);
+        ftdi_select_tuner_internal(saved_tuner);
     }
 
     pthread_mutex_unlock(&ftdi_context_mutex);
