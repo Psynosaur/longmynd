@@ -31,7 +31,7 @@ typedef struct{
 }STRegEssential;
 
 /* Essential registers for fast initialization - based on open_tuner approach */
-#define STV0910_ESSENTIAL_REGS 280
+#define STV0910_ESSENTIAL_REGS 252
 
 static STRegEssential STV0910EssentialRegs[STV0910_ESSENTIAL_REGS] = {
     /* Core system registers */
