@@ -26,6 +26,7 @@
 
 uint8_t stv6120_read_reg(uint8_t, uint8_t *);
 uint8_t stv6120_write_reg(uint8_t, uint8_t);
+uint8_t stv6120_write_reg_immediate(uint8_t, uint8_t);
 
 #endif
 

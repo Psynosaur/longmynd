@@ -47,6 +47,9 @@ bool repeater_on;
 static bool dual_tuner_mode = false;
 static uint8_t primary_tuner_id = TUNER_1_ID;
 
+/* Calibration mode - bypasses bulk writes for timing-critical operations */
+static bool calibration_mode = false;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -404,6 +407,55 @@ uint8_t nim_init() {
     if (err==ERROR_NONE) err=nim_write_demod(0xf12a,0x38);
 
     if (err!=ERROR_NONE) printf("ERROR: nim_init\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void nim_set_calibration_mode(bool enabled) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Set calibration mode to bypass bulk writes for timing-critical operations                         */
+/* enabled: true to enable calibration mode (immediate writes), false for normal mode               */
+/* -------------------------------------------------------------------------------------------------- */
+    calibration_mode = enabled;
+    if (enabled) {
+        printf("Flow: Calibration mode ENABLED - using immediate I2C writes\n");
+    } else {
+        printf("Flow: Calibration mode DISABLED - using normal I2C writes\n");
+    }
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_tuner_immediate(uint8_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to the STV6120 tuner with immediate I2C operations (bypasses bulk writes)                 */
+/* Used during calibration sequences that require precise timing                                     */
+/*    reg: which tuner register to write to                                                          */
+/*    val: what to write to it                                                                       */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    if (!repeater_on) {
+        /* Turn on repeater - use immediate write even in dual tuner mode */
+        if (dual_tuner_mode) {
+            err=ftdi_i2c_write_reg16_tuner(primary_tuner_id, NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+        } else {
+            err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0xb8);
+        }
+        repeater_on=true;
+    }
+
+    /* Use immediate I2C write - bypass bulk write system */
+    if (err==ERROR_NONE) {
+        if (dual_tuner_mode) {
+            err=ftdi_i2c_write_reg8_tuner(primary_tuner_id, NIM_TUNER_ADDR, reg, val);
+        } else {
+            err=ftdi_i2c_write_reg8(NIM_TUNER_ADDR, reg, val);
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: tuner immediate write %i,%i\n",reg,val);
 
     return err;
 }

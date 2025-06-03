@@ -53,6 +53,10 @@ uint8_t nim_write_demod_bulk_start(uint8_t tuner_id);
 uint8_t nim_write_demod_bulk_end(void);
 uint8_t nim_write_demod_bulk(uint16_t reg, uint8_t val);
 
+/* Calibration mode - forces immediate writes for timing-critical operations */
+void nim_set_calibration_mode(bool enabled);
+uint8_t nim_write_tuner_immediate(uint8_t reg, uint8_t val);
+
 /* Dual tuner mode control */
 void nim_set_dual_tuner_mode(bool enabled, uint8_t primary_tuner);
 

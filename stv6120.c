@@ -86,11 +86,14 @@ uint8_t stv6120_cal_lowpass(uint8_t tuner) {
 
     printf("Flow: Tuner cal lowpass\n");
 
+    /* CRITICAL: Use immediate writes for calibration - requires precise timing */
+    printf("Flow: Using immediate I2C writes for STV6120 calibration\n");
+
     /* turn on the clock for the low pass filter. This is in ctrl7/16 so we have a shadow for it */
-    if (tuner==TUNER_1) err=stv6120_write_reg(STV6120_CTRL7 ,  ctrl7 & ~(1 << STV6120_CTRL7_RCCLKOFF_SHIFT));
-    else                err=stv6120_write_reg(STV6120_CTRL16, ctrl16 & ~(1 << STV6120_CTRL7_RCCLKOFF_SHIFT));
+    if (tuner==TUNER_1) err=stv6120_write_reg_immediate(STV6120_CTRL7 ,  ctrl7 & ~(1 << STV6120_CTRL7_RCCLKOFF_SHIFT));
+    else                err=stv6120_write_reg_immediate(STV6120_CTRL16, ctrl16 & ~(1 << STV6120_CTRL7_RCCLKOFF_SHIFT));
     /* now we can do a low pass filter calibration, by setting the CALRCSTRT bit. NOte it is safe to just write to it */
-    if (err==ERROR_NONE) err=stv6120_write_reg(tuner==TUNER_1 ? STV6120_STAT1 : STV6120_STAT2,
+    if (err==ERROR_NONE) err=stv6120_write_reg_immediate(tuner==TUNER_1 ? STV6120_STAT1 : STV6120_STAT2,
                                          (STV6120_STAT1_CALRCSTRT_START << STV6120_STAT1_CALRCSTRT_SHIFT));
     /* wait for the bit to be cleared  to say cal has finished*/
     if (err==ERROR_NONE) {
@@ -219,7 +222,8 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
 
     /* if we change the filter re-cal it, and if we change VCO we have to re-cal it, so here goes */
     SET_REG_CONTEXT(REG_CONTEXT_PLL_CALIBRATION);
-    if (err==ERROR_NONE) err=stv6120_write_reg(tuner==TUNER_1 ? STV6120_STAT1 : STV6120_STAT2,
+    printf("Flow: Using immediate I2C writes for VCO calibration\n");
+    if (err==ERROR_NONE) err=stv6120_write_reg_immediate(tuner==TUNER_1 ? STV6120_STAT1 : STV6120_STAT2,
                                             (STV6120_STAT1_CALVCOSTRT_START << STV6120_STAT1_CALVCOSTRT_SHIFT) | /* start CALVCOSTRT */
                                             STV6120_STAT1_RESERVED                                             );
 

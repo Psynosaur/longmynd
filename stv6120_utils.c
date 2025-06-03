@@ -50,3 +50,20 @@ uint8_t stv6120_write_reg(uint8_t reg, uint8_t val) {
 
     return err;
 }
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv6120_write_reg_immediate(uint8_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to STV6120 register with immediate I2C operations (bypasses bulk writes)                   */
+/* Used during calibration sequences that require precise timing                                     */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err;
+
+    /* Log the register write operation */
+    LOG_STV6120_WRITE(reg, val, register_logging_get_context());
+
+    /* Perform immediate register write - bypass bulk write system */
+    err = nim_write_tuner_immediate(reg, val);
+
+    return err;
+}
