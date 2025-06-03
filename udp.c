@@ -53,6 +53,12 @@ struct sockaddr_in servaddr_ts;
 int sockfd_status;
 int sockfd_ts;
 
+/* Dual tuner UDP globals */
+struct sockaddr_in servaddr_ts_tuner1;
+struct sockaddr_in servaddr_ts_tuner2;
+int sockfd_ts_tuner1;
+int sockfd_ts_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- DEFINES ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
@@ -661,4 +667,178 @@ uint8_t udp_close(void)
     }
 
     return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* Dual tuner UDP functions                                                                           */
+/* -------------------------------------------------------------------------------------------------- */
+
+uint8_t udp_ts_init_tuner1(char *udp_ip, int udp_port)
+{
+    return udp_init(&servaddr_ts_tuner1, &sockfd_ts_tuner1, udp_ip, udp_port);
+}
+
+uint8_t udp_ts_init_tuner2(char *udp_ip, int udp_port)
+{
+    return udp_init(&servaddr_ts_tuner2, &sockfd_ts_tuner2, udp_ip, udp_port);
+}
+
+static void udp_send_normalize_tuner(u_int8_t *b, int len, int sockfd, struct sockaddr_in *servaddr)
+{
+#define BUFF_MAX_SIZE_TUNER (7 * 188)
+    static u_int8_t *Buffer_tuner1 = NULL;
+    static u_int8_t *Buffer_tuner2 = NULL;
+    static int Size_tuner1 = 0;
+    static int Size_tuner2 = 0;
+    static bool IsSync_tuner1 = false;
+    static bool IsSync_tuner2 = false;
+
+    u_int8_t **Buffer;
+    int *Size;
+    bool *IsSync;
+
+    /* Select appropriate buffers based on socket */
+    if (sockfd == sockfd_ts_tuner1) {
+        if (Buffer_tuner1 == NULL)
+            Buffer_tuner1 = (u_int8_t *)malloc(BUFF_MAX_SIZE_TUNER * 2);
+        Buffer = &Buffer_tuner1;
+        Size = &Size_tuner1;
+        IsSync = &IsSync_tuner1;
+    } else {
+        if (Buffer_tuner2 == NULL)
+            Buffer_tuner2 = (u_int8_t *)malloc(BUFF_MAX_SIZE_TUNER * 2);
+        Buffer = &Buffer_tuner2;
+        Size = &Size_tuner2;
+        IsSync = &IsSync_tuner2;
+    }
+
+    if ((*IsSync == false) && (len >= 2 * 188))
+    {
+        int start_packet = 0;
+        for (start_packet = 0; start_packet < 188; start_packet++)
+        {
+            if ((b[start_packet] == 0x47) && (b[start_packet + 188] == 0x47))
+            {
+                b = b + start_packet;
+                len = len - start_packet;
+                *IsSync = true;
+                break;
+            }
+        }
+    }
+
+    /* Only check buffer sync if we have data */
+    if (*Size > 0 && (*Buffer)[0] != 0x47)
+    {
+        if (*Size >= 188)
+        {
+            *IsSync = false;
+            *Size = 0;
+            return;
+        }
+    }
+
+    if ((*Size + len) >= BUFF_MAX_SIZE_TUNER)
+    {
+        memcpy(*Buffer + *Size, b, len);
+
+        if (*IsSync)
+        {
+            ProcessTSTiming(*Buffer, BUFF_MAX_SIZE_TUNER, &video_pcrpts, &audio_pcrpts, &transmission_delay);
+        }
+        if (sendto(sockfd, *Buffer, BUFF_MAX_SIZE_TUNER, 0, (const struct sockaddr *)servaddr, sizeof(struct sockaddr)) < 0)
+        {
+            fprintf(stderr, "UDP send failed\n");
+        }
+        memmove(*Buffer, *Buffer + BUFF_MAX_SIZE_TUNER, *Size - BUFF_MAX_SIZE_TUNER + len);
+        *Size += len;
+        *Size = *Size - BUFF_MAX_SIZE_TUNER;
+    }
+    else
+    {
+        memcpy(*Buffer + *Size, b, len);
+        *Size += len;
+    }
+}
+
+uint8_t udp_ts_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_send_normalize_tuner(&buffer[len - remaining_len], write_size, sockfd_ts_tuner1, &servaddr_ts_tuner1);
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_send_normalize_tuner(&buffer[len - remaining_len], write_size, sockfd_ts_tuner1, &servaddr_ts_tuner1);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    return err;
+}
+
+uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len;
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            write_size = 510;
+            udp_send_normalize_tuner(&buffer[len - remaining_len], write_size, sockfd_ts_tuner2, &servaddr_ts_tuner2);
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_send_normalize_tuner(&buffer[len - remaining_len], write_size, sockfd_ts_tuner2, &servaddr_ts_tuner2);
+            remaining_len -= write_size;
+        }
+    }
+
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    return err;
+}
+
+uint8_t udp_bb_write_tuner1(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    /* For now, use the same implementation as udp_ts_write_tuner1 */
+    /* TODO: Implement proper BB frame handling for tuner 1 */
+    return udp_ts_write_tuner1(buffer, len, output_ready);
+}
+
+uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    /* For now, use the same implementation as udp_ts_write_tuner2 */
+    /* TODO: Implement proper BB frame handling for tuner 2 */
+    return udp_ts_write_tuner2(buffer, len, output_ready);
 }
