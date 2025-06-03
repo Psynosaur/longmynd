@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include "nim.h"
 #include "ftdi.h"
+#include "ftdi_dual.h"
 #include "errors.h"
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -169,6 +170,86 @@ uint8_t nim_write_tuner(uint8_t reg, uint8_t val) {
     }
     if (err==ERROR_NONE) err=ftdi_i2c_write_reg8(NIM_TUNER_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: tuner write %i,%i\n",reg,val);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_read_demod_tuner(uint8_t tuner_id, uint16_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* reads from the demodulator using tuner-aware I2C functions                                        */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/*      reg: which demod register to read from                                                       */
+/*      val: where to put the result                                                                 */
+/*   return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    /* if we are not using the tuner or lna any more then we can turn off
+       the repeater to reduce noise
+       this is bit 7 of the Px_I2CRPT register. Other bits define I2C speed etc. */
+    if (repeater_on) {
+        repeater_on=false;
+        err=nim_write_demod_tuner(tuner_id, 0xf12a, 0x38);
+    }
+    if (err==ERROR_NONE) err=ftdi_i2c_read_reg16_tuner(tuner_id, NIM_DEMOD_ADDR, reg, val);
+    if (err!=ERROR_NONE) printf("ERROR: demod read tuner %d 0x%.4x\n", tuner_id, reg);
+
+    /* note we don't turn the repeater off as there might be other r/w to tuner/LNAs */
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_demod_tuner(uint8_t tuner_id, uint16_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to the demodulator using tuner-aware I2C functions                                         */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/*      reg: which demod register to write to                                                        */
+/*      val: what to write to it                                                                     */
+/*   return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    if (repeater_on && reg != 0xf12a) {
+        repeater_on=false;
+        err=ftdi_i2c_write_reg16_tuner(tuner_id, NIM_DEMOD_ADDR, 0xf12a, 0x38);
+    }
+    if (err==ERROR_NONE) err=ftdi_i2c_write_reg16_tuner(tuner_id, NIM_DEMOD_ADDR, reg, val);
+    if (err!=ERROR_NONE) printf("ERROR: demod write tuner %d 0x%.4x, 0x%.2x\n", tuner_id, reg, val);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_init_tuner(uint8_t tuner_id) {
+/* -------------------------------------------------------------------------------------------------- */
+/* initialises the nim using tuner-aware I2C functions                                               */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/*   return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    uint8_t val;
+
+    printf("Flow: NIM init tuner %d\n", tuner_id);
+
+    repeater_on = false;
+
+    /* check we can read and write a register */
+    /* check to see if we can write and readback to a demod register */
+    if (err==ERROR_NONE) err=nim_write_demod_tuner(tuner_id, 0xf536, 0xaa); /* random reg with alternating bits */
+    if (err==ERROR_NONE) err=nim_read_demod_tuner(tuner_id, 0xf536, &val);
+    if (err==ERROR_NONE) {
+        if (val!=0xaa) { /* check alternating bits ok */
+            printf("ERROR: nim_init_tuner %d didn't r/w to the modulator\n", tuner_id);
+            err=ERROR_NIM_INIT;
+        }
+    }
+
+    /* we always want to start with the i2c repeater turned off */
+    if (err!=ERROR_NONE) err=nim_write_demod_tuner(tuner_id, 0xf12a, 0x38);
+
+    if (err!=ERROR_NONE) printf("ERROR: nim_init_tuner %d\n", tuner_id);
 
     return err;
 }

@@ -865,14 +865,39 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config, long
     do
     {
         /* init all the modules - PRESERVE EXACT INITIALIZATION ORDER */
-        if (err == ERROR_NONE)
-            err = nim_init();
-        /* we are only using the one demodulator so set the other to 0 to turn it off */
-        if (err == ERROR_NONE)
-            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
-        /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
-        if (err == ERROR_NONE)
-            tuner_err = stv6120_init(config->freq_requested[config->freq_index], 0, config->port_swap);
+        if (err == ERROR_NONE) {
+            if (config->tuner2_enabled) {
+                /* Use tuner-aware nim_init for dual tuner mode - tuner 1 controls shared demodulator */
+                err = nim_init_tuner(TUNER_1_ID);
+            } else {
+                /* Use standard nim_init for single tuner mode */
+                err = nim_init();
+            }
+        }
+
+        if (err == ERROR_NONE) {
+            if (config->tuner2_enabled) {
+                /* Dual demodulator initialization - both TOP and BOTTOM paths */
+                err = stv0910_init(config->sr_requested[config->sr_index],
+                                  config->tuner2_sr_requested[config->tuner2_sr_index],
+                                  config->halfscan_ratio, config->tuner2_halfscan_ratio);
+            } else {
+                /* Single demodulator initialization - only TOP path, BOTTOM disabled */
+                err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
+            }
+        }
+
+        if (err == ERROR_NONE) {
+            if (config->tuner2_enabled) {
+                /* Dual tuner initialization - both tuner 1 and tuner 2 frequencies */
+                tuner_err = stv6120_init(config->freq_requested[config->freq_index],
+                                        config->tuner2_freq_requested[config->tuner2_freq_index],
+                                        config->port_swap);
+            } else {
+                /* Single tuner initialization - only tuner 1, tuner 2 disabled */
+                tuner_err = stv6120_init(config->freq_requested[config->freq_index], 0, config->port_swap);
+            }
+        }
 
         /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
         if (err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
