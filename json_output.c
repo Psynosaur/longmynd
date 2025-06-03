@@ -205,7 +205,7 @@ int json_format_demod_status_full(char *buffer, size_t buffer_size, uint8_t tune
         return -1;
     }
 
-    bool is_locked = (status->demod_state == 3 || status->demod_state == 4);
+    bool is_locked = (status->demod_state == 2 || status->demod_state == 3);
     double actual_freq = status->frequency_requested + (status->frequency_offset / 1000.0);
     
     return snprintf(buffer, buffer_size,
@@ -288,7 +288,7 @@ int json_format_demod_status_compact(char *buffer, size_t buffer_size, uint8_t t
         return -1;
     }
 
-    bool is_locked = (status->demod_state == 3 || status->demod_state == 4);
+    bool is_locked = (status->demod_state == 2 || status->demod_state == 3);
     double actual_freq = status->frequency_requested + (status->frequency_offset / 1000.0);
 
     return snprintf(buffer, buffer_size,
@@ -328,7 +328,7 @@ int json_format_demod_status_minimal(char *buffer, size_t buffer_size, uint8_t t
         return -1;
     }
 
-    bool is_locked = (status->demod_state == 3 || status->demod_state == 4);
+    bool is_locked = (status->demod_state == 2 || status->demod_state == 3);
 
     return snprintf(buffer, buffer_size,
         "{\"ts\":%llu,\"t\":%u,\"lck\":%s,\"mer\":%d,\"freq\":%u,\"sr\":%u}",
