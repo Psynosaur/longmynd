@@ -25,6 +25,9 @@
 #define STV0910_START_ADDR RSTV0910_MID
 #define STV0910_END_ADDR RSTV0910_TSTTSRS
 
+/* Shadow register array for efficient bitfield operations */
+extern uint8_t stv0910_shadow_regs[STV0910_END_ADDR - STV0910_START_ADDR + 1];
+
 uint8_t stv0910_write_reg_field(uint32_t, uint8_t);
 uint8_t stv0910_read_reg_field(uint32_t, uint8_t *);
 uint8_t stv0910_write_reg(uint16_t, uint8_t);

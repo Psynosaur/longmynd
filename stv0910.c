@@ -35,6 +35,7 @@
 #include "errors.h"
 #include "stv0910_regs_init.h"
 #include "register_logging.h"
+#include "ftdi_dual.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -736,14 +737,41 @@ uint8_t stv0910_init_regs() {
     }
 
     /* next we initialise all the registers in the list */
+    /* Use bulk write optimization for dual tuner mode to avoid context switching overhead */
+    if (err==ERROR_NONE) err=nim_write_demod_bulk_start(TUNER_1_ID);
+
     do {
-        if (err==ERROR_NONE) err=stv0910_write_reg(STV0910DefVal[i].reg, STV0910DefVal[i].val);
-    }        
+        if (err==ERROR_NONE) {
+            /* Update shadow register */
+            stv0910_shadow_regs[STV0910DefVal[i].reg-STV0910_START_ADDR]=STV0910DefVal[i].val;
+            /* Log the register write operation */
+            LOG_STV0910_WRITE(STV0910DefVal[i].reg, STV0910DefVal[i].val, register_logging_get_context());
+            /* Use bulk write function to avoid context switching */
+            err=nim_write_demod_bulk(STV0910DefVal[i].reg, STV0910DefVal[i].val);
+        }
+    }
     while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
 
     /* finally (from ST example code) reset the LDPC decoder */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
+    if (err==ERROR_NONE) {
+        /* Update shadow register */
+        stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x80;
+        /* Log the register write operation */
+        LOG_STV0910_WRITE(RSTV0910_TSTRES0, 0x80, register_logging_get_context());
+        err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x80);
+    }
+    if (err==ERROR_NONE) {
+        /* Update shadow register */
+        stv0910_shadow_regs[RSTV0910_TSTRES0-STV0910_START_ADDR]=0x00;
+        /* Log the register write operation */
+        LOG_STV0910_WRITE(RSTV0910_TSTRES0, 0x00, register_logging_get_context());
+        err=nim_write_demod_bulk(RSTV0910_TSTRES0, 0x00);
+    }
+
+    /* End bulk write session */
+    if (nim_write_demod_bulk_end() != ERROR_NONE) {
+        printf("ERROR: Failed to end bulk write session\n");
+    }
 
     return err;
 }

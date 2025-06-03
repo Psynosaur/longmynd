@@ -212,6 +212,49 @@ uint8_t ftdi_get_current_tuner(void)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_bulk_write_start(uint8_t tuner_id)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Start a bulk write session - locks FTDI context for multiple consecutive writes                  */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    if (!ftdi_is_tuner_active(tuner_id)) {
+        return ERROR_FTDI_USB_BAD_DEVICE_NUM;
+    }
+
+    /* Lock the mutex for the entire bulk operation */
+    pthread_mutex_lock(&ftdi_context_mutex);
+
+    /* Switch to the target tuner context once */
+    if (current_tuner_id != tuner_id) {
+        err = ftdi_select_tuner_internal(tuner_id);
+    }
+
+    /* If context switch failed, release the mutex */
+    if (err != ERROR_NONE) {
+        pthread_mutex_unlock(&ftdi_context_mutex);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_bulk_write_end(void)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* End a bulk write session - releases FTDI context lock                                            */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    /* Release the mutex that was locked in ftdi_bulk_write_start */
+    pthread_mutex_unlock(&ftdi_context_mutex);
+
+    return ERROR_NONE;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 bool ftdi_is_tuner_active(uint8_t tuner_id)
 {
 /* -------------------------------------------------------------------------------------------------- */

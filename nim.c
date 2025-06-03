@@ -251,6 +251,65 @@ uint8_t nim_write_demod_tuner(uint8_t tuner_id, uint16_t reg, uint8_t val) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_demod_bulk_start(uint8_t tuner_id) {
+/* -------------------------------------------------------------------------------------------------- */
+/* starts a bulk write session to optimize multiple consecutive writes to the same tuner             */
+/* tuner_id: TUNER_1_ID or TUNER_2_ID                                                                */
+/*   return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    if (dual_tuner_mode) {
+        /* Lock the FTDI context for the entire bulk operation */
+        err = ftdi_bulk_write_start(tuner_id);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_demod_bulk_end(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* ends a bulk write session and releases the FTDI context lock                                      */
+/*   return: error code                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    if (dual_tuner_mode) {
+        /* Release the FTDI context lock */
+        err = ftdi_bulk_write_end();
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t nim_write_demod_bulk(uint16_t reg, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* writes to demodulator register during a bulk write session (no context switching overhead)       */
+/*    reg: which demod register to write to                                                          */
+/*    val: what to write to it                                                                       */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+
+    if (dual_tuner_mode) {
+        /* Use direct I2C write without context switching overhead */
+        if (repeater_on && reg != 0xf12a) {
+            repeater_on=false;
+            err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, 0xf12a, 0x38);
+        }
+        if (err==ERROR_NONE) err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR, reg, val);
+        if (err!=ERROR_NONE) printf("ERROR: demod bulk write 0x%.4x, 0x%.2x\n", reg, val);
+    } else {
+        /* Single tuner mode - use standard function */
+        err = nim_write_demod(reg, val);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_init_tuner(uint8_t tuner_id) {
 /* -------------------------------------------------------------------------------------------------- */
 /* initialises the nim using tuner-aware I2C functions                                               */

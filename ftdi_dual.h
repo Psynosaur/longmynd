@@ -75,6 +75,10 @@ uint8_t ftdi_cleanup_tuner(uint8_t tuner_id);
 uint8_t ftdi_dual_cleanup(void);
 bool ftdi_is_tuner_active(uint8_t tuner_id);
 
+/* Bulk write optimization */
+uint8_t ftdi_bulk_write_start(uint8_t tuner_id);
+uint8_t ftdi_bulk_write_end(void);
+
 /* Context switching helpers */
 uint8_t ftdi_switch_context(uint8_t tuner_id);
 uint8_t ftdi_restore_context(void);
