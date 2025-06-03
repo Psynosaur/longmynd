@@ -1808,8 +1808,8 @@ int main(int argc, char *argv[])
     /*    Print out of status information to requested interface, triggered by pthread condition variable */
     /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
-    uint8_t (*status_write)(uint8_t, uint32_t, bool *);
-    uint8_t (*status_string_write)(uint8_t, char *, bool *);
+    uint8_t (*status_write)(uint8_t, uint32_t, bool *) = NULL;
+    uint8_t (*status_string_write)(uint8_t, char *, bool *) = NULL;
     bool status_output_ready = true;
 
     printf("Flow: main\n");
@@ -1892,7 +1892,7 @@ int main(int argc, char *argv[])
     }
 
     /* Run main status output loop */
-    if (err == ERROR_NONE)
+    if (err == ERROR_NONE && status_write != NULL && status_string_write != NULL)
         err = run_main_status_loop(status_write, status_string_write, &status_output_ready,
                                   &thread_vars_ts, &thread_vars_ts_parse, &thread_vars_i2c, &thread_vars_beep);
 

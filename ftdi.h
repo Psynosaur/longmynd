@@ -37,4 +37,7 @@ uint8_t ftdi_i2c_read_reg8  (uint8_t, uint8_t,  uint8_t*);
 uint8_t ftdi_i2c_write_reg16(uint8_t, uint16_t, uint8_t );
 uint8_t ftdi_i2c_write_reg8 (uint8_t, uint8_t,  uint8_t );
 
+uint8_t ftdi_gpio_write(uint8_t pin_id, bool pin_value);
+uint8_t ftdi_nim_reset(void);
+
 #endif
