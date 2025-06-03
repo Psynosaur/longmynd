@@ -64,25 +64,21 @@
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
 
-static longmynd_config_t longmynd_config;
-/* = {
-    
-    freq_index : 0,
-    sr_index : 0,
-    new_config : false,
-    mutex : PTHREAD_MUTEX_INITIALIZER
-    };
-*/
+static longmynd_config_t longmynd_config = {
+    .freq_index = 0,
+    .sr_index = 0,
+    .new_config = false,
+    .mutex = PTHREAD_MUTEX_INITIALIZER
+};
 
-static longmynd_status_t longmynd_status;
-/* = {
+static longmynd_status_t longmynd_status = {
     .service_name = {'\0'},
     .service_provider_name = {'\0'},
     .last_updated_monotonic = 0,
     .mutex = PTHREAD_MUTEX_INITIALIZER,
     .signal = PTHREAD_COND_INITIALIZER,
-    .ts_packet_count_nolock = 0};
-*/
+    .ts_packet_count_nolock = 0
+};
 static pthread_t thread_ts_parse;
 static pthread_t thread_ts;
 static pthread_t thread_i2c;
