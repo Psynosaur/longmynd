@@ -72,7 +72,7 @@ void *loop_ts(void *arg) {
 
     *err=ERROR_NONE;
 
-    buffer = malloc(TS_FRAME_SIZE);
+    buffer = (uint8_t*)malloc(TS_FRAME_SIZE);
     if(buffer == NULL)
     {
         *err=ERROR_TS_BUFFER_MALLOC;
@@ -233,7 +233,7 @@ void *loop_ts_parse(void *arg) {
     //longmynd_config_t *config = thread_vars->config;
     ts_longmynd_status = thread_vars->status;
 
-    uint8_t *ts_buffer = malloc(TS_FRAME_SIZE);
+    uint8_t *ts_buffer = (uint8_t*)malloc(TS_FRAME_SIZE);
     if(ts_buffer == NULL)
     {
         *err=ERROR_TS_BUFFER_MALLOC;

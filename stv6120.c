@@ -35,6 +35,7 @@
 #include "stv6120_regs.h"
 #include "stv6120_utils.h"
 #include "errors.h"
+#include "register_logging.h"
 
 extern uint64_t monotonic_ms(void);
 
@@ -176,12 +177,17 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
 
     printf("Flow: Tuner set freq\n");
 
+    /* Set register logging context for frequency tuning */
+    SET_REG_CONTEXT(REG_CONTEXT_FREQUENCY_TUNING);
+    LOG_SEQUENCE_START("STV6120 Frequency Tuning");
+
     stv6120_calc_pll(freq, &p, &f_vco, &n, &f, &icp, &cfhf);
 
     printf("      Status: tuner:%i, f_vco=0x%x, icp=0x%x, f=0x%x, n=0x%x,\n",tuner,f_vco,icp,f,n);
     printf("              rdiv=0x%x, p=0x%x, freq=%i, cfhf=%i\n",rdiv,p,freq,stv6120_cfhf[cfhf]);
 
     /* now we fill in the PLL and ICP values */
+    SET_REG_CONTEXT(REG_CONTEXT_PLL_CONFIGURATION);
     if (err==ERROR_NONE) err=stv6120_write_reg(tuner==TUNER_1 ? STV6120_CTRL3 : STV6120_CTRL12,
                                             (n & 0x00ff)               );      /* set N[7:0] */
     if (err==ERROR_NONE) err=stv6120_write_reg(tuner==TUNER_1 ? STV6120_CTRL4 : STV6120_CTRL13,
@@ -212,11 +218,13 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
     }
 
     /* if we change the filter re-cal it, and if we change VCO we have to re-cal it, so here goes */
+    SET_REG_CONTEXT(REG_CONTEXT_PLL_CALIBRATION);
     if (err==ERROR_NONE) err=stv6120_write_reg(tuner==TUNER_1 ? STV6120_STAT1 : STV6120_STAT2,
                                             (STV6120_STAT1_CALVCOSTRT_START << STV6120_STAT1_CALVCOSTRT_SHIFT) | /* start CALVCOSTRT */
                                             STV6120_STAT1_RESERVED                                             );
 
     /* wait for CALVCOSTRT bit to go low to say VCO cal is finished */
+    SET_REG_CONTEXT(REG_CONTEXT_STATUS_READ);
     if (err==ERROR_NONE) {
         timeout=monotonic_ms()+STV6120_CAL_TIMEOUT_MS;
         do {
@@ -244,6 +252,8 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
         }
     }
 
+    LOG_SEQUENCE_END("STV6120 Frequency Tuning");
+
     if (err!=ERROR_NONE) printf("ERROR: Tuner set freq %i\n",freq);
 
     return err;
@@ -265,6 +275,10 @@ uint8_t stv6120_init(uint32_t freq_tuner_1, uint32_t freq_tuner_2, bool swap) {
     uint8_t k;
 
     printf("Flow: Tuner init\n");
+
+    /* Set register logging context for initialization */
+    SET_REG_CONTEXT(REG_CONTEXT_INIT);
+    LOG_SEQUENCE_START("STV6120 Initialization");
 
     /* note, we always init the tuner from scratch so no need to check if we have already inited it before */
     /* also, the tuner doesn't have much of an ID so no point in checking it */
@@ -425,6 +439,8 @@ uint8_t stv6120_init(uint32_t freq_tuner_1, uint32_t freq_tuner_2, bool swap) {
         err=stv6120_cal_lowpass(TUNER_2);
         if (err==ERROR_NONE) err=stv6120_set_freq(TUNER_2, freq_tuner_2);
     }
+
+    LOG_SEQUENCE_END("STV6120 Initialization");
 
     if (err!=ERROR_NONE) printf("ERROR: Failed to init Tuner %i, %i\n",freq_tuner_1, freq_tuner_2);
 

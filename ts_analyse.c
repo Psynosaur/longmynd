@@ -45,8 +45,8 @@ static void ts_callback_sdt_service(
     uint8_t *service_name_ptr, uint32_t *service_name_length_ptr
 )
 {
-    char *service_name = malloc(1 + (*service_name_length_ptr * sizeof(char)));
-    char *service_provider = malloc(1 + (*service_provider_name_length_ptr * sizeof(char)));
+    char *service_name = (char*)malloc(1 + (*service_name_length_ptr * sizeof(char)));
+    char *service_provider = (char*)malloc(1 + (*service_provider_name_length_ptr * sizeof(char)));
                 
     memcpy(service_name, service_name_ptr, *service_name_length_ptr);
     service_name[*service_name_length_ptr] = '\0';
@@ -62,7 +62,7 @@ static void ts_callback_sdt_service(
 
 static void ts_callback_pmt_pids(uint32_t *ts_pmt_index_ptr, uint32_t *ts_pmt_es_pid, uint32_t *ts_pmt_es_type)
 {
-    printf(" * PMT: Index: %"PRIu32", PID: %"PRIu32", Type: %"PRIu32"\n", *ts_pmt_index_ptr, *ts_pmt_es_pid, *ts_pmt_es_type);
+    printf(" * PMT: Index: %" PRIu32 ", PID: %" PRIu32 ", Type: %" PRIu32 "\n", *ts_pmt_index_ptr, *ts_pmt_es_pid, *ts_pmt_es_type);
 }
 
 static uint32_t ts_packet_total_count = 0;
@@ -95,9 +95,9 @@ int main(int argc, char **argv)
     fseek(ts_fd, 0, SEEK_END);
     ts_length = ftell(ts_fd);
     fseek(ts_fd, 0, SEEK_SET);
-    printf("TS File Size: %"PRIu32" Bytes\n", ts_length);
+    printf("TS File Size: %" PRIu32 " Bytes\n", ts_length);
 
-    uint8_t *ts_databuf = malloc(TS_PACKET_SIZE * sizeof(uint8_t));
+    uint8_t *ts_databuf = (uint8_t*)malloc(TS_PACKET_SIZE * sizeof(uint8_t));
     if(ts_databuf == NULL)
     {
         fprintf(stderr, "Failed to allocate databuffer\n");
@@ -113,7 +113,7 @@ int main(int argc, char **argv)
     fseek(ts_fd, -1, SEEK_CUR);
     if(fastforward_count > 0)
     {
-        printf("Fastforward %"PRIu32" Bytes\n", fastforward_count);
+        printf("Fastforward %" PRIu32 " Bytes\n", fastforward_count);
     }
 
     uint32_t total_bytes_read = 0;
@@ -130,7 +130,7 @@ int main(int argc, char **argv)
                 fastforward_count++;
             };
             fseek(ts_fd, -1, SEEK_CUR);
-            printf("Fastforward %"PRIu32" Bytes\n", fastforward_count);
+            printf("Fastforward %" PRIu32 " Bytes\n", fastforward_count);
             continue;
         }
 
@@ -143,8 +143,8 @@ int main(int argc, char **argv)
         );
     }
 
-    printf("Total bytes read: %"PRIu32"\n", total_bytes_read);
-    printf("Total TS Packets parsed: %"PRIu32"\n", ts_packet_total_count);
+    printf("Total bytes read: %" PRIu32 "\n", total_bytes_read);
+    printf("Total TS Packets parsed: %" PRIu32 "\n", ts_packet_total_count);
 
     free(ts_databuf);
 

@@ -75,8 +75,8 @@ typedef struct {
     bool port_swap;
     uint8_t port;
     float halfscan_ratio;
-    uint8_t freq_index=0;
-    uint8_t sr_index=0;
+    uint8_t freq_index;
+    uint8_t sr_index;
     uint32_t freq_requested[4];
     uint32_t sr_requested[4];
     bool beep_enabled;
@@ -101,8 +101,42 @@ typedef struct {
 
     int ts_timeout;
 
-    bool new_config=false;
-    pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
+    bool disable_demod_suppression;
+
+    // JSON output configuration
+    bool json_output_enabled;
+    uint32_t json_output_interval_ms;
+    uint8_t json_output_format;  // 0=full, 1=compact, 2=minimal
+    bool json_include_constellation;
+
+    // Tuner 2 configuration
+    bool tuner2_enabled;
+    uint32_t tuner2_freq_requested[4];
+    uint32_t tuner2_sr_requested[4];
+    uint8_t tuner2_freq_index;
+    uint8_t tuner2_sr_index;
+    float tuner2_halfscan_ratio;
+    bool tuner2_port_swap;
+
+    // Tuner 2 TS output
+    bool tuner2_ts_use_ip;
+    char tuner2_ts_fifo_path[128];
+    char tuner2_ts_ip_addr[16];
+    int tuner2_ts_ip_port;
+
+    // Tuner 2 status output
+    bool tuner2_status_use_ip;
+    bool tuner2_status_use_mqtt;
+    char tuner2_status_fifo_path[128];
+    char tuner2_status_ip_addr[16];
+    int tuner2_status_ip_port;
+
+    // Tuner 2 polarisation (independent LNB control)
+    bool tuner2_polarisation_supply;
+    bool tuner2_polarisation_horizontal;
+
+    bool new_config;
+    pthread_mutex_t mutex;
 } longmynd_config_t;
 
 typedef struct {
@@ -128,8 +162,8 @@ typedef struct {
     uint32_t errors_ldpc_count;
     int8_t constellation[NUM_CONSTELLATIONS][2]; // { i, q }
     uint8_t puncture_rate;
-    char service_name[255]={'\0'};
-    char service_provider_name[255]={'\0'};
+    char service_name[255];
+    char service_provider_name[255];
     uint8_t ts_null_percentage;
     uint16_t ts_elementary_streams[NUM_ELEMENT_STREAMS][2]; // { pid, type }
     uint32_t modcod;
@@ -140,11 +174,11 @@ typedef struct {
     uint8_t rolloff;
     uint64_t last_ts_or_reinit_monotonic;
 
-    uint64_t last_updated_monotonic=0;
-    pthread_mutex_t mutex=PTHREAD_MUTEX_INITIALIZER;
-    pthread_cond_t signal=PTHREAD_COND_INITIALIZER;
+    uint64_t last_updated_monotonic;
+    pthread_mutex_t mutex;
+    pthread_cond_t signal;
 
-    uint32_t ts_packet_count_nolock=0;
+    uint32_t ts_packet_count_nolock;
 } longmynd_status_t;
 
 typedef struct {
@@ -153,6 +187,7 @@ typedef struct {
     uint8_t thread_err;
     longmynd_config_t *config;
     longmynd_status_t *status;
+    longmynd_status_t *status2;  // Tuner 2 status
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);

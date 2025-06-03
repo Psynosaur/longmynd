@@ -156,7 +156,7 @@ void ts_parse(
                 continue;
             }
 
-            ts_packet_ptr = memchr(ts_packet_ptr, TS_HEADER_SYNC, ts_buffer_length_remaining - TS_PACKET_SIZE);
+            ts_packet_ptr = (uint8_t*)memchr(ts_packet_ptr, TS_HEADER_SYNC, ts_buffer_length_remaining - TS_PACKET_SIZE);
             if(ts_packet_ptr == NULL)
             {
                 continue;
@@ -230,7 +230,7 @@ void ts_parse(
 
         if(ts_payload_ptr[0] == TS_TABLE_PMT)
         {
-            if(parse_verbose) printf("## PMT at PID %"PRIu32"\n", ts_pid);
+            if(parse_verbose) printf("## PMT at PID %" PRIu32 "\n", ts_pid);
 
             //ts_pmt_pcr_pid = ((uint32_t)(ts_payload_ptr[8] & 0x1F) << 8) | (uint32_t)ts_payload_ptr[9];
             //printf(" - PMT: PCR PID: %"PRIu32"\n", ts_pmt_pcr_pid);
@@ -269,10 +269,10 @@ void ts_parse(
         }
         else if(ts_payload_ptr[0] == TS_TABLE_PAT)
         {
-            if(parse_verbose) printf("## PAT at PID %"PRIu32"\n", ts_pid);
+            if(parse_verbose) printf("## PAT at PID %" PRIu32 "\n", ts_pid);
 
             ts_pat_programs_count = (ts_payload_section_length - 9) / 4;
-            if(parse_verbose) printf(" - PAT Program Count: %"PRIu32"\n", ts_pat_programs_count);
+            if(parse_verbose) printf(" - PAT Program Count: %" PRIu32 "\n", ts_pat_programs_count);
 
             /* For now, only read the first programme */
             /* TODO: Read all programs here to enable PID parsing of PMT */
@@ -280,7 +280,7 @@ void ts_parse(
             {
                 ts_pat_program_id = ((uint32_t)ts_payload_ptr[8+(i*4)] << 8) | (uint32_t)ts_payload_ptr[9+(i*4)];
                 ts_pat_program_pid = ((uint32_t)(ts_payload_ptr[10+(i*4)] & 0x1F) << 8) | (uint32_t)ts_payload_ptr[11+(i*4)];
-                if(parse_verbose) printf(" - PAT Program ID: %"PRIu32", PID: %"PRIu32"\n", ts_pat_program_id, ts_pat_program_pid);
+                if(parse_verbose) printf(" - PAT Program ID: %" PRIu32 ", PID: %" PRIu32 "\n", ts_pat_program_id, ts_pat_program_pid);
             }
 
             ts_packet_ptr++;
@@ -288,9 +288,9 @@ void ts_parse(
         }
         else if(ts_payload_ptr[0] == TS_TABLE_SDT)
         {
-            if(parse_verbose) printf("## SDT at PID %"PRIu32"\n", ts_pid);
+            if(parse_verbose) printf("## SDT at PID %" PRIu32 "\n", ts_pid);
 
-            if(parse_verbose) printf(" - SDT: ts_payload_section_length: %"PRIu32"\n", ts_payload_section_length);
+            if(parse_verbose) printf(" - SDT: ts_payload_section_length: %" PRIu32 "\n", ts_payload_section_length);
             ts_payload_content_length = 0;
 
             /* Set pointer to start of first service table */
@@ -301,20 +301,20 @@ void ts_parse(
             while(ts_payload_content_length < ts_payload_section_length)
             {
                 service_id = ((uint32_t)ts_packet_sdt_table_ptr[0] << 8) | (uint32_t)ts_packet_sdt_table_ptr[1];
-                if(parse_verbose) printf(" - - SDT: Service ID: %"PRIu32"\n", service_id);
+                if(parse_verbose) printf(" - - SDT: Service ID: %" PRIu32 "\n", service_id);
 
                 ts_packet_sdt_descriptor_loop_length = ((uint32_t)(ts_packet_sdt_table_ptr[3] & 0x0F) << 8) | (uint32_t)ts_packet_sdt_table_ptr[4];
-                if(parse_verbose) printf(" - - SDT: Descriptors Loop Length: %"PRIu32"\n", ts_packet_sdt_descriptor_loop_length);
+                if(parse_verbose) printf(" - - SDT: Descriptors Loop Length: %" PRIu32 "\n", ts_packet_sdt_descriptor_loop_length);
 
                 /* Per descriptor */
                 ts_packet_sdt_descriptor_ptr = &ts_packet_sdt_table_ptr[5];
                 ts_payload_content_length += 5;
 
                 descriptor_tag = (uint32_t)ts_packet_sdt_descriptor_ptr[0];
-                if(parse_verbose) printf(" - - - Descriptor Tag: %"PRIu32"\n", descriptor_tag);
+                if(parse_verbose) printf(" - - - Descriptor Tag: %" PRIu32 "\n", descriptor_tag);
 
                 descriptor_length = (uint32_t)ts_packet_sdt_descriptor_ptr[1];
-                if(parse_verbose) printf(" - - - Descriptor Length: %"PRIu32"\n", descriptor_length);
+                if(parse_verbose) printf(" - - - Descriptor Length: %" PRIu32 "\n", descriptor_length);
 
                 //uint32_t service_type = (uint32_t)ts_packet_sdt_descriptor_ptr[2];
                 //printf(" - - - Service Type %"PRIu32"\n", service_type);

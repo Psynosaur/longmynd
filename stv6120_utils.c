@@ -9,7 +9,9 @@
 /* ----------------- INCLUDES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
 
+#include <cstddef>
 #include "nim.h"
+#include "register_logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
@@ -20,7 +22,17 @@ uint8_t stv6120_read_reg(uint8_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
 /* passes the register read through to the underlying register reading routines                       */
 /* -------------------------------------------------------------------------------------------------- */
-    return nim_read_tuner(reg, val);
+    uint8_t err;
+
+    /* Perform the actual register read */
+    err = nim_read_tuner(reg, val);
+
+    /* Log the register read operation if successful */
+    if (err == 0 && val != NULL) {
+        LOG_STV6120_READ(reg, *val, register_logging_get_context());
+    }
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -28,5 +40,13 @@ uint8_t stv6120_write_reg(uint8_t reg, uint8_t val) {
 /* -------------------------------------------------------------------------------------------------- */
 /* passes the register write through to the underlying register writing routines                      */
 /* -------------------------------------------------------------------------------------------------- */
-    return nim_write_tuner(reg, val);
+    uint8_t err;
+
+    /* Log the register write operation */
+    LOG_STV6120_WRITE(reg, val, register_logging_get_context());
+
+    /* Perform the actual register write */
+    err = nim_write_tuner(reg, val);
+
+    return err;
 }
