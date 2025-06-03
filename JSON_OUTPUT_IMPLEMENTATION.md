@@ -114,9 +114,9 @@ Enables inclusion of constellation data in JSON output (future enhancement).
 - `lna_gain` / `lna`: LNA gain value
 
 #### Lock Status Fields
-- `demod_state` / `ds`: Demodulator state (0=init, 1=hunting, 2=found_header, 3=demod_s, 4=demod_s2)
+- `demod_state` / `ds`: Demodulator state (0=hunting, 1=found_header, 2=DVB-S2, 3=DVB-S)
 - `state_name`: Human-readable state name
-- `locked` / `lck`: Boolean indicating signal lock (true for demod_s/demod_s2)
+- `locked` / `lck`: Boolean indicating signal lock (true for DVB-S2/DVB-S states 2 or 3)
 
 #### Error Rate Fields
 - `viterbi_rate` / `vit`: Viterbi error rate (DVB-S)

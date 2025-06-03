@@ -104,6 +104,36 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		if (strcmp(svalue, "n") == 0)
 			config_set_lnbv(false, false);
 	}
+
+	/* Tuner 2 MQTT commands */
+	if (strcmp(key, "cmd/longmynd/tuner2/symbolrate") == 0)
+	{
+		uint32_t tuner2_sr = atol(svalue);
+		config_set_tuner2_symbolrate(tuner2_sr);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/frequency") == 0)
+	{
+		uint32_t tuner2_freq = atol(svalue);
+		config_set_tuner2_frequency(tuner2_freq);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/swport") == 0)
+	{
+		bool tuner2_sport = atoi(svalue);
+		config_set_tuner2_swport(tuner2_sport);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/tsip") == 0)
+	{
+		config_set_tuner2_tsip(svalue);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/polar") == 0)
+	{
+		if (strcmp(svalue, "h") == 0)
+			config_set_tuner2_lnbv(true, true);
+		if (strcmp(svalue, "v") == 0)
+			config_set_tuner2_lnbv(true, false);
+		if (strcmp(svalue, "n") == 0)
+			config_set_tuner2_lnbv(false, false);
+	}
 }
 
 /* Callback called when the client receives a message. */

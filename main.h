@@ -118,8 +118,13 @@ typedef struct {
     float tuner2_halfscan_ratio;
     bool tuner2_port_swap;
 
+    // Tuner 2 USB device specification
+    uint8_t tuner2_device_usb_bus;
+    uint8_t tuner2_device_usb_addr;
+
     // Tuner 2 TS output
     bool tuner2_ts_use_ip;
+    bool tuner2_ts_reset;
     char tuner2_ts_fifo_path[128];
     char tuner2_ts_ip_addr[16];
     int tuner2_ts_ip_port;
@@ -134,6 +139,9 @@ typedef struct {
     // Tuner 2 polarisation (independent LNB control)
     bool tuner2_polarisation_supply;
     bool tuner2_polarisation_horizontal;
+
+    // Tuner 2 timeout configuration
+    int tuner2_ts_timeout;
 
     bool new_config;
     pthread_mutex_t mutex;
@@ -188,6 +196,7 @@ typedef struct {
     longmynd_config_t *config;
     longmynd_status_t *status;
     longmynd_status_t *status2;  // Tuner 2 status
+    uint8_t tuner_id;            // 1 or 2 for tuner identification
 } thread_vars_t;
 
 void config_set_frequency(uint32_t frequency);
@@ -197,6 +206,15 @@ void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
 void config_set_swport(bool sport);
 void config_set_tsip(char *tsip);
+
+// Tuner 2 configuration functions
+void config_set_tuner2_frequency(uint32_t frequency);
+void config_set_tuner2_symbolrate(uint32_t symbolrate);
+void config_set_tuner2_frequency_and_symbolrate(uint32_t frequency, uint32_t symbolrate);
+void config_set_tuner2_tsip(char *tsip);
+void config_set_tuner2_lnbv(bool enabled, bool horizontal);
+void config_set_tuner2_swport(bool sport);
+void config_tuner2_reinit(bool increment_frsr);
 
 #endif
 
