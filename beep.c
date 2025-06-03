@@ -230,7 +230,7 @@ void *loop_beep(void *arg) {
       snd_pcm_hw_params_alloca(&hwparams);
       snd_pcm_sw_params_alloca(&swparams);
 
-      char              *device      = "default";       /* playback device */
+      const char        *device      = "default";       /* playback device */
       snd_pcm_format_t   format      = SND_PCM_FORMAT_S16; /* sample format */
       unsigned int       rate        = 48000;              /* stream rate */
       unsigned int       channels    = 2;              /* count of channels */
@@ -257,7 +257,7 @@ void *loop_beep(void *arg) {
       }
 
       uint8_t              *frames;
-      frames = malloc(snd_pcm_frames_to_bytes(handle, period_size));
+      frames = (uint8_t*)malloc(snd_pcm_frames_to_bytes(handle, period_size));
 
       if (frames == NULL) {
           fprintf(stderr, "No enough memory\n");

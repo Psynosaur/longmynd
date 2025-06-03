@@ -213,11 +213,11 @@ uint8_t mqtt_status_write(uint8_t message, uint32_t data, bool *output_ready)
 		extern long transmission_delay;
 
 		sprintf(status_topic, "dt/longmynd/videobuffer");
-		sprintf(status_message, "%d", video_pcrpts);
+		sprintf(status_message, "%zu", video_pcrpts);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		sprintf(status_topic, "dt/longmynd/audiobuffer");
-		sprintf(status_message, "%d", audio_pcrpts);
+		sprintf(status_message, "%zu", audio_pcrpts);
 		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
 
 		if(transmission_delay!=0)
