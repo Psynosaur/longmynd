@@ -269,6 +269,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     char polarisation_str[8];
     config->ts_timeout = 50 * 1000;
     config->disable_demod_suppression = false;
+    config->quick_init = false;
 
     /* JSON output defaults */
     config->json_output_enabled = false;
@@ -359,6 +360,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 break;
             case 'C':
                 config->json_include_constellation = true;
+                param--; /* there is no data for this so go back */
+                break;
+            case 'q':
+                config->quick_init = true;
                 param--; /* there is no data for this so go back */
                 break;
             }
@@ -618,6 +623,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              TS Timeout Disabled.\n");
             if (config->disable_demod_suppression)
                 printf("              Demod Suppression Disabled\n");
+            if (config->quick_init)
+                printf("              Quick Initialization Enabled (dddvb-style)\n");
             if (config->json_output_enabled) {
                 const char *format_names[] = {"full", "compact", "minimal"};
                 printf("              JSON Output Enabled: format=%s, interval=%ums\n",

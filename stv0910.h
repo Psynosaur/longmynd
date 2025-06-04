@@ -95,6 +95,7 @@ uint8_t stv0910_read_modcod_and_type(uint8_t, uint32_t*, bool*, bool*,uint8_t *)
 uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) ;
 uint8_t stv0910_init(uint32_t, uint32_t, float, float);
 uint8_t stv0910_init_regs(void);
+uint8_t stv0910_quick_init_regs(void);
 uint8_t stv0910_setup_timing_loop(uint8_t, uint32_t);
 uint8_t stv0910_setup_carrier_loop(uint8_t, uint32_t);
 uint8_t stv0910_read_scan_state(uint8_t, uint8_t *);

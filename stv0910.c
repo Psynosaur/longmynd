@@ -34,7 +34,9 @@
 #include "nim.h"
 #include "errors.h"
 #include "stv0910_regs_init.h"
+#include "stv0910_quick_init.h"
 #include "register_logging.h"
+#include "main.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* Dynamic Clock Management and Optimized Carrier Loop Implementation                                 */
@@ -132,25 +134,18 @@ uint8_t stv0910_write_shared_reg(uint16_t reg, uint8_t mask, uint8_t val) {
     uint8_t err = ERROR_NONE;
     uint8_t tmp = 0;
 
-    /* Ensure mutex is initialized */
-    if (!stv0910_mutex_initialized) {
-        stv0910_mutex_init();
-    }
+    /* CRITICAL FIX: Disable mutex protection to prevent TS stream corruption */
+    /* The mutex implementation was causing timing issues and shadow register corruption */
+    /* TODO: Properly implement mutex protection without breaking existing functionality */
 
-    /* Lock register access mutex */
-    pthread_mutex_lock(&stv0910_reg_mutex);
-
-    /* Read current register value */
+    /* Read current register value using direct access */
     err = stv0910_read_reg(reg, &tmp);
 
-    /* Modify only the masked bits and write back */
+    /* Modify only the masked bits and write back using direct access */
     if (err == ERROR_NONE) {
         tmp = (tmp & ~mask) | (val & mask);
         err = stv0910_write_reg(reg, tmp);
     }
-
-    /* Unlock register access mutex */
-    pthread_mutex_unlock(&stv0910_reg_mutex);
 
     if (err != ERROR_NONE) {
         printf("ERROR: STV0910 shared register write 0x%04x mask=0x%02x val=0x%02x\n", reg, mask, val);
@@ -169,19 +164,12 @@ uint8_t stv0910_read_shared_reg(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
 
-    /* Ensure mutex is initialized */
-    if (!stv0910_mutex_initialized) {
-        stv0910_mutex_init();
-    }
+    /* CRITICAL FIX: Disable mutex protection to prevent TS stream corruption */
+    /* The mutex implementation was causing timing issues and I2C communication problems */
+    /* TODO: Properly implement mutex protection without breaking existing functionality */
 
-    /* Lock I2C access mutex */
-    pthread_mutex_lock(&stv0910_i2c_mutex);
-
-    /* Perform the register read */
+    /* Perform the register read using direct access */
     err = stv0910_read_reg(reg, val);
-
-    /* Unlock I2C access mutex */
-    pthread_mutex_unlock(&stv0910_i2c_mutex);
 
     if (err != ERROR_NONE) {
         printf("ERROR: STV0910 shared register read 0x%04x\n", reg);
@@ -1161,6 +1149,42 @@ uint8_t stv0910_init_regs() {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_quick_init_regs() {
+/* -------------------------------------------------------------------------------------------------- */
+/* Quick initialization using essential registers only - based on dddvb approach                     */
+/* Significantly faster than full register initialization                                            */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t val1;
+    uint8_t val2;
+    uint8_t err;
+    uint16_t i=0;
+
+    printf("Flow: stv0910 quick init regs (dddvb-style)\n");
+
+    /* first we check on the IDs */
+    err=nim_read_demod(0xf100, &val1);
+    if (err==ERROR_NONE) err=nim_read_demod(0xf101, &val2);
+    printf("      Status: STV0910 MID = 0x%.2x, DID = 0x%.2x\n", val1, val2);
+    if ((val1!=0x51) || (val2!=0x20)) {
+        printf("ERROR: read the wrong stv0910 MID/DID");
+        return ERROR_DEMOD_INIT;
+    }
+
+    /* Initialize only essential registers for quick startup */
+    do {
+        if (err==ERROR_NONE) err=stv0910_write_reg(STV0910QuickRegs[i].reg, STV0910QuickRegs[i].val);
+    }
+    while (STV0910QuickRegs[i++].reg!=RSTV0910_TSTTSRS);
+
+    /* finally (from ST example code) reset the LDPC decoder */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float halfscan_ratio2) {
 /* -------------------------------------------------------------------------------------------------- */
 /* demodulator search sequence is:                                                                    */
@@ -1186,7 +1210,13 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_DMDISTATE, 0x1c);
 
     /* do the non demodulator specific stuff */
-    if (err==ERROR_NONE) err=stv0910_init_regs();
+    /* Use quick init if enabled via command line flag */
+    extern longmynd_config_t longmynd_config;
+    if (longmynd_config.quick_init) {
+        if (err==ERROR_NONE) err=stv0910_quick_init_regs();
+    } else {
+        if (err==ERROR_NONE) err=stv0910_init_regs();
+    }
     if (err==ERROR_NONE) err=stv0910_setup_clocks();
 
     /* now we do the inits for each specific demodulator */
