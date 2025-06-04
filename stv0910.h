@@ -23,6 +23,7 @@
 #define STV0910_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define DEMOD_HUNTING 0
 #define DEMOD_FOUND_HEADER 1
@@ -43,6 +44,39 @@
 #define STV0910_PUNCTURE_6_7 0x19
 #define STV0910_PUNCTURE_7_8 0x1a
 
+/* DVB-S2 MODCOD definitions (from dddvb) */
+typedef enum {
+    FE_DUMMY_PLF = 0,
+    FE_QPSK_14,
+    FE_QPSK_13,
+    FE_QPSK_25,
+    FE_QPSK_12,
+    FE_QPSK_35,
+    FE_QPSK_23,
+    FE_QPSK_34,
+    FE_QPSK_45,
+    FE_QPSK_56,
+    FE_QPSK_89,
+    FE_QPSK_910,
+    FE_8PSK_35,
+    FE_8PSK_23,
+    FE_8PSK_34,
+    FE_8PSK_56,
+    FE_8PSK_89,
+    FE_8PSK_910,
+    FE_16APSK_23,
+    FE_16APSK_34,
+    FE_16APSK_45,
+    FE_16APSK_56,
+    FE_16APSK_89,
+    FE_16APSK_910,
+    FE_32APSK_34,
+    FE_32APSK_45,
+    FE_32APSK_56,
+    FE_32APSK_89,
+    FE_32APSK_910
+} fe_stv0910_modcod_t;
+
 uint8_t stv0910_read_car_freq(uint8_t, int32_t*);
 uint8_t stv0910_read_constellation(uint8_t, int8_t*, int8_t*);
 uint8_t stv0910_read_sr(uint8_t demod, uint32_t*);
@@ -61,11 +95,19 @@ uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) 
 uint8_t stv0910_init(uint32_t, uint32_t, float, float);
 uint8_t stv0910_init_regs(void);
 uint8_t stv0910_setup_timing_loop(uint8_t, uint32_t);
-uint8_t stv0910_setup_carrier_loop(uint8_t, uint32_t); 
+uint8_t stv0910_setup_carrier_loop(uint8_t, uint32_t);
 uint8_t stv0910_read_scan_state(uint8_t, uint8_t *);
 uint8_t stv0910_start_scan(uint8_t);
 uint8_t stv0910_setup_search_params(uint8_t);
 uint8_t stv0910_setup_clocks();
+
+/* New dynamic clock management functions */
+uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock);
+uint32_t stv0910_get_current_mclock(void);
+
+/* New optimized carrier loop functions */
+uint8_t stv0910_setup_carrier_loop_optimized(uint8_t demod, uint32_t symbol_rate, fe_stv0910_modcod_t modcod, uint8_t pilots);
+uint8_t stv0910_get_optim_cloop(fe_stv0910_modcod_t modcod, uint32_t symbol_rate, uint8_t pilots);
 
 #endif
 
