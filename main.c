@@ -269,7 +269,6 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     char polarisation_str[8];
     config->ts_timeout = 50 * 1000;
     config->disable_demod_suppression = false;
-    config->quick_init = false;
 
     /* JSON output defaults */
     config->json_output_enabled = false;
@@ -362,10 +361,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->json_include_constellation = true;
                 param--; /* there is no data for this so go back */
                 break;
-            case 'q':
-                config->quick_init = true;
-                param--; /* there is no data for this so go back */
-                break;
+
             }
         }
         param++;
@@ -623,8 +619,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              TS Timeout Disabled.\n");
             if (config->disable_demod_suppression)
                 printf("              Demod Suppression Disabled\n");
-            if (config->quick_init)
-                printf("              Quick Initialization Enabled (dddvb-style)\n");
+
             if (config->json_output_enabled) {
                 const char *format_names[] = {"full", "compact", "minimal"};
                 printf("              JSON Output Enabled: format=%s, interval=%ums\n",
@@ -671,7 +666,7 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config, long
             err = nim_init();
         /* we are only using the one demodulator so set the other to 0 to turn it off */
         if (err == ERROR_NONE)
-            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0, config->quick_init);
+            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
         /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
         if (err == ERROR_NONE)
             tuner_err = stv6120_init(config->freq_requested[config->freq_index], 0, config->port_swap);

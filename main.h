@@ -102,7 +102,6 @@ typedef struct {
     int ts_timeout;
 
     bool disable_demod_suppression;
-    bool quick_init;
 
     // JSON output configuration
     bool json_output_enabled;

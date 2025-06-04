@@ -6,7 +6,7 @@ longmynd \- Outputs transport streams from the Minitiouner DVB-S/S2 demodulator
          [\fB\-i\fR \fIMAIN_IP_ADDR\fR  \fIMAIN_PORT\fR | \fB\-t\fR \fIMAIN_TS_FIFO\fR]
          [\fB\-I\fR \fISTATUS_IP_ADDR\fR  \fISTATUS_PORT\fR | \fB\-s\fR \fIMAIN_STATUS_FIFO\fR]
          [\fB\-w\fR] [\fB\-b\fR] [\fB\-p\fR \fIh\fR | \fB\-p\fR \fIv\fR] [\fB\-r\fR \fITS_TIMEOUT_PERIOD\fR]
-         [\fB\-S\fR \fIHALFSCAN_WIDTH\fR] [\fB\-D\fR] [\fB\-q\fR]
+         [\fB\-S\fR \fIHALFSCAN_WIDTH\fR] [\fB\-D\fR]
       \fIMAIN_FREQ\fR[\fI,ALT_FREQ\fR] \fIMAIN_SR\fR[\fI,ALT_SR\fR]
 .IR 
 .SH DESCRIPTION
@@ -62,10 +62,6 @@ By default this is +/-1.5 * Symbol Rate.
 If selected, this option disables demodulator register logging suppression. By default, demodulator register logging is throttled to once every 5 seconds to reduce verbosity. This option allows all demodulator register operations to be logged without suppression.
 By default demodulator logging suppression is enabled.
 .TP
-.BR \-q
-If selected, this option enables quick initialization using a minimal set of essential registers based on the dddvb driver approach. This significantly reduces initialization time from ~1 second to ~100ms by initializing only 45 essential registers instead of the full 945 register set. Hardware compatibility and timing requirements are preserved.
-By default full register initialization is used.
-.TP
 .BR \fIMAIN_FREQ\fR[\fI,ALT_FREQ\fR]
 specifies the starting frequency (in KHz) of the Main TS Stream search algorithm, and up to 3 alternative frequencies that will be scanned. The TS TIMEOUT must not be disabled to enable scanning functionality. When multiple frequencies and symbolrates are given, each frequency will be scanned for each symbolrate before moving on to the next frequency.
 .TP
@@ -85,9 +81,6 @@ As above but will attempt to find a minitiouner at usb device 4 on usb bus 1.
 .TP
 longmynd -i 192.168.1.1 87 2000 2000
 As above but any TS output will be to IP address 192.168.1.1 on port 87
-.TP
-longmynd -q 2000 2000
-As above but uses quick initialization for faster startup (dddvb-style)
 .TP
 longmynd -i 192.168.1.1 87 -r 5000 145000,146000 35,66,125
 As above but after 5000 milliseconds with no TS data the Tuner configuration will be cycled to the next of the following combinations:

@@ -34,7 +34,7 @@
 #include "nim.h"
 #include "errors.h"
 #include "stv0910_regs_init.h"
-#include "stv0910_quick_init.h"
+
 #include "register_logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -1161,44 +1161,10 @@ uint8_t stv0910_init_regs() {
     return err;
 }
 
-/* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_quick_init_regs() {
-/* -------------------------------------------------------------------------------------------------- */
-/* Quick initialization using essential registers only - based on dddvb approach                     */
-/* Significantly faster than full register initialization                                            */
-/* return: error code                                                                                */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t val1;
-    uint8_t val2;
-    uint8_t err;
-    uint16_t i=0;
 
-    printf("Flow: stv0910 quick init regs (dddvb-style)\n");
-
-    /* first we check on the IDs */
-    err=nim_read_demod(0xf100, &val1);
-    if (err==ERROR_NONE) err=nim_read_demod(0xf101, &val2);
-    printf("      Status: STV0910 MID = 0x%.2x, DID = 0x%.2x\n", val1, val2);
-    if ((val1!=0x51) || (val2!=0x20)) {
-        printf("ERROR: read the wrong stv0910 MID/DID");
-        return ERROR_DEMOD_INIT;
-    }
-
-    /* Initialize only essential registers for quick startup */
-    do {
-        if (err==ERROR_NONE) err=stv0910_write_reg(STV0910QuickRegs[i].reg, STV0910QuickRegs[i].val);
-    }
-    while (STV0910QuickRegs[i++].reg!=RSTV0910_TSTTSRS);
-
-    /* finally (from ST example code) reset the LDPC decoder */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
-
-    return err;
-}
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float halfscan_ratio2, bool quick_init) {
+uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float halfscan_ratio2) {
 /* -------------------------------------------------------------------------------------------------- */
 /* demodulator search sequence is:                                                                    */
 /*   setup the carrier loop                                                                           */
@@ -1212,7 +1178,6 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
 /* FLYWHEEL_CPT: when 0xf DVB-S2 is locked in DMDFLYW (also int stus bits                             */
 /*   sr_top   : the symbol rate to initialise the top demodulator to (0=disable)                      */
 /*   sr_bottom: the symbol rate to initialise the bottom demodulator to (0=disable)                   */
-/*   quick_init: true to use quick initialization (45 registers), false for full init (945 registers) */
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
@@ -1224,12 +1189,7 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_DMDISTATE, 0x1c);
 
     /* do the non demodulator specific stuff */
-    /* Use quick init if enabled via command line flag */
-    if (quick_init) {
-        if (err==ERROR_NONE) err=stv0910_quick_init_regs();
-    } else {
-        if (err==ERROR_NONE) err=stv0910_init_regs();
-    }
+    if (err==ERROR_NONE) err=stv0910_init_regs();
     if (err==ERROR_NONE) err=stv0910_setup_clocks();
 
     /* now we do the inits for each specific demodulator */
