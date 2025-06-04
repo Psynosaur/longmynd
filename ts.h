@@ -25,5 +25,9 @@
 void *loop_ts(void *arg);
 void *loop_ts_parse(void *arg);
 
+/* Tuner 2 functions for dual tuner support */
+void *loop_ts_tuner2(void *arg);
+void *loop_ts_parse_tuner2(void *arg);
+
 #endif
 

@@ -53,6 +53,12 @@ struct sockaddr_in servaddr_ts;
 int sockfd_status;
 int sockfd_ts;
 
+/* Tuner 2 UDP globals */
+struct sockaddr_in servaddr_status_tuner2;
+struct sockaddr_in servaddr_ts_tuner2;
+int sockfd_status_tuner2;
+int sockfd_ts_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- DEFINES ------------------------------------------------------------------------ */
 /* -------------------------------------------------------------------------------------------------- */
@@ -655,6 +661,105 @@ uint8_t udp_close(void)
         err = ERROR_UDP_CLOSE;
         printf("ERROR: Status UDP close\n");
     }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* Tuner 2 UDP functions                                                                              */
+/* -------------------------------------------------------------------------------------------------- */
+
+uint8_t udp_status_init_tuner2(char *udp_ip, int udp_port)
+{
+    return udp_init(&servaddr_status_tuner2, &sockfd_status_tuner2, udp_ip, udp_port);
+}
+
+uint8_t udp_ts_init_tuner2(char *udp_ip, int udp_port)
+{
+    uint8_t err = udp_init(&servaddr_ts_tuner2, &sockfd_ts_tuner2, udp_ip, udp_port);
+    return err;
+}
+
+uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len; /* note it is signed so can go negative */
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
+    /* the FTDI chip every 512 bytes of USB message */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            /* calculate where to start in the buffer and how many bytes to send */
+            write_size = 510;
+            udp_send_normalize(&buffer[len - remaining_len], write_size);
+            /* note we skip over the 2 bytes inserted by the FTDI */
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_send_normalize(&buffer[len - remaining_len], write_size);
+            remaining_len -= write_size; /* should be 0 if all went well */
+        }
+    }
+
+    /* if someting went bad with our calcs, remaining will not be 0 */
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes (tuner 2)\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: UDP socket ts write (tuner 2)\n");
+
+    return err;
+}
+
+uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
+{
+    (void)output_ready;
+    uint8_t err = ERROR_NONE;
+    int32_t remaining_len; /* note it is signed so can go negative */
+    uint32_t write_size;
+
+    remaining_len = len;
+
+    /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
+    /* the FTDI chip every 512 bytes of USB message */
+    while (remaining_len > 0)
+    {
+        if (remaining_len > 510)
+        {
+            /* calculate where to start in the buffer and how many bytes to send */
+            write_size = 510;
+            udp_bb_defrag(&buffer[len - remaining_len], write_size, false);
+            /* note we skip over the 2 bytes inserted by the FTDI */
+            remaining_len -= 512;
+        }
+        else
+        {
+            write_size = remaining_len;
+            udp_bb_defrag(&buffer[len - remaining_len], write_size, false);
+            remaining_len -= write_size; /* should be 0 if all went well */
+        }
+    }
+
+    /* if someting went bad with our calcs, remaining will not be 0 */
+    if ((err == ERROR_NONE) && (remaining_len != 0))
+    {
+        printf("ERROR: UDP socket write incorrect number of bytes (tuner 2)\n");
+        err = ERROR_UDP_WRITE;
+    }
+
+    if (err != ERROR_NONE)
+        printf("ERROR: UDP socket bb write (tuner 2)\n");
 
     return err;
 }

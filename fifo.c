@@ -44,6 +44,10 @@
 int fd_ts_fifo;
 int fd_status_fifo;
 
+/* Tuner 2 FIFO globals */
+int fd_ts_fifo_tuner2;
+int fd_status_fifo_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -239,5 +243,116 @@ uint8_t fifo_close(bool ignore_ts_fifo) {
     if (err!=ERROR_NONE) printf("ERROR: fifo close\n");
 
     return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* Tuner 2 FIFO functions                                                                             */
+/* -------------------------------------------------------------------------------------------------- */
+
+uint8_t fifo_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *fifo_ready) {
+    uint8_t err=ERROR_NONE;
+    int ret;
+    int32_t remaining_len; /* note it is signed so can go negative */
+    uint32_t write_size;
+
+    remaining_len=len;
+    /* we need to loop round sending 510 byte chunks so that we can skip the 2 extra bytes put in by */
+    /* the FTDI chip every 512 bytes of USB message */
+    while (remaining_len>0) {
+        if (remaining_len>510) {
+             /* calculate where to start in the buffer and how many bytes to send */
+             write_size=510;
+             ret=write(fd_ts_fifo_tuner2, &buffer[len-remaining_len], write_size);
+             /* note we skip over the 2 bytes inserted by the FTDI */
+             remaining_len-=512;
+        } else {
+             write_size=remaining_len;
+             ret=write(fd_ts_fifo_tuner2, &buffer[len-remaining_len], write_size);
+             remaining_len-=write_size; /* should be 0 if all went well */
+        }
+        if (ret!=(int)write_size) {
+            if(errno == EPIPE) {
+                /* Broken Pipe, probably because the other end has disconnected */
+                printf("WARNING: broken ts fifo (tuner 2)\n");
+                *fifo_ready = false;
+            } else if(errno == EAGAIN) {
+                /* Write temporarily blocked, try again */
+                continue;
+            } else {
+                printf("ERROR: ts fifo write (tuner 2) (error: %s)\n", strerror(errno));
+                err=ERROR_TS_FIFO_WRITE;
+            }
+            break;
+        }
+    }
+
+    /* if someting went bad with our calcs, remaining will not be 0 */
+    if ((err==ERROR_NONE) && *fifo_ready && (remaining_len!=0)) {
+        printf("ERROR: ts fifo write incorrect number of bytes (tuner 2)\n");
+        err=ERROR_TS_FIFO_WRITE;
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo ts write (tuner 2)\n");
+
+    return err;
+}
+
+uint8_t fifo_status_write_tuner2(uint8_t message, uint32_t data, bool *fifo_ready) {
+    uint8_t err=ERROR_NONE;
+    int ret;
+    char status_message[30];
+
+    /* WARNING: This currently prints as signed integer (int32_t), even though function appears to expect unsigned (uint32_t) */
+    sprintf(status_message, "$%i,%i\n", message, data);
+    ret=write(fd_status_fifo_tuner2, status_message, strlen(status_message));
+    if (ret!=(int)strlen(status_message)) {
+        if(errno == EPIPE) {
+            /* Broken Pipe, probably because the other end has disconnected */
+            printf("WARNING: broken status fifo (tuner 2)\n");
+            *fifo_ready = false;
+        } else if(errno == EAGAIN) {
+            /* Write temporarily blocked, ignore */
+        } else {
+            printf("ERROR: status fifo write (tuner 2) (error: %s)\n", strerror(errno));
+            err=ERROR_TS_FIFO_WRITE;
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo status write (tuner 2)\n");
+
+    return err;
+}
+
+uint8_t fifo_status_string_write_tuner2(uint8_t message, char *data, bool *fifo_ready) {
+    uint8_t err=ERROR_NONE;
+    int ret;
+    char status_message[5+128];
+
+    sprintf(status_message, "$%i,%s\n", message, data);
+    ret=write(fd_status_fifo_tuner2, status_message, strlen(status_message));
+    if (ret!=(int)strlen(status_message)) {
+        if(errno == EPIPE) {
+            /* Broken Pipe, probably because the other end has disconnected */
+            printf("WARNING: broken status fifo (tuner 2)\n");
+            *fifo_ready = false;
+        } else if(errno == EAGAIN) {
+            /* Write temporarily blocked, ignore */
+        } else {
+            printf("ERROR: status fifo string write (tuner 2) (error: %s)\n", strerror(errno));
+            err=ERROR_TS_FIFO_WRITE;
+        }
+    }
+
+    if (err!=ERROR_NONE) printf("ERROR: fifo status string write (tuner 2)\n");
+
+    return err;
+}
+
+uint8_t fifo_ts_init_tuner2(char *fifo_path, bool *fifo_ready) {
+    return fifo_init(&fd_ts_fifo_tuner2, fifo_path, fifo_ready);
+}
+
+uint8_t fifo_status_init_tuner2(char *fifo_path, bool *fifo_ready) {
+    return fifo_init(&fd_status_fifo_tuner2, fifo_path, fifo_ready);
 }
 

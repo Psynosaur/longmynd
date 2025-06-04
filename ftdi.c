@@ -540,6 +540,10 @@ uint8_t ftdi_init_tuner2(uint8_t usb_bus, uint8_t usb_addr) {
     if (err==ERROR_NONE) err=ftdi_usb_init_ts_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
     if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_ts_tuner2();
 
+    /* Note: ftdi_setup_ftdi_io() and ftdi_nim_reset() are shared functions that operate on the main device */
+    /* For dual tuner support, these operations should only be done once on the main device */
+    /* Tuner 2 uses a separate physical device but shares the same I2C bus configuration */
+
     if (err!=ERROR_NONE) printf("ERROR: FTDI init tuner 2\n");
 
     return err;

@@ -85,6 +85,12 @@ static pthread_t thread_ts;
 static pthread_t thread_i2c;
 static pthread_t thread_beep;
 
+/* Tuner 2 thread variables */
+static pthread_t thread_ts_tuner2;
+static pthread_t thread_ts_parse_tuner2;
+static thread_vars_t thread_vars_ts_tuner2;
+static thread_vars_t thread_vars_ts_parse_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -261,6 +267,19 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->tuner2_device_usb_addr = 0;
     config->tuner2_device_usb_bus = 0;
     config->tuner2_enabled = false;
+
+    /* Tuner 2 TS output defaults */
+    config->tuner2_ts_use_ip = false;
+    strcpy(config->tuner2_ts_fifo_path, "longmynd_tuner2_ts");
+    strcpy(config->tuner2_ts_ip_addr, "230.0.0.3");
+    config->tuner2_ts_ip_port = 1234;
+
+    /* Tuner 2 status output defaults */
+    config->tuner2_status_use_ip = false;
+    config->tuner2_status_use_mqtt = false;
+    strcpy(config->tuner2_status_fifo_path, "longmynd_tuner2_status");
+    strcpy(config->tuner2_status_ip_addr, "230.0.0.4");
+    config->tuner2_status_ip_port = 1235;
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
@@ -1453,6 +1472,42 @@ static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread
         }
     }
 
+    /* Create tuner 2 threads if enabled */
+    if (err == ERROR_NONE && longmynd_config.tuner2_enabled) {
+        /* Initialize tuner 2 thread variables */
+        thread_vars_ts_tuner2.main_err_ptr = &err;
+        thread_vars_ts_tuner2.thread_err = ERROR_NONE;
+        thread_vars_ts_tuner2.config = &longmynd_config;
+        thread_vars_ts_tuner2.status = &longmynd_status2;
+
+        thread_vars_ts_parse_tuner2.main_err_ptr = &err;
+        thread_vars_ts_parse_tuner2.thread_err = ERROR_NONE;
+        thread_vars_ts_parse_tuner2.config = &longmynd_config;
+        thread_vars_ts_parse_tuner2.status = &longmynd_status2;
+
+        /* Create tuner 2 TS processing thread */
+        if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts_tuner2, (void *)&thread_vars_ts_tuner2))
+        {
+            printf("Flow: Tuner 2 TS processing thread created\n");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_ts_tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+
+        /* Create tuner 2 TS parsing thread */
+        if (err == ERROR_NONE && 0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse_tuner2, (void *)&thread_vars_ts_parse_tuner2))
+        {
+            printf("Flow: Tuner 2 TS parsing thread created\n");
+        }
+        else
+        {
+            fprintf(stderr, "Error creating loop_ts_parse_tuner2 pthread\n");
+            err = ERROR_THREAD_ERROR;
+        }
+    }
+
     return err;
 }
 
@@ -1637,6 +1692,13 @@ int main(int argc, char *argv[])
     pthread_join(thread_ts, NULL);
     pthread_join(thread_i2c, NULL);
     pthread_join(thread_beep, NULL);
+
+    /* Join tuner 2 threads if they were created */
+    if (longmynd_config.tuner2_enabled) {
+        pthread_join(thread_ts_parse_tuner2, NULL);
+        pthread_join(thread_ts_tuner2, NULL);
+        printf("Flow: Tuner 2 threads joined\n");
+    }
 
     /* Cleanup STV0910 mutex protection */
     stv0910_mutex_destroy();
