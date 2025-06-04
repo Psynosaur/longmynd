@@ -133,18 +133,25 @@ uint8_t stv0910_write_shared_reg(uint16_t reg, uint8_t mask, uint8_t val) {
     uint8_t err = ERROR_NONE;
     uint8_t tmp = 0;
 
-    /* CRITICAL FIX: Disable mutex protection to prevent TS stream corruption */
-    /* The mutex implementation was causing timing issues and shadow register corruption */
-    /* TODO: Properly implement mutex protection without breaking existing functionality */
+    /* Ensure mutex is initialized */
+    if (!stv0910_mutex_initialized) {
+        stv0910_mutex_init();
+    }
 
-    /* Read current register value using direct access */
+    /* Lock register access mutex for atomic read-modify-write operation */
+    pthread_mutex_lock(&stv0910_reg_mutex);
+
+    /* Read current register value */
     err = stv0910_read_reg(reg, &tmp);
 
-    /* Modify only the masked bits and write back using direct access */
+    /* Modify only the masked bits and write back */
     if (err == ERROR_NONE) {
         tmp = (tmp & ~mask) | (val & mask);
         err = stv0910_write_reg(reg, tmp);
     }
+
+    /* Unlock register access mutex */
+    pthread_mutex_unlock(&stv0910_reg_mutex);
 
     if (err != ERROR_NONE) {
         printf("ERROR: STV0910 shared register write 0x%04x mask=0x%02x val=0x%02x\n", reg, mask, val);
@@ -163,12 +170,19 @@ uint8_t stv0910_read_shared_reg(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
 
-    /* CRITICAL FIX: Disable mutex protection to prevent TS stream corruption */
-    /* The mutex implementation was causing timing issues and I2C communication problems */
-    /* TODO: Properly implement mutex protection without breaking existing functionality */
+    /* Ensure mutex is initialized */
+    if (!stv0910_mutex_initialized) {
+        stv0910_mutex_init();
+    }
 
-    /* Perform the register read using direct access */
+    /* Lock I2C access mutex for read operation */
+    pthread_mutex_lock(&stv0910_i2c_mutex);
+
+    /* Perform the register read */
     err = stv0910_read_reg(reg, val);
+
+    /* Unlock I2C access mutex */
+    pthread_mutex_unlock(&stv0910_i2c_mutex);
 
     if (err != ERROR_NONE) {
         printf("ERROR: STV0910 shared register read 0x%04x\n", reg);

@@ -1559,6 +1559,12 @@ int main(int argc, char *argv[])
     if (err == ERROR_NONE)
         err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
 
+    /* Initialize STV0910 mutex protection for thread-safe register access */
+    if (err == ERROR_NONE) {
+        stv0910_mutex_init();
+        printf("Flow: STV0910 mutex protection initialized\n");
+    }
+
     /* Initialize and start worker threads */
     thread_vars_t thread_vars_ts, thread_vars_ts_parse, thread_vars_i2c, thread_vars_beep;
     if (err == ERROR_NONE)
@@ -1577,6 +1583,10 @@ int main(int argc, char *argv[])
     pthread_join(thread_ts, NULL);
     pthread_join(thread_i2c, NULL);
     pthread_join(thread_beep, NULL);
+
+    /* Cleanup STV0910 mutex protection */
+    stv0910_mutex_destroy();
+    printf("Flow: STV0910 mutex protection cleaned up\n");
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
 
