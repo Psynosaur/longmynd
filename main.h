@@ -84,6 +84,10 @@ typedef struct {
     uint8_t device_usb_bus;
     uint8_t device_usb_addr;
 
+    // Tuner 2 FTDI device configuration
+    uint8_t tuner2_device_usb_bus;
+    uint8_t tuner2_device_usb_addr;
+
     bool ts_use_ip;
     bool ts_reset;
     char ts_fifo_path[128];

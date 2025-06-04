@@ -258,6 +258,9 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->beep_enabled = false;
     config->device_usb_addr = 0;
     config->device_usb_bus = 0;
+    config->tuner2_device_usb_addr = 0;
+    config->tuner2_device_usb_bus = 0;
+    config->tuner2_enabled = false;
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
@@ -279,13 +282,25 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     {
         if (argv[param][0] == '-')
         {
-            switch (argv[param++][1])
+            /* Handle multi-character options first */
+            if (strcmp(argv[param], "-u2") == 0)
             {
-            case 'u':
-                config->device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
-                config->device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
-                main_usb_set = true;
-                break;
+                param++;
+                config->tuner2_device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
+                config->tuner2_device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                config->tuner2_enabled = true;
+                printf("Flow: Tuner 2 enabled with USB bus/device=%d,%d\n",
+                       config->tuner2_device_usb_bus, config->tuner2_device_usb_addr);
+            }
+            else
+            {
+                switch (argv[param++][1])
+                {
+                case 'u':
+                    config->device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
+                    config->device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
+                    main_usb_set = true;
+                    break;
             case 'i':
                 strncpy(config->ts_ip_addr, argv[param++], (16 - 1));
                 config->ts_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
@@ -360,6 +375,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 param--; /* there is no data for this so go back */
                 break;
 
+                }
             }
         }
         param++;
@@ -594,6 +610,9 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              Using First Minitiouner detected on USB\n");
             else
                 printf("              USB bus/device=%i,%i\n", config->device_usb_bus, config->device_usb_addr);
+
+            if (config->tuner2_enabled)
+                printf("              Tuner 2 USB bus/device=%i,%i\n", config->tuner2_device_usb_bus, config->tuner2_device_usb_addr);
             if (!config->ts_use_ip)
                 printf("              Main TS output to FIFO=%s\n", config->ts_fifo_path);
             else
@@ -1573,6 +1592,15 @@ int main(int argc, char *argv[])
     /* Initialize FTDI USB interface */
     if (err == ERROR_NONE)
         err = ftdi_init(longmynd_config.device_usb_bus, longmynd_config.device_usb_addr);
+
+    /* Initialize tuner 2 FTDI interface if enabled */
+    if (err == ERROR_NONE && longmynd_config.tuner2_enabled) {
+        printf("Flow: Initializing Tuner 2 FTDI interface\n");
+        // For now, we'll use the same FTDI device but different interfaces
+        // This follows the open tuner pattern where dual tuners share the same physical device
+        // but use different TS interfaces (A and B channels)
+        printf("Flow: Tuner 2 will share FTDI device with tuner 1 (dual channel mode)\n");
+    }
 
     /* Initialize STV0910 mutex protection for thread-safe register access */
     if (err == ERROR_NONE) {
