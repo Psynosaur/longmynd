@@ -36,14 +36,11 @@
 #include "main.h"
 #include "ftdi.h"
 #include "stv0910.h"
-#include "stv0910_regs.h"
-#include "stv0910_utils.h"
 #include "stv6120.h"
 #include "stvvglna.h"
 #include "nim.h"
 #include "errors.h"
 #include "fifo.h"
-#include "ftdi_usb.h"
 #include "udp.h"
 #include "beep.h"
 #include "ts.h"
@@ -81,6 +78,8 @@ static longmynd_status_t longmynd_status;
     .signal = PTHREAD_COND_INITIALIZER,
     .ts_packet_count_nolock = 0};
 */
+
+static longmynd_status_t longmynd_status2;  /* Tuner 2 status structure */
 static pthread_t thread_ts_parse;
 static pthread_t thread_ts;
 static pthread_t thread_i2c;
@@ -246,7 +245,6 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     /* return: error code                                                                                 */
     /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
-    uint8_t param;
     bool main_usb_set = false;
     bool ts_ip_set = false;
     bool ts_fifo_set = false;
@@ -276,7 +274,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->json_output_format = 0;  /* 0=full, 1=compact, 2=minimal */
     config->json_include_constellation = false;
 
-    param = 1;
+    uint8_t param = 1;
     while (param < argc - 2)
     {
         if (argv[param][0] == '-')
@@ -386,12 +384,11 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     if (err == ERROR_NONE)
     {
         /* Parse frequencies requested */
-        char *arg_ptr = argv[param];
-        char *comma_ptr;
+        const char *arg_ptr = argv[param];
         for (int i = 0; (i < 4) && (err == ERROR_NONE); i++)
         {
             /* Look for comma */
-            comma_ptr = strchr(arg_ptr, ',');
+            char *comma_ptr = strchr(arg_ptr, ',');
             if (comma_ptr != NULL)
             {
                 /* Set comma to NULL to end string here */
@@ -646,7 +643,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 /* -------------------------------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------------------------------- */
-static uint8_t hardware_initialize_modules(const longmynd_config_t *config, longmynd_status_t *status_cpy)
+static uint8_t hardware_initialize_modules(const longmynd_config_t *config)
 {
     /* -------------------------------------------------------------------------------------------------- */
     /* Initializes all hardware modules with retry logic for tuner PLL lock                           */
@@ -745,14 +742,16 @@ static uint8_t hardware_start_demodulator_scan(longmynd_status_t *status_cpy)
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t do_report(longmynd_status_t *status)
+uint8_t do_report(uint8_t tuner, longmynd_status_t *status)
 {
     /* -------------------------------------------------------------------------------------------------- */
     /* interrogates the demodulator to find the interesting info to report                                */
+    /*   tuner: tuner number (1 or 2) to determine which demodulator to use                              */
     /*  status: the state struct                                                                          */
     /* return: error code                                                                                 */
     /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
+    uint8_t demod = (tuner == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
 
     /* LNAs if present */
     if (status->lna_ok)
@@ -765,65 +764,65 @@ uint8_t do_report(longmynd_status_t *status)
 
     /* AGC1 Gain */
     if (err == ERROR_NONE)
-        err = stv0910_read_agc1_gain(STV0910_DEMOD_TOP, &status->agc1_gain);
+        err = stv0910_read_agc1_gain(demod, &status->agc1_gain);
 
     /* AGC2 Gain */
     if (err == ERROR_NONE)
-        err = stv0910_read_agc2_gain(STV0910_DEMOD_TOP, &status->agc2_gain);
+        err = stv0910_read_agc2_gain(demod, &status->agc2_gain);
 
     /* I,Q powers */
     if (err == ERROR_NONE)
-        err = stv0910_read_power(STV0910_DEMOD_TOP, &status->power_i, &status->power_q);
+        err = stv0910_read_power(demod, &status->power_i, &status->power_q);
 
     /* constellations */
     if (err == ERROR_NONE)
     {
         for (uint8_t count = 0; (err == ERROR_NONE && count < NUM_CONSTELLATIONS); count++)
         {
-            err = stv0910_read_constellation(STV0910_DEMOD_TOP, &status->constellation[count][0], &status->constellation[count][1]);
+            err = stv0910_read_constellation(demod, &status->constellation[count][0], &status->constellation[count][1]);
         }
     }
 
     /* puncture rate */
     if (err == ERROR_NONE)
-        err = stv0910_read_puncture_rate(STV0910_DEMOD_TOP, &status->puncture_rate);
+        err = stv0910_read_puncture_rate(demod, &status->puncture_rate);
 
     /* carrier frequency offset we are trying */
     if (err == ERROR_NONE)
-        err = stv0910_read_car_freq(STV0910_DEMOD_TOP, &status->frequency_offset);
+        err = stv0910_read_car_freq(demod, &status->frequency_offset);
 
     /* symbol rate we are trying */
     if (err == ERROR_NONE)
-        err = stv0910_read_sr(STV0910_DEMOD_TOP, &status->symbolrate);
+        err = stv0910_read_sr(demod, &status->symbolrate);
 
     /* viterbi error rate */
     if (err == ERROR_NONE)
-        err = stv0910_read_err_rate(STV0910_DEMOD_TOP, &status->viterbi_error_rate);
+        err = stv0910_read_err_rate(demod, &status->viterbi_error_rate);
 
     /* BER */
     if (err == ERROR_NONE)
-        err = stv0910_read_ber(STV0910_DEMOD_TOP, &status->bit_error_rate);
+        err = stv0910_read_ber(demod, &status->bit_error_rate);
 
     /* BCH Uncorrected Flag */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_bch_uncorrected(STV0910_DEMOD_TOP, &status->errors_bch_uncorrected);
+        err = stv0910_read_errors_bch_uncorrected(demod, &status->errors_bch_uncorrected);
 
     /* BCH Error Count */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_bch_count(STV0910_DEMOD_TOP, &status->errors_bch_count);
+        err = stv0910_read_errors_bch_count(demod, &status->errors_bch_count);
 
     /* LDPC Error Count */
     if (err == ERROR_NONE)
-        err = stv0910_read_errors_ldpc_count(STV0910_DEMOD_TOP, &status->errors_ldpc_count);
+        err = stv0910_read_errors_ldpc_count(demod, &status->errors_ldpc_count);
 
     if (err == ERROR_NONE)
-        err = stv0910_read_matype(STV0910_DEMOD_TOP, &status->matype1,&status->matype2);
+        err = stv0910_read_matype(demod, &status->matype1,&status->matype2);
 
     /* MER */
     if (status->state == STATE_DEMOD_S || status->state == STATE_DEMOD_S2)
     {
         if (err == ERROR_NONE)
-            err = stv0910_read_mer(STV0910_DEMOD_TOP, &status->modulation_error_rate);
+            err = stv0910_read_mer(demod, &status->modulation_error_rate);
     }
     else
     {
@@ -832,7 +831,7 @@ uint8_t do_report(longmynd_status_t *status)
 
     /* MODCOD, Short Frames, Pilots */
     if (err == ERROR_NONE)
-        err = stv0910_read_modcod_and_type(STV0910_DEMOD_TOP, &status->modcod, &status->short_frame, &status->pilots,&status->rolloff);
+        err = stv0910_read_modcod_and_type(demod, &status->modcod, &status->short_frame, &status->pilots,&status->rolloff);
     if (status->state != STATE_DEMOD_S2)
     {
         /* short frames & pilots only valid for S2 DEMOD state */
@@ -848,7 +847,7 @@ uint8_t do_report(longmynd_status_t *status)
 /* -------------------------------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------------------------------- */
-static uint8_t handle_configuration_change(thread_vars_t *thread_vars, longmynd_config_t *config_cpy,
+static uint8_t handle_configuration_change(const thread_vars_t *thread_vars, longmynd_config_t *config_cpy,
                                           longmynd_status_t *status_cpy, uint8_t *err)
 {
     /* -------------------------------------------------------------------------------------------------- */
@@ -878,7 +877,7 @@ static uint8_t handle_configuration_change(thread_vars_t *thread_vars, longmynd_
 
     /* Initialize hardware modules with retry logic - PRESERVE EXACT SEQUENCES */
     if (*err == ERROR_NONE)
-        local_err = hardware_initialize_modules(config_cpy, status_cpy);
+        local_err = hardware_initialize_modules(config_cpy);
     if (local_err != ERROR_NONE)
         *err = local_err;
 
@@ -971,20 +970,22 @@ static void update_status_synchronization(longmynd_status_t *status, longmynd_st
 /* -------------------------------------------------------------------------------------------------- */
 
 /* -------------------------------------------------------------------------------------------------- */
-static uint8_t process_demodulator_state_transition(longmynd_status_t *status_cpy, uint8_t *err)
+static uint8_t process_demodulator_state_transition(uint8_t tuner, longmynd_status_t *status_cpy, uint8_t *err)
 {
     /* -------------------------------------------------------------------------------------------------- */
     /* Processes demodulator state transitions and updates receiver state                              */
     /* Preserves exact state machine logic and error handling                                          */
+    /*   tuner: tuner number (1 or 2) to determine which demodulator to use                           */
     /* status_cpy: local status copy                                                                   */
     /* err: error code pointer                                                                         */
     /* return: error code                                                                              */
     /* -------------------------------------------------------------------------------------------------- */
     uint8_t local_err = ERROR_NONE;
+    uint8_t demod = (tuner == 1) ? STV0910_DEMOD_TOP : STV0910_DEMOD_BOTTOM;
 
     /* Read current demodulator scan state */
     if (*err == ERROR_NONE)
-        local_err = stv0910_read_scan_state(STV0910_DEMOD_TOP, &status_cpy->demod_state);
+        local_err = stv0910_read_scan_state(demod, &status_cpy->demod_state);
     if (local_err != ERROR_NONE)
         *err = local_err;
 
@@ -1095,6 +1096,7 @@ void *loop_i2c(void *arg)
 
     longmynd_config_t config_cpy;
     longmynd_status_t status_cpy;
+    longmynd_status_t status_cpy_2;  /* Tuner 2 status copy */
 
     uint32_t last_ts_packet_count = 0;
 
@@ -1119,17 +1121,34 @@ void *loop_i2c(void *arg)
         /* Main receiver state machine - PRESERVE EXACT BEHAVIOR */
         /* Update status from hardware */
         if (*err == ERROR_NONE)
-            *err = do_report(&status_cpy);
+            *err = do_report(1, &status_cpy);
 
         /* Process state transitions */
         if (*err == ERROR_NONE)
-            process_demodulator_state_transition(&status_cpy, err);
+            process_demodulator_state_transition(1, &status_cpy, err);
 
         /* Update TS packet tracking and synchronize status */
         update_status_synchronization(status, &status_cpy, &last_ts_packet_count);
 
         /* Output JSON demodulator cycle data if enabled */
         JSON_OUTPUT_DEMOD_CYCLE(1, &status_cpy);
+
+        /* Tuner 2 status collection if enabled */
+        if (config_cpy.tuner2_enabled && *err == ERROR_NONE)
+        {
+            /* Initialize tuner 2 status copy */
+            status_cpy_2.last_ts_or_reinit_monotonic = 0;
+
+            /* Update tuner 2 status from hardware */
+            *err = do_report(2, &status_cpy_2);
+
+            /* Process tuner 2 state transitions */
+            if (*err == ERROR_NONE)
+                process_demodulator_state_transition(2, &status_cpy_2, err);
+
+            /* Output JSON demodulator cycle data for tuner 2 if enabled */
+            JSON_OUTPUT_DEMOD_CYCLE(2, &status_cpy_2);
+        }
 
         last_i2c_loop = monotonic_ms();
     }
@@ -1355,6 +1374,7 @@ static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread
     thread_vars_i2c->thread_err = ERROR_NONE;
     thread_vars_i2c->config = &longmynd_config;
     thread_vars_i2c->status = &longmynd_status;
+    thread_vars_i2c->status2 = &longmynd_status2;  /* Tuner 2 status pointer */
 
     thread_vars_beep->main_err_ptr = err_ptr;
     thread_vars_beep->thread_err = ERROR_NONE;
@@ -1421,8 +1441,8 @@ static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread
 static uint8_t run_main_status_loop(uint8_t (*status_write)(uint8_t, uint32_t, bool *),
                                    uint8_t (*status_string_write)(uint8_t, char *, bool *),
                                    bool *status_output_ready,
-                                   thread_vars_t *thread_vars_ts, thread_vars_t *thread_vars_ts_parse,
-                                   thread_vars_t *thread_vars_i2c, thread_vars_t *thread_vars_beep)
+                                   const thread_vars_t *thread_vars_ts, const thread_vars_t *thread_vars_ts_parse,
+                                   const thread_vars_t *thread_vars_i2c, const thread_vars_t *thread_vars_beep)
 {
     /* -------------------------------------------------------------------------------------------------- */
     /* Runs the main status output loop and monitors thread health                                      */
@@ -1560,6 +1580,14 @@ int main(int argc, char *argv[])
         printf("Flow: STV0910 mutex protection initialized\n");
     }
 
+    /* Initialize tuner 2 status structure if tuner 2 is enabled */
+    if (err == ERROR_NONE && longmynd_config.tuner2_enabled) {
+        memset(&longmynd_status2, 0, sizeof(longmynd_status_t));
+        pthread_mutex_init(&longmynd_status2.mutex, NULL);
+        pthread_cond_init(&longmynd_status2.signal, NULL);
+        printf("Flow: Tuner 2 status structure initialized\n");
+    }
+
     /* Initialize and start worker threads */
     thread_vars_t thread_vars_ts, thread_vars_ts_parse, thread_vars_i2c, thread_vars_beep;
     if (err == ERROR_NONE)
@@ -1582,6 +1610,13 @@ int main(int argc, char *argv[])
     /* Cleanup STV0910 mutex protection */
     stv0910_mutex_destroy();
     printf("Flow: STV0910 mutex protection cleaned up\n");
+
+    /* Cleanup tuner 2 status structure if it was initialized */
+    if (longmynd_config.tuner2_enabled) {
+        pthread_mutex_destroy(&longmynd_status2.mutex);
+        pthread_cond_destroy(&longmynd_status2.signal);
+        printf("Flow: Tuner 2 status structure cleaned up\n");
+    }
 
     printf("Flow: All threads accounted for. Exiting cleanly.\n");
 
