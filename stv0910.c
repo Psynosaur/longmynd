@@ -107,7 +107,7 @@ uint8_t stv0910_read_car_freq(uint8_t demod, int32_t *cf) {
     car_offset_freq=(double)(int32_t)((((uint32_t)val_h<<16) + ((uint32_t)val_m<< 8) + ((uint32_t)val_l )) << 8);
     /* carrier offset freq (MHz)= mclk (MHz) * CFR/2^24. But we have the extra 256 in there from the sign shift */
     /* so in Hz we need: */
-    car_offset_freq=current_mclk*car_offset_freq/256.0/256.0/256.0/256.0;
+    car_offset_freq=135000000*car_offset_freq/256.0/256.0/256.0/256.0;
 
     *cf=(int32_t)car_offset_freq;
 
@@ -158,7 +158,7 @@ uint8_t stv0910_read_sr(uint8_t demod, uint32_t *found_sr) {
        ((uint32_t)val_ml <<  8) +
        ((uint32_t)val_l       );
     /* sr (MHz) = ckadc (MHz) * SFR/2^32. So in Symbols per Second we need */
-    sr=current_mclk*sr/256.0/256.0/256.0/256.0;
+    sr=135000000*sr/256.0/256.0/256.0/256.0;
     *found_sr=(uint32_t)sr;
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read symbol rate\n");
@@ -486,6 +486,13 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     uint16_t timeout = 0;
 
     printf("Flow: STV0910 set dynamic MCLK to %u Hz\n", master_clock);
+    printf("Debug: Crystal frequency: %u Hz\n", quartz);
+
+    /* Safety check for valid frequencies */
+    if (master_clock < 50000000 || master_clock > 200000000) {
+        printf("ERROR: Invalid master clock frequency %u Hz (must be 50-200 MHz)\n", master_clock);
+        return ERROR_DEMOD_INIT;
+    }
 
     /* Calculate optimal PLL parameters */
     /* 800MHz < Fvco < 1800MHz */
@@ -497,7 +504,17 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     idf = 1;
 
     /* Calculate NDIV: NDIV = (fphi * odf * idf) / quartz */
-    ndiv = (fphi * odf * idf) / (quartz / 1000000);  /* Convert to MHz for calculation */
+    /* Convert frequencies to MHz for calculation to avoid overflow */
+    uint32_t fphi_mhz = fphi / 1000000;
+    uint32_t quartz_mhz = quartz / 1000000;
+
+    if (quartz_mhz == 0) {
+        printf("ERROR: Invalid crystal frequency %u Hz\n", quartz);
+        return ERROR_DEMOD_INIT;
+    }
+
+    ndiv = (fphi_mhz * odf * idf) / quartz_mhz;
+    printf("Debug: NDIV calculation: (%u * %u * %u) / %u = %u\n", fphi_mhz, odf, idf, quartz_mhz, ndiv);
 
     /* Calculate CP based on NDIV range (from dddvb) */
     if (ndiv < 6) cp = 0;
@@ -515,11 +532,26 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     else if (ndiv < 257) cp = 14;
     else cp = 15;
 
+    printf("Debug: PLL parameters - ODF=%u, IDF=%u, NDIV=%u, CP=%u\n", odf, idf, ndiv, cp);
+
     /* Write PLL parameters */
-    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_ODF, odf);
-    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_IDF, idf);
-    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
-    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_CP, cp);
+    printf("Debug: Writing PLL parameters...\n");
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg_field(FSTV0910_ODF, odf);
+        printf("Debug: ODF write result: %u\n", err);
+    }
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg_field(FSTV0910_IDF, idf);
+        printf("Debug: IDF write result: %u\n", err);
+    }
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
+        printf("Debug: NDIV write result: %u\n", err);
+    }
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg_field(FSTV0910_CP, cp);
+        printf("Debug: CP write result: %u\n", err);
+    }
 
     /* Turn on all the clocks */
     if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_STANDBY, 0);
@@ -559,7 +591,7 @@ uint32_t stv0910_get_current_mclock(void) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_clocks() {
 /* -------------------------------------------------------------------------------------------------- */
-/* Legacy clock setup function - now uses dynamic clock management                                    */
+/* Original clock setup function - restored for stability                                             */
 /* sequence is:                                                                                       */
 /*   DIRCLK=0 (the hw clock selection pin)                                                            */
 /*   RESETB (the hw reset pin) transits from low to high at least 3ms after power stabilises          */
@@ -571,10 +603,58 @@ uint8_t stv0910_setup_clocks() {
 /*   wait for lock bit to go high                                                                     */
 /*  return: error code                                                                                */
 /* -------------------------------------------------------------------------------------------------- */
-    printf("Flow: STV0910 set MCLK (using dynamic clock management)\n");
+    uint8_t err=ERROR_NONE;
+    uint32_t ndiv;
+    uint32_t odf;
+    uint32_t idf;
+    uint32_t f_phi;
+    uint32_t f_xtal;
+    uint8_t cp;
+    uint8_t lock=0;
+    uint16_t timeout=0;
 
-    /* Use dynamic clock management with default 135MHz master clock */
-    return stv0910_set_mclock_dynamic(NIM_DEMOD_MCLK);
+    printf("Flow: STV0910 set MCLK\n");
+
+    /* 800MHz < Fvco < 1800MHz                              */
+    /* Fvco = (ExtClk * 2 * NDIV) / IDF                     */
+    /* (400 * IDF) / ExtClk < NDIV < (900 * IDF) / ExtClk   */
+
+    /* ODF forced to 4 otherwise desynchronization of digital and analog clock which result */
+    /* in a bad calculated symbolrate */
+    odf=4;
+    /* IDF forced to 1 : Optimal value */
+    idf=1;
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_ODF, odf);
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_IDF, idf);
+
+    f_xtal=NIM_TUNER_XTAL/1000; /* in MHz */
+    f_phi=135000000/1000000;
+    ndiv=(f_phi * odf * idf) / f_xtal;
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
+
+    /* Set CP according to NDIV */
+    cp=7;
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_CP, cp);
+
+    /* turn on all the clocks */
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_STANDBY, 0);
+
+    /* derive clocks from PLL */
+    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_BYPASSPLLCORE, 0);
+
+    /* wait for PLL to lock */
+    do {
+        timeout++;
+        if (timeout==STV0910_PLL_LOCK_TIMEOUT) {
+             err=ERROR_DEMOD_PLL_TIMEOUT;
+             printf("ERROR: STV0910 pll lock timeout\n");
+        }
+        if (err==ERROR_NONE) stv0910_read_reg_field(FSTV0910_PLLLOCK, &lock);
+    } while ((err==ERROR_NONE) && (lock==0));
+
+    if (err!=ERROR_NONE) printf("ERROR: STV0910 set MCLK\n");
+
+    return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -727,8 +807,8 @@ uint8_t stv0910_setup_carrier_loop_optimized(uint8_t demod, uint32_t symbol_rate
     if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT0 : RSTV0910_P1_CFRINIT0), 0);
     if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT1 : RSTV0910_P1_CFRINIT1), 0);
 
-    /* Calculate carrier frequency search range based on current master clock */
-    temp = halfscan_sr * 65536 / (current_mclk / 1000000);
+    /* Calculate carrier frequency search range based on 135MHz master clock */
+    temp = halfscan_sr * 65536 / 135000;
 
     /* Upper Limit */
     if (err == ERROR_NONE) {
@@ -795,9 +875,9 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
     SET_REG_CONTEXT(REG_CONTEXT_SYMBOL_RATE_SETUP);
     LOG_SEQUENCE_START("STV0910 Symbol Rate Setup");
 
-    /* SR (MHz) = ckadc (MHz) * SFRINIT / 2^16 */
+    /* SR (MHz) = ckadc (135MHz) * SFRINIT / 2^16 */
     /* we have sr in KHz, ckadc in MHz) */
-    sr_reg=(uint16_t)((((uint32_t)sr) << 16) / (current_mclk / 1000000) / 1000);
+    sr_reg=(uint16_t)((((uint32_t)sr) << 16) / 135 / 1000);
 
     SET_REG_CONTEXT(REG_CONTEXT_TIMING_LOOP);
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT1 : RSTV0910_P1_SFRINIT0),
