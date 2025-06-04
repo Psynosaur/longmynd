@@ -1596,10 +1596,13 @@ int main(int argc, char *argv[])
     /* Initialize tuner 2 FTDI interface if enabled */
     if (err == ERROR_NONE && longmynd_config.tuner2_enabled) {
         printf("Flow: Initializing Tuner 2 FTDI interface\n");
-        // For now, we'll use the same FTDI device but different interfaces
-        // This follows the open tuner pattern where dual tuners share the same physical device
-        // but use different TS interfaces (A and B channels)
-        printf("Flow: Tuner 2 will share FTDI device with tuner 1 (dual channel mode)\n");
+        err = ftdi_init_tuner2(longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
+        if (err == ERROR_NONE) {
+            printf("Flow: Tuner 2 FTDI device initialized successfully on USB bus/device=%d,%d\n",
+                   longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
+        } else {
+            printf("ERROR: Failed to initialize Tuner 2 FTDI device\n");
+        }
     }
 
     /* Initialize STV0910 mutex protection for thread-safe register access */

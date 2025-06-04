@@ -526,3 +526,22 @@ uint8_t ftdi_init(uint8_t usb_bus, uint8_t usb_addr) {
     return err;
 }
 
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_init_tuner2(uint8_t usb_bus, uint8_t usb_addr) {
+/* -------------------------------------------------------------------------------------------------- */
+/* initialises the ftdi module for tuner 2 on a separate minitiouner device                          */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err;
+
+    printf("Flow: FTDI init tuner 2\n");
+
+    err=ftdi_usb_init_i2c_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
+    if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_i2c_tuner2();
+    if (err==ERROR_NONE) err=ftdi_usb_init_ts_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
+    if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_ts_tuner2();
+
+    if (err!=ERROR_NONE) printf("ERROR: FTDI init tuner 2\n");
+
+    return err;
+}
+
