@@ -257,6 +257,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     bool status_ip_set = false;
     bool status_mqtt_set = false;
     bool status_fifo_set = false;
+    bool tuner2_ts_ip_set = false;
 
     /* Defaults */
     config->port_swap = false;
@@ -310,6 +311,16 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->tuner2_enabled = true;
                 printf("Flow: Tuner 2 enabled with USB bus/device=%d,%d\n",
                        config->tuner2_device_usb_bus, config->tuner2_device_usb_addr);
+            }
+            else if (strcmp(argv[param], "-i2") == 0)
+            {
+                param++;
+                strncpy(config->tuner2_ts_ip_addr, argv[param++], (16 - 1));
+                config->tuner2_ts_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
+                config->tuner2_ts_use_ip = true;
+                tuner2_ts_ip_set = true;
+                printf("Flow: Tuner 2 TS output configured for IP=%s:%d\n",
+                       config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
             }
             else
             {
@@ -636,6 +647,12 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("              Main TS output to FIFO=%s\n", config->ts_fifo_path);
             else
                 printf("              Main TS output to IP=%s:%i\n", config->ts_ip_addr, config->ts_ip_port);
+            if (config->tuner2_enabled) {
+                if (!config->tuner2_ts_use_ip)
+                    printf("              Tuner 2 TS output to FIFO=%s\n", config->tuner2_ts_fifo_path);
+                else
+                    printf("              Tuner 2 TS output to IP=%s:%i\n", config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
+            }
             if (!config->status_use_ip)
                 printf("              Main Status output to FIFO=%s\n", config->status_fifo_path);
             else
