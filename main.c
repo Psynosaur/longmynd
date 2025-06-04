@@ -671,7 +671,7 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config, long
             err = nim_init();
         /* we are only using the one demodulator so set the other to 0 to turn it off */
         if (err == ERROR_NONE)
-            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
+            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0, config->quick_init);
         /* we only use one of the tuners in STV6120 so freq for tuner 2=0 to turn it off */
         if (err == ERROR_NONE)
             tuner_err = stv6120_init(config->freq_requested[config->freq_index], 0, config->port_swap);

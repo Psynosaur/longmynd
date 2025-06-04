@@ -36,7 +36,6 @@
 #include "stv0910_regs_init.h"
 #include "stv0910_quick_init.h"
 #include "register_logging.h"
-#include "main.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* Dynamic Clock Management and Optimized Carrier Loop Implementation                                 */
@@ -1185,7 +1184,7 @@ uint8_t stv0910_quick_init_regs() {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
-uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float halfscan_ratio2) {
+uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float halfscan_ratio2, bool quick_init) {
 /* -------------------------------------------------------------------------------------------------- */
 /* demodulator search sequence is:                                                                    */
 /*   setup the carrier loop                                                                           */
@@ -1199,6 +1198,7 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
 /* FLYWHEEL_CPT: when 0xf DVB-S2 is locked in DMDFLYW (also int stus bits                             */
 /*   sr_top   : the symbol rate to initialise the top demodulator to (0=disable)                      */
 /*   sr_bottom: the symbol rate to initialise the bottom demodulator to (0=disable)                   */
+/*   quick_init: true to use quick initialization (45 registers), false for full init (945 registers) */
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
@@ -1211,8 +1211,7 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
 
     /* do the non demodulator specific stuff */
     /* Use quick init if enabled via command line flag */
-    extern longmynd_config_t longmynd_config;
-    if (longmynd_config.quick_init) {
+    if (quick_init) {
         if (err==ERROR_NONE) err=stv0910_quick_init_regs();
     } else {
         if (err==ERROR_NONE) err=stv0910_init_regs();
