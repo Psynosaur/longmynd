@@ -37,6 +37,49 @@
 #include "register_logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
+/* Dynamic Clock Management and Optimized Carrier Loop Implementation                                 */
+/* Based on Digital Devices dddvb driver for improved performance                                     */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* Global variable to track current master clock frequency */
+static uint32_t current_mclk = NIM_DEMOD_MCLK;
+
+/* Optimized carrier loop coefficients from dddvb driver */
+/* Tracking carrier loop carrier QPSK 1/4 to 8PSK 9/10 long Frame */
+static const uint8_t s2car_loop[] = {
+    /* Modcod 2MPon 2MPoff 5MPon 5MPoff 10MPon 10MPoff 20MPon 20MPoff 30MPon 30MPoff */
+    /* FE_QPSK_14  */ 0x0C, 0x3C, 0x0B, 0x3C, 0x2A, 0x2C, 0x2A, 0x1C, 0x3A, 0x3B,
+    /* FE_QPSK_13  */ 0x0C, 0x3C, 0x0B, 0x3C, 0x2A, 0x2C, 0x3A, 0x0C, 0x3A, 0x2B,
+    /* FE_QPSK_25  */ 0x1C, 0x3C, 0x1B, 0x3C, 0x3A, 0x1C, 0x3A, 0x3B, 0x3A, 0x2B,
+    /* FE_QPSK_12  */ 0x0C, 0x1C, 0x2B, 0x1C, 0x0B, 0x2C, 0x0B, 0x0C, 0x2A, 0x2B,
+    /* FE_QPSK_35  */ 0x1C, 0x1C, 0x2B, 0x1C, 0x0B, 0x2C, 0x0B, 0x0C, 0x2A, 0x2B,
+    /* FE_QPSK_23  */ 0x2C, 0x2C, 0x2B, 0x1C, 0x0B, 0x2C, 0x0B, 0x0C, 0x2A, 0x2B,
+    /* FE_QPSK_34  */ 0x3C, 0x2C, 0x3B, 0x2C, 0x1B, 0x1C, 0x1B, 0x3B, 0x3A, 0x1B,
+    /* FE_QPSK_45  */ 0x0D, 0x3C, 0x3B, 0x2C, 0x1B, 0x1C, 0x1B, 0x3B, 0x3A, 0x1B,
+    /* FE_QPSK_56  */ 0x1D, 0x3C, 0x0C, 0x2C, 0x2B, 0x1C, 0x1B, 0x3B, 0x0B, 0x1B,
+    /* FE_QPSK_89  */ 0x3D, 0x0D, 0x0C, 0x2C, 0x2B, 0x0C, 0x2B, 0x2B, 0x0B, 0x0B,
+    /* FE_QPSK_910 */ 0x1E, 0x0D, 0x1C, 0x2C, 0x3B, 0x0C, 0x2B, 0x2B, 0x1B, 0x0B,
+    /* FE_8PSK_35  */ 0x28, 0x09, 0x28, 0x09, 0x28, 0x09, 0x28, 0x08, 0x28, 0x27,
+    /* FE_8PSK_23  */ 0x19, 0x29, 0x19, 0x29, 0x19, 0x29, 0x38, 0x19, 0x28, 0x09,
+    /* FE_8PSK_34  */ 0x1A, 0x0B, 0x1A, 0x3A, 0x0A, 0x2A, 0x39, 0x2A, 0x39, 0x1A,
+    /* FE_8PSK_56  */ 0x2B, 0x2B, 0x1B, 0x1B, 0x0B, 0x1B, 0x1A, 0x0B, 0x1A, 0x1A,
+    /* FE_8PSK_89  */ 0x0C, 0x0C, 0x3B, 0x3B, 0x1B, 0x1B, 0x2A, 0x0B, 0x2A, 0x2A,
+    /* FE_8PSK_910 */ 0x0C, 0x1C, 0x0C, 0x3B, 0x2B, 0x1B, 0x3A, 0x0B, 0x2A, 0x2A,
+    /* Tracking carrier loop carrier 16APSK 2/3 to 32APSK 9/10 long Frame */
+    /* FE_16APSK_23 */ 0x0A, 0x0A, 0x0A, 0x0A, 0x1A, 0x0A, 0x39, 0x0A, 0x29, 0x0A,
+    /* FE_16APSK_34 */ 0x0A, 0x0A, 0x0A, 0x0A, 0x0B, 0x0A, 0x2A, 0x0A, 0x1A, 0x0A,
+    /* FE_16APSK_45 */ 0x0A, 0x0A, 0x0A, 0x0A, 0x1B, 0x0A, 0x3A, 0x0A, 0x2A, 0x0A,
+    /* FE_16APSK_56 */ 0x0A, 0x0A, 0x0A, 0x0A, 0x1B, 0x0A, 0x3A, 0x0A, 0x2A, 0x0A,
+    /* FE_16APSK_89 */ 0x0A, 0x0A, 0x0A, 0x0A, 0x2B, 0x0A, 0x0B, 0x0A, 0x3A, 0x0A,
+    /* FE_16APSK_910*/ 0x0A, 0x0A, 0x0A, 0x0A, 0x2B, 0x0A, 0x0B, 0x0A, 0x3A, 0x0A,
+    /* FE_32APSK_34 */ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
+    /* FE_32APSK_45 */ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
+    /* FE_32APSK_56 */ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
+    /* FE_32APSK_89 */ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
+    /* FE_32APSK_910*/ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
+};
+
+/* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
 
@@ -64,7 +107,7 @@ uint8_t stv0910_read_car_freq(uint8_t demod, int32_t *cf) {
     car_offset_freq=(double)(int32_t)((((uint32_t)val_h<<16) + ((uint32_t)val_m<< 8) + ((uint32_t)val_l )) << 8);
     /* carrier offset freq (MHz)= mclk (MHz) * CFR/2^24. But we have the extra 256 in there from the sign shift */
     /* so in Hz we need: */
-    car_offset_freq=135000000*car_offset_freq/256.0/256.0/256.0/256.0;
+    car_offset_freq=current_mclk*car_offset_freq/256.0/256.0/256.0/256.0;
 
     *cf=(int32_t)car_offset_freq;
 
@@ -115,7 +158,7 @@ uint8_t stv0910_read_sr(uint8_t demod, uint32_t *found_sr) {
        ((uint32_t)val_ml <<  8) +
        ((uint32_t)val_l       );
     /* sr (MHz) = ckadc (MHz) * SFR/2^32. So in Symbols per Second we need */
-    sr=135000000*sr/256.0/256.0/256.0/256.0;
+    sr=current_mclk*sr/256.0/256.0/256.0/256.0;
     *found_sr=(uint32_t)sr;
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 read symbol rate\n");
@@ -428,8 +471,95 @@ uint8_t stv0910_read_matype(uint8_t demod, uint32_t *matype1,uint32_t *matype2) 
 
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Dynamic master clock setup based on dddvb implementation                                          */
+/* master_clock: desired master clock frequency in Hz                                                */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint32_t quartz = NIM_TUNER_XTAL;  /* Crystal frequency in Hz */
+    uint32_t fphi = master_clock;      /* Target frequency in Hz */
+    uint32_t ndiv, odf, idf;
+    uint8_t cp;
+    uint8_t lock = 0;
+    uint16_t timeout = 0;
+
+    printf("Flow: STV0910 set dynamic MCLK to %u Hz\n", master_clock);
+
+    /* Calculate optimal PLL parameters */
+    /* 800MHz < Fvco < 1800MHz */
+    /* Fvco = (ExtClk * 2 * NDIV) / IDF */
+
+    /* ODF forced to 4 for optimal performance */
+    odf = 4;
+    /* IDF forced to 1 for optimal value */
+    idf = 1;
+
+    /* Calculate NDIV: NDIV = (fphi * odf * idf) / quartz */
+    ndiv = (fphi * odf * idf) / (quartz / 1000000);  /* Convert to MHz for calculation */
+
+    /* Calculate CP based on NDIV range (from dddvb) */
+    if (ndiv < 6) cp = 0;
+    else if (ndiv < 7) cp = 1;
+    else if (ndiv < 9) cp = 3;
+    else if (ndiv < 13) cp = 5;
+    else if (ndiv < 17) cp = 6;
+    else if (ndiv < 25) cp = 7;
+    else if (ndiv < 33) cp = 8;
+    else if (ndiv < 49) cp = 9;
+    else if (ndiv < 65) cp = 10;
+    else if (ndiv < 97) cp = 11;
+    else if (ndiv < 129) cp = 12;
+    else if (ndiv < 193) cp = 13;
+    else if (ndiv < 257) cp = 14;
+    else cp = 15;
+
+    /* Write PLL parameters */
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_ODF, odf);
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_IDF, idf);
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_CP, cp);
+
+    /* Turn on all the clocks */
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_STANDBY, 0);
+
+    /* Derive clocks from PLL */
+    if (err == ERROR_NONE) err = stv0910_write_reg_field(FSTV0910_BYPASSPLLCORE, 0);
+
+    /* Wait for PLL to lock */
+    do {
+        timeout++;
+        if (timeout == STV0910_PLL_LOCK_TIMEOUT) {
+            err = ERROR_DEMOD_PLL_TIMEOUT;
+            printf("ERROR: STV0910 dynamic PLL lock timeout\n");
+        }
+        if (err == ERROR_NONE) stv0910_read_reg_field(FSTV0910_PLLLOCK, &lock);
+    } while ((err == ERROR_NONE) && (lock == 0));
+
+    if (err == ERROR_NONE) {
+        current_mclk = master_clock;
+        printf("Flow: STV0910 dynamic MCLK set successfully to %u Hz\n", master_clock);
+    } else {
+        printf("ERROR: STV0910 set dynamic MCLK failed\n");
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint32_t stv0910_get_current_mclock(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Get the current master clock frequency                                                             */
+/* return: current master clock frequency in Hz                                                       */
+/* -------------------------------------------------------------------------------------------------- */
+    return current_mclk;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_clocks() {
 /* -------------------------------------------------------------------------------------------------- */
+/* Legacy clock setup function - now uses dynamic clock management                                    */
 /* sequence is:                                                                                       */
 /*   DIRCLK=0 (the hw clock selection pin)                                                            */
 /*   RESETB (the hw reset pin) transits from low to high at least 3ms after power stabilises          */
@@ -441,58 +571,10 @@ uint8_t stv0910_setup_clocks() {
 /*   wait for lock bit to go high                                                                     */
 /*  return: error code                                                                                */
 /* -------------------------------------------------------------------------------------------------- */
-    uint8_t err=ERROR_NONE;
-    uint32_t ndiv;
-    uint32_t odf;
-    uint32_t idf;
-    uint32_t f_phi;
-    uint32_t f_xtal;
-    uint8_t cp;
-    uint8_t lock=0;
-    uint16_t timeout=0;
+    printf("Flow: STV0910 set MCLK (using dynamic clock management)\n");
 
-    printf("Flow: STV0910 set MCLK\n");
-
-    /* 800MHz < Fvco < 1800MHz                              */
-    /* Fvco = (ExtClk * 2 * NDIV) / IDF                     */
-    /* (400 * IDF) / ExtClk < NDIV < (900 * IDF) / ExtClk   */
-
-    /* ODF forced to 4 otherwise desynchronization of digital and analog clock which result */
-    /* in a bad calculated symbolrate */
-    odf=4;
-    /* IDF forced to 1 : Optimal value */
-    idf=1;
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_ODF, odf);
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_IDF, idf);
-
-    f_xtal=NIM_TUNER_XTAL/1000; /* in MHz */
-    f_phi=135000000/1000000;
-    ndiv=(f_phi * odf * idf) / f_xtal;
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
-
-    /* Set CP according to NDIV */
-    cp=7;
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_CP, cp);
-
-    /* turn on all the clocks */
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_STANDBY, 0);
-
-    /* derive clocks from PLL */
-    if (err==ERROR_NONE) err=stv0910_write_reg_field(FSTV0910_BYPASSPLLCORE, 0);
-
-    /* wait for PLL to lock */
-    do {
-        timeout++;
-        if (timeout==STV0910_PLL_LOCK_TIMEOUT) {
-             err=ERROR_DEMOD_PLL_TIMEOUT;
-             printf("ERROR: STV0910 pll lock timeout\n");
-        }
-        if (err==ERROR_NONE) stv0910_read_reg_field(FSTV0910_PLLLOCK, &lock);
-    } while ((err==ERROR_NONE) && (lock==0));
-
-    if (err!=ERROR_NONE) printf("ERROR: STV0910 set MCLK\n");
-
-    return err;
+    /* Use dynamic clock management with default 135MHz master clock */
+    return stv0910_set_mclock_dynamic(NIM_DEMOD_MCLK);
 }
 
 /* -------------------------------------------------------------------------------------------------- */
@@ -571,6 +653,106 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod, uint32_t halfscan_sr) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_get_optim_cloop(fe_stv0910_modcod_t modcod, uint32_t symbol_rate, uint8_t pilots) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Get optimized carrier loop coefficient based on modulation and symbol rate                         */
+/* modcod: DVB-S2 modulation and coding                                                               */
+/* symbol_rate: symbol rate in symbols per second                                                     */
+/* pilots: 1 if pilots are enabled, 0 if disabled                                                     */
+/* return: optimized carrier loop coefficient                                                         */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t aclc = 0x29;  /* Default value */
+    uint32_t sr_mhz = symbol_rate / 1000000;  /* Convert to MHz */
+    uint8_t coeff_index;
+
+    /* Validate modcod range */
+    if (modcod >= FE_32APSK_910) {
+        printf("Warning: Invalid MODCOD %d, using default carrier loop\n", modcod);
+        return aclc;
+    }
+
+    /* Determine coefficient index based on symbol rate and pilots */
+    if (sr_mhz <= 2) {
+        coeff_index = pilots ? 0 : 1;        /* 2MPon/2MPoff */
+    } else if (sr_mhz <= 5) {
+        coeff_index = pilots ? 2 : 3;        /* 5MPon/5MPoff */
+    } else if (sr_mhz <= 10) {
+        coeff_index = pilots ? 4 : 5;        /* 10MPon/10MPoff */
+    } else if (sr_mhz <= 20) {
+        coeff_index = pilots ? 6 : 7;        /* 20MPon/20MPoff */
+    } else {
+        coeff_index = pilots ? 8 : 9;        /* 30MPon/30MPoff */
+    }
+
+    /* Get coefficient from lookup table */
+    aclc = s2car_loop[modcod * 10 + coeff_index];
+
+    printf("Flow: Optimized carrier loop MODCOD=%d SR=%uMHz pilots=%d coeff=0x%02x\n",
+           modcod, sr_mhz, pilots, aclc);
+
+    return aclc;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_setup_carrier_loop_optimized(uint8_t demod, uint32_t symbol_rate, fe_stv0910_modcod_t modcod, uint8_t pilots) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Setup carrier loop with optimized coefficients based on modulation and symbol rate                */
+/* demod: STV0910_DEMOD_TOP | STV0910_DEMOD_BOTTOM: which demodulator                                */
+/* symbol_rate: symbol rate in symbols per second                                                     */
+/* modcod: DVB-S2 modulation and coding                                                               */
+/* pilots: 1 if pilots are enabled, 0 if disabled                                                     */
+/* return: error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t aclc;
+    int64_t temp;
+    uint32_t halfscan_sr = symbol_rate / 2;  /* Half scan range */
+
+    printf("Flow: Setup optimized carrier loop demod=%d SR=%u MODCOD=%d pilots=%d\n",
+           demod, symbol_rate, modcod, pilots);
+
+    /* Set register logging context for optimized carrier loop setup */
+    SET_REG_CONTEXT(REG_CONTEXT_CARRIER_LOOP);
+    LOG_SEQUENCE_START("STV0910 Optimized Carrier Loop Setup");
+
+    /* Get optimized carrier loop coefficient */
+    aclc = stv0910_get_optim_cloop(modcod, symbol_rate, pilots);
+
+    /* Set optimized carrier loop coefficient */
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg(demod == STV0910_DEMOD_TOP ? RSTV0910_P2_ACLC : RSTV0910_P1_ACLC, aclc);
+    }
+
+    /* Start at 0 offset */
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT0 : RSTV0910_P1_CFRINIT0), 0);
+    if (err == ERROR_NONE) err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRINIT1 : RSTV0910_P1_CFRINIT1), 0);
+
+    /* Calculate carrier frequency search range based on current master clock */
+    temp = halfscan_sr * 65536 / (current_mclk / 1000000);
+
+    /* Upper Limit */
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRUP0 : RSTV0910_P1_CFRUP0), (uint8_t)(temp & 0xff));
+        err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRUP1 : RSTV0910_P1_CFRUP1), (uint8_t)((temp >> 8) & 0xff));
+    }
+
+    /* The lower value is the negative of the upper value */
+    temp = -temp;
+    if (err == ERROR_NONE) {
+        err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW0 : RSTV0910_P1_CFRLOW0), (uint8_t)(temp & 0xff));
+        err = stv0910_write_reg((demod == STV0910_DEMOD_TOP ? RSTV0910_P2_CFRLOW1 : RSTV0910_P1_CFRLOW1), (uint8_t)((temp >> 8) & 0xff));
+    }
+
+    LOG_SEQUENCE_END("STV0910 Optimized Carrier Loop Setup");
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: STV0910 optimized carrier loop setup failed\n");
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
 /* -------------------------------------------------------------------------------------------------- */
 /* coarse aquisition                                                                                  */
@@ -613,9 +795,9 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
     SET_REG_CONTEXT(REG_CONTEXT_SYMBOL_RATE_SETUP);
     LOG_SEQUENCE_START("STV0910 Symbol Rate Setup");
 
-    /* SR (MHz) = ckadc (135MHz) * SFRINIT / 2^16 */
+    /* SR (MHz) = ckadc (MHz) * SFRINIT / 2^16 */
     /* we have sr in KHz, ckadc in MHz) */
-    sr_reg=(uint16_t)((((uint32_t)sr) << 16) / 135 / 1000);
+    sr_reg=(uint16_t)((((uint32_t)sr) << 16) / (current_mclk / 1000000) / 1000);
 
     SET_REG_CONTEXT(REG_CONTEXT_TIMING_LOOP);
     if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT1 : RSTV0910_P1_SFRINIT0),
