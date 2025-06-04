@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <pthread.h>
 
 #define DEMOD_HUNTING 0
 #define DEMOD_FOUND_HEADER 1
@@ -108,6 +109,16 @@ uint32_t stv0910_get_current_mclock(void);
 /* New optimized carrier loop functions */
 uint8_t stv0910_setup_carrier_loop_optimized(uint8_t demod, uint32_t symbol_rate, fe_stv0910_modcod_t modcod, uint8_t pilots);
 uint8_t stv0910_get_optim_cloop(fe_stv0910_modcod_t modcod, uint32_t symbol_rate, uint8_t pilots);
+
+/* New mutex-protected register access functions (dddvb style) */
+uint8_t stv0910_write_shared_reg(uint16_t reg, uint8_t mask, uint8_t val);
+uint8_t stv0910_read_shared_reg(uint16_t reg, uint8_t *val);
+uint8_t stv0910_write_shared_reg_field(uint32_t field, uint8_t field_val);
+uint8_t stv0910_read_shared_reg_field(uint32_t field, uint8_t *field_val);
+
+/* Mutex management functions */
+void stv0910_mutex_init(void);
+void stv0910_mutex_destroy(void);
 
 #endif
 

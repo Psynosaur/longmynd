@@ -44,6 +44,11 @@
 /* Global variable to track current master clock frequency */
 static uint32_t current_mclk = NIM_DEMOD_MCLK;
 
+/* Mutex protection for shared register access (dddvb style) */
+static pthread_mutex_t stv0910_i2c_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t stv0910_reg_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool stv0910_mutex_initialized = false;
+
 /* Optimized carrier loop coefficients from dddvb driver */
 /* Tracking carrier loop carrier QPSK 1/4 to 8PSK 9/10 long Frame */
 static const uint8_t s2car_loop[] = {
@@ -78,6 +83,151 @@ static const uint8_t s2car_loop[] = {
     /* FE_32APSK_89 */ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
     /* FE_32APSK_910*/ 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09, 0x09,
 };
+
+/* -------------------------------------------------------------------------------------------------- */
+/* ----------------- MUTEX MANAGEMENT ROUTINES ----------------------------------------------------- */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+void stv0910_mutex_init(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Initialize mutex protection for shared register access                                             */
+/* Should be called once during system initialization                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    if (!stv0910_mutex_initialized) {
+        pthread_mutex_init(&stv0910_i2c_mutex, NULL);
+        pthread_mutex_init(&stv0910_reg_mutex, NULL);
+        stv0910_mutex_initialized = true;
+        printf("Flow: STV0910 mutex protection initialized\n");
+    }
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void stv0910_mutex_destroy(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Destroy mutex protection for shared register access                                                */
+/* Should be called once during system cleanup                                                        */
+/* -------------------------------------------------------------------------------------------------- */
+    if (stv0910_mutex_initialized) {
+        pthread_mutex_destroy(&stv0910_i2c_mutex);
+        pthread_mutex_destroy(&stv0910_reg_mutex);
+        stv0910_mutex_initialized = false;
+        printf("Flow: STV0910 mutex protection destroyed\n");
+    }
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+/* ----------------- MUTEX-PROTECTED REGISTER ACCESS ROUTINES -------------------------------------- */
+/* -------------------------------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_shared_reg(uint16_t reg, uint8_t mask, uint8_t val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Write to shared register with mutex protection (dddvb style)                                       */
+/* reg: register address                                                                              */
+/* mask: bit mask for the field to modify                                                             */
+/* val: value to write (only bits set in mask will be modified)                                       */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t tmp = 0;
+
+    /* Ensure mutex is initialized */
+    if (!stv0910_mutex_initialized) {
+        stv0910_mutex_init();
+    }
+
+    /* Lock register access mutex */
+    pthread_mutex_lock(&stv0910_reg_mutex);
+
+    /* Read current register value */
+    err = stv0910_read_reg(reg, &tmp);
+
+    /* Modify only the masked bits and write back */
+    if (err == ERROR_NONE) {
+        tmp = (tmp & ~mask) | (val & mask);
+        err = stv0910_write_reg(reg, tmp);
+    }
+
+    /* Unlock register access mutex */
+    pthread_mutex_unlock(&stv0910_reg_mutex);
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: STV0910 shared register write 0x%04x mask=0x%02x val=0x%02x\n", reg, mask, val);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_shared_reg(uint16_t reg, uint8_t *val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Read from shared register with mutex protection (dddvb style)                                      */
+/* reg: register address                                                                              */
+/* val: pointer to store the read value                                                               */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    /* Ensure mutex is initialized */
+    if (!stv0910_mutex_initialized) {
+        stv0910_mutex_init();
+    }
+
+    /* Lock I2C access mutex */
+    pthread_mutex_lock(&stv0910_i2c_mutex);
+
+    /* Perform the register read */
+    err = stv0910_read_reg(reg, val);
+
+    /* Unlock I2C access mutex */
+    pthread_mutex_unlock(&stv0910_i2c_mutex);
+
+    if (err != ERROR_NONE) {
+        printf("ERROR: STV0910 shared register read 0x%04x\n", reg);
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_write_shared_reg_field(uint32_t field, uint8_t field_val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Write to shared register field with mutex protection (dddvb style)                                 */
+/* field: register field definition (from stv0910_regs.h)                                             */
+/* field_val: value to write to the field                                                             */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint16_t reg = field >> 16;
+    uint8_t mask = field & 0xff;
+    uint8_t shift = (field >> 12) & 0x0f;
+    uint8_t val = field_val << shift;
+
+    return stv0910_write_shared_reg(reg, mask, val);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_read_shared_reg_field(uint32_t field, uint8_t *field_val) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Read from shared register field with mutex protection (dddvb style)                               */
+/* field: register field definition (from stv0910_regs.h)                                             */
+/* field_val: pointer to store the field value                                                        */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    uint8_t val = 0;
+    uint16_t reg = field >> 16;
+    uint8_t mask = field & 0xff;
+    uint8_t shift = (field >> 12) & 0x0f;
+
+    err = stv0910_read_shared_reg(reg, &val);
+
+    if (err == ERROR_NONE) {
+        *field_val = (val & mask) >> shift;
+    }
+
+    return err;
+}
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
