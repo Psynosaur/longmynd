@@ -293,7 +293,8 @@ int json_format_demod_status_compact(char *buffer, size_t buffer_size, uint8_t t
 
     return snprintf(buffer, buffer_size,
         "{\"ts\":%llu,\"t\":%u,\"pi\":%u,\"pq\":%u,\"a1\":%u,\"a2\":%u,\"lna\":%u,"
-        "\"ds\":%u,\"lck\":%s,\"vit\":%u,\"ber\":%u,\"mer\":%d,\"freq\":%.1f,\"sr\":%u,\"mc\":%u}",
+        "\"ds\":%u,\"lck\":%s,\"vit\":%u,\"ber\":%u,\"mer\":%d,\"freq\":%.1f,\"sr\":%u,\"mc\":%u,"
+        "\"sn\":\"%s\",\"pn\":\"%s\"}",
         (unsigned long long)timestamp,
         tuner,
         status->power_i,
@@ -308,7 +309,9 @@ int json_format_demod_status_compact(char *buffer, size_t buffer_size, uint8_t t
         status->modulation_error_rate,
         actual_freq,
         status->symbolrate,
-        status->modcod
+        status->modcod,
+        status->service_name,
+        status->service_provider_name
     );
 }
 

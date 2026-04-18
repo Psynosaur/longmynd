@@ -238,6 +238,9 @@ void *loop_ts_tuner2(void *arg) {
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
         if ((*err==ERROR_NONE) && (len>2)) {
+            static uint32_t t2_rx_count = 0;
+            if (++t2_rx_count % 100 == 1)
+                fprintf(stderr, "T2 TS: rx_count=%u len=%u matype1=0x%02x\n", t2_rx_count, len, status->matype1);
 
         if(thread_vars->config->tuner2_ts_use_ip && (status->matype1&0xC0)>>6 == 3)
         {

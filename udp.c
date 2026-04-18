@@ -873,14 +873,14 @@ uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready)
         {
             /* calculate where to start in the buffer and how many bytes to send */
             write_size = 510;
-            udp_bb_defrag(&buffer[len - remaining_len], write_size, false);
+            udp_bb_defrag_tuner2(&buffer[len - remaining_len], write_size, false);
             /* note we skip over the 2 bytes inserted by the FTDI */
             remaining_len -= 512;
         }
         else
         {
             write_size = remaining_len;
-            udp_bb_defrag(&buffer[len - remaining_len], write_size, false);
+            udp_bb_defrag_tuner2(&buffer[len - remaining_len], write_size, false);
             remaining_len -= write_size; /* should be 0 if all went well */
         }
     }
