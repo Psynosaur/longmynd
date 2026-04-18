@@ -389,7 +389,9 @@ uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
     /* the TS traffic is on endpoint 0x83 */
     res=libusb_bulk_transfer(usb_device_handle_ts, 0x83, buffer, frame_size, &rxed, USB_FAST_TIMEOUT);
 
-    if (res<0) {
+    if (res == LIBUSB_ERROR_TIMEOUT) {
+        *len = 0; /* no data yet, not fatal */
+    } else if (res<0) {
         printf("ERROR: USB TS Data Read %i (%s), received %i\n",res,libusb_error_name(res),rxed);
         err=ERROR_USB_TS_READ;
     } else *len=rxed; /* just type converting */
@@ -414,7 +416,9 @@ uint8_t ftdi_usb_ts_read_tuner2(uint8_t *buffer, uint16_t *len, uint32_t frame_s
     /* the TS traffic is on endpoint 0x83 */
     res=libusb_bulk_transfer(usb_device_handle_ts_tuner2, 0x83, buffer, frame_size, &rxed, USB_FAST_TIMEOUT);
 
-    if (res<0) {
+    if (res == LIBUSB_ERROR_TIMEOUT) {
+        *len = 0; /* no data yet, not fatal */
+    } else if (res<0) {
         printf("ERROR: USB TS Data Read Tuner2 %i (%s), received %i\n",res,libusb_error_name(res),rxed);
         err=ERROR_USB_TS_READ;
     } else *len=rxed; /* just type converting */

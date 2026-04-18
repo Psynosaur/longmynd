@@ -1743,6 +1743,15 @@ static uint8_t run_main_status_loop(uint8_t (*status_write)(uint8_t, uint32_t, b
             err = ERROR_THREAD_ERROR;
         }
 
+        /* Check tuner 2 thread errors separately so they are visible but don't kill the main loop */
+        if (longmynd_config.tuner2_enabled &&
+            (thread_vars_ts_tuner2.thread_err != ERROR_NONE || thread_vars_ts_parse_tuner2.thread_err != ERROR_NONE))
+        {
+            printf("ERROR: Tuner 2 thread error: ts=%d parse=%d\n",
+                   thread_vars_ts_tuner2.thread_err, thread_vars_ts_parse_tuner2.thread_err);
+            err = ERROR_THREAD_ERROR;
+        }
+
         /* TS timeout handling - PRESERVE EXACT TIMEOUT LOGIC */
         if (longmynd_config.ts_timeout != -1 &&
             monotonic_ms() > (longmynd_status.last_ts_or_reinit_monotonic + longmynd_config.ts_timeout))
