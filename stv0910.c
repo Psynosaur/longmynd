@@ -1263,10 +1263,10 @@ uint8_t stv0910_reset_tsfifo(void) {
 
     lm_log("Flow: stv0910 reset tsfifo\n");
 
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81);
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80);
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x01); /* assert RST_HWARE (P1: parallel mode, DVBCI=0) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81); /* assert RST_HWARE (P2: DVBCI=1 as before) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x00); /* deassert RST_HWARE (P1: parallel, no DVBCI) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80); /* deassert RST_HWARE (P2: DVBCI=1) */
 
     /* Diagnostic: read TS status immediately after RST_HWARE pulse */
     {
