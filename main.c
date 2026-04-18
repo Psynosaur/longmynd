@@ -1104,6 +1104,15 @@ static uint8_t handle_configuration_change(const thread_vars_t *thread_vars, lon
     if (local_err != ERROR_NONE)
         *err = local_err;
 
+    /* Pulse RST_HWARE on both TS FIFOs AFTER start_scan() so the demod restart
+       does not re-silence P1 TSFIFO. This is required for dual-demod mode
+       (GENCFG=0x03) where P1 TSFIFO needs an explicit flush to start outputting. */
+    if (*err == ERROR_NONE) {
+        local_err = stv0910_reset_tsfifo();
+        if (local_err != ERROR_NONE)
+            *err = local_err;
+    }
+
     status_cpy->last_ts_or_reinit_monotonic = monotonic_ms();
 
     return local_err;

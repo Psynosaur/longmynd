@@ -1159,14 +1159,6 @@ uint8_t stv0910_init_regs() {
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
 
-    /* Reset P1 and P2 TS FIFOs after GENCFG change.
-       RST_HWARE is bit 0 of P1/P2_TSCFGH — pulse it high then low to flush
-       the TSFIFO and ensure TS output starts cleanly in dual-demod mode. */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert reset */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81);
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert reset */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80);
-
     /* Diagnostic: read back key TS output registers after full init */
     if (err==ERROR_NONE) {
         uint8_t v_p1_tscfgh=0, v_p1_tscfgm=0, v_p1_tscfgl=0;
@@ -1240,6 +1232,27 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
     }
 
     if (err!=ERROR_NONE) printf("ERROR: STV0910 init\n");
+
+    return err;
+}
+
+
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_reset_tsfifo(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Pulses RST_HWARE (bit 0) on P1_TSCFGH and P2_TSCFGH to flush both TS FIFOs.                      */
+/* Must be called AFTER stv0910_start_scan() so the demod restart does not re-silence the FIFOs.     */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+
+    lm_log("Flow: stv0910 reset tsfifo\n");
+
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81);
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80);
 
     return err;
 }
