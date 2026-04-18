@@ -1350,10 +1350,9 @@ void *loop_i2c(void *arg)
             if (*err == ERROR_NONE)
                 *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
 
-            /* Apply LNB polarisation voltage — shared supply, use tuner 1 settings */
-            if (*err == ERROR_NONE)
-                *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply,
-                                                    config_cpy.polarisation_horizontal);
+            /* NOTE: do NOT call ftdi_set_polarisation_supply here — the LNB supply is
+               shared with tuner 1. Toggling it during a tuner 2 retune disrupts tuner 1
+               lock. Polarisation is set once at startup via the tuner 1 config path. */
 
             status_cpy_2.state = STATE_DEMOD_HUNTING;
         }
