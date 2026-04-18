@@ -281,13 +281,13 @@ void udp_send_normalize(u_int8_t *b, int len)
                 b = b + start_packet;
                 len = len - start_packet;
                 IsSync = true;
-                lm_log("Recover Sync %d\n", start_packet);
+                lm_log("T1: Recover Sync %d\n", start_packet);
                 
                 break;
             }
         }
         
-        lm_log("Not Sync!\n");
+        lm_log("T1: Not Sync!\n");
     }
 
     if (Buffer[0] != 0x47)
@@ -296,7 +296,7 @@ void udp_send_normalize(u_int8_t *b, int len)
         {
             IsSync = false;
             Size = 0;
-            lm_log("Lost Sync\n");
+            lm_log("T1: Lost Sync\n");
             return;
         }
     }

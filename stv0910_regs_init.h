@@ -639,7 +639,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
-    { RSTV0910_TSGENERAL,         0x40 }, // TSGENERAL        TSFIFO_DISTS2PAR=1: enable separate second parallel TS output line (P1->line2, P2->line1)
+    { RSTV0910_TSGENERAL,         0x00 }, // TSGENERAL        TSFIFO_DISTS2PAR=0: single parallel line; DISTS2PAR=1 (0x40) broke T1
 ///                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
 ///                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1
     /* DISEQC P1 Registers */
