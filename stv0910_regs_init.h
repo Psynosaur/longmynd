@@ -883,7 +883,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
     { RSTV0910_P1_TSCFGH,         0x80 }, 		// serial output, clock off when no data
     { RSTV0910_P2_TSCFGH,         0x80 },
-    { RSTV0910_GENCFG,            0x01}, 	// dual TS mode - DDEMOD=1, BROADCAST=0 (independent inputs)
+    { RSTV0910_GENCFG,            0x03}, 	// dual TS mode - DDEMOD=1, CROSSINPUT=1, BROADCAST=0
     { RSTV0910_OUTCFG2,           0x00 }, 		// invert VALID and CLOCK
 ///    { RSTV0910_P1_TSDIVN,         0x83 }, 		// output clock adapts to data rate
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
