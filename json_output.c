@@ -32,7 +32,7 @@ static json_output_config_t json_config = {
     .pretty_print = false
 };
 
-static uint64_t last_json_output_time = 0;
+static uint64_t last_json_output_time[2] = {0, 0};
 
 /* -------------------------------------------------------------------------------------------------- */
 /* UTILITY FUNCTIONS                                                                                  */
@@ -89,7 +89,7 @@ const char *json_get_state_name(uint8_t state)
 bool json_should_output_now(void)
 {
     /* -------------------------------------------------------------------------------------------------- */
-    /* Checks if enough time has passed for next JSON output                                           */
+    /* Checks if enough time has passed for next JSON output (tuner 1 / default)                       */
     /* return: true if JSON should be output now                                                       */
     /* -------------------------------------------------------------------------------------------------- */
     if (!json_config.enabled) {
@@ -97,8 +97,8 @@ bool json_should_output_now(void)
     }
     
     uint64_t current_time = json_get_timestamp_ms();
-    if (current_time - last_json_output_time >= json_config.interval_ms) {
-        last_json_output_time = current_time;
+    if (current_time - last_json_output_time[0] >= json_config.interval_ms) {
+        last_json_output_time[0] = current_time;
         return true;
     }
     
@@ -114,7 +114,8 @@ void json_output_init(void)
     /* -------------------------------------------------------------------------------------------------- */
     /* Initializes JSON output module with default configuration                                       */
     /* -------------------------------------------------------------------------------------------------- */
-    last_json_output_time = 0;
+    last_json_output_time[0] = 0;
+    last_json_output_time[1] = 0;
 }
 
 void json_output_set_config(const json_output_config_t *config)
@@ -355,9 +356,12 @@ void json_output_demod_cycle(uint8_t tuner, const longmynd_status_t *status)
         return;
     }
 
-    if (!json_should_output_now()) {
+    uint8_t tidx = (tuner == 2) ? 1 : 0;
+    uint64_t current_time = json_get_timestamp_ms();
+    if (current_time - last_json_output_time[tidx] < json_config.interval_ms) {
         return;
     }
+    last_json_output_time[tidx] = current_time;
 
     char *buffer = NULL;
     size_t buffer_size = 0;

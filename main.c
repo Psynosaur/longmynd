@@ -1378,6 +1378,7 @@ void *loop_i2c(void *arg)
         {
             /* Initialize tuner 2 status copy */
             status_cpy_2.last_ts_or_reinit_monotonic = 0;
+            status_cpy_2.frequency_requested = config_cpy.tuner2_freq_requested[config_cpy.tuner2_freq_index];
 
             /* Update tuner 2 status from hardware */
             *err = do_report(2, &status_cpy_2);
