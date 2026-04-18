@@ -559,9 +559,12 @@ uint8_t ftdi_init_tuner2(uint8_t usb_bus, uint8_t usb_addr) {
     printf("Flow: FTDI init tuner 2\n");
 
     /* The second FTDI chip is TS-only — it has no I2C interface (interface 0).
-       Only open and initialise the TS interface (interface 1). */
+       Only open the TS interface (interface 1). Do NOT call set_mpsse_mode on it:
+       FTDI2 receives serial TS via its hardware FIFO (245 FIFO mode programmed in
+       EEPROM). Enabling MPSSE mode overwrites the chip's bitmode and kills the FIFO
+       receive path, which is why TS data stops arriving after NIM init. */
     err=ftdi_usb_init_ts_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
-    if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_ts_tuner2();
+    /* Do NOT call ftdi_usb_set_mpsse_mode_ts_tuner2() here */
 
     if (err!=ERROR_NONE) printf("ERROR: FTDI init tuner 2\n");
 
