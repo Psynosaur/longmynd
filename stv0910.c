@@ -1031,9 +1031,9 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
     sr_reg=(uint16_t)((((uint32_t)sr) << 16) / 135 / 1000);
 
     SET_REG_CONTEXT(REG_CONTEXT_TIMING_LOOP);
-    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT1 : RSTV0910_P1_SFRINIT0),
+    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT1 : RSTV0910_P1_SFRINIT1),
                                                                            (uint8_t)(sr_reg >> 8)     );
-    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT0 : RSTV0910_P1_SFRINIT1),
+    if (err==ERROR_NONE) err=stv0910_write_reg((demod==STV0910_DEMOD_TOP ? RSTV0910_P2_SFRINIT0 : RSTV0910_P1_SFRINIT0),
                                                                            (uint8_t)(sr_reg & 0xFF)   );
 
     LOG_SEQUENCE_END("STV0910 Symbol Rate Setup");
