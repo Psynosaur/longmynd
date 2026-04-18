@@ -535,16 +535,10 @@ uint8_t ftdi_init_tuner2(uint8_t usb_bus, uint8_t usb_addr) {
 
     printf("Flow: FTDI init tuner 2\n");
 
-    /* Initialize USB interfaces for tuner 2 */
-    err=ftdi_usb_init_i2c_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
-    if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_i2c_tuner2();
-    if (err==ERROR_NONE) err=ftdi_usb_init_ts_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
+    /* The second FTDI chip is TS-only — it has no I2C interface (interface 0).
+       Only open and initialise the TS interface (interface 1). */
+    err=ftdi_usb_init_ts_tuner2(usb_bus, usb_addr, FTDI_VID, FTDI_PID);
     if (err==ERROR_NONE) err=ftdi_usb_set_mpsse_mode_ts_tuner2();
-
-    /* TODO: Need tuner 2 versions of these functions that use tuner 2 USB handles */
-    /* For now, skip these to avoid conflicts - tuner 2 may not work fully without them */
-    /* if (err==ERROR_NONE) err=ftdi_setup_ftdi_io_tuner2(); */
-    /* if (err==ERROR_NONE) err=ftdi_nim_reset_tuner2(); */
 
     if (err!=ERROR_NONE) printf("ERROR: FTDI init tuner 2\n");
 
