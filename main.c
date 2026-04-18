@@ -1348,6 +1348,14 @@ void *loop_i2c(void *arg)
                     config_cpy.tuner2_freq_requested[config_cpy.tuner2_freq_index],
                     config_cpy.tuner2_sr_requested[config_cpy.tuner2_sr_index]);
 
+            /* Re-initialise BOTTOM demod timing/carrier loops for new SR, then restart scan */
+            if (*err == ERROR_NONE)
+                *err = stv0910_setup_carrier_loop(STV0910_DEMOD_BOTTOM,
+                    config_cpy.tuner2_sr_requested[config_cpy.tuner2_sr_index] * config_cpy.halfscan_ratio);
+            if (*err == ERROR_NONE)
+                *err = stv0910_setup_timing_loop(STV0910_DEMOD_BOTTOM,
+                    config_cpy.tuner2_sr_requested[config_cpy.tuner2_sr_index]);
+
             /* Restart BOTTOM demodulator scan */
             if (*err == ERROR_NONE)
                 *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
