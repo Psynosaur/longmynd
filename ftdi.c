@@ -466,15 +466,15 @@ uint8_t ftdi_gpio_write(uint8_t pin_id, bool pin_value)
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_enable_ts2sync(void)
 /* -------------------------------------------------------------------------------------------------- */
-/* Drives the TS2SYNC (AC1) GPIO high to enable routing of STV0910 P1 TS to FTDI2.                   */
-/* Must be called when dual-tuner mode is active, after ftdi_setup_ftdi_io().                         */
+/* Drives the TS2SYNC (AC1) GPIO to enable routing of STV0910 P1 TS to FTDI2.                        */
+/* TEST: try LOW to check if NAND gate enable polarity is inverted.                                   */
 /* -------------------------------------------------------------------------------------------------- */
 {
     printf("Flow: FTDI TS2SYNC enable\n");
 
-    /* Make TS2SYNC an output and drive it high */
+    /* Make TS2SYNC an output and drive it LOW (test: gate may be active-low) */
     ftdi_gpio_direction |= (1 << FTDI_GPIO_PINID_TS2SYNC);
-    ftdi_gpio_value     |= (1 << FTDI_GPIO_PINID_TS2SYNC);
+    ftdi_gpio_value     &= ~(1 << FTDI_GPIO_PINID_TS2SYNC);   /* drive LOW */
 
     num_bytes_to_send = 0;
     out_buffer[num_bytes_to_send++] = 0x82; /* MPSSE_CMD_SET_DATA_BITS_HIGHBYTE */
