@@ -466,15 +466,16 @@ uint8_t ftdi_gpio_write(uint8_t pin_id, bool pin_value)
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_enable_ts2sync(void)
 /* -------------------------------------------------------------------------------------------------- */
-/* Drives the TS2SYNC (AC1) GPIO to enable routing of STV0910 P1 TS to FTDI2.                        */
-/* TEST: try LOW to check if NAND gate enable polarity is inverted.                                   */
+/* Drives the TS2SYNC (AC1) GPIO HIGH to enable the 74HC10 NAND gate on the G0MJW daughterboard.     */
+/* Schematic (M22.JPG): U2C 74HC10 NAND gate has AC1 as one input; AC1=HIGH enables WR# pulses      */
+/* to FTDI2 from STV0910 P1 TS strobe. AC1=LOW keeps NAND output HIGH permanently (no writes).      */
 /* -------------------------------------------------------------------------------------------------- */
 {
-    printf("Flow: FTDI TS2SYNC enable\n");
+    printf("Flow: FTDI TS2SYNC enable (driving AC1 HIGH)\n");
 
-    /* Make TS2SYNC an output and drive it LOW (test: gate may be active-low) */
+    /* Make TS2SYNC an output and drive it HIGH to enable NAND gate WR# path to FTDI2 */
     ftdi_gpio_direction |= (1 << FTDI_GPIO_PINID_TS2SYNC);
-    ftdi_gpio_value     &= ~(1 << FTDI_GPIO_PINID_TS2SYNC);   /* drive LOW */
+    ftdi_gpio_value     |= (1 << FTDI_GPIO_PINID_TS2SYNC);    /* drive HIGH */
 
     num_bytes_to_send = 0;
     out_buffer[num_bytes_to_send++] = 0x82; /* MPSSE_CMD_SET_DATA_BITS_HIGHBYTE */
