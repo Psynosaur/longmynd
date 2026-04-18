@@ -26,8 +26,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 #include "libts.h"
+
+/* Serialize ts_parse() calls — all static state is file-scope, not reentrant */
+static pthread_mutex_t ts_parse_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static const uint32_t crc32_mpeg2_table[256] = {
     0x00000000, 0x04c11db7, 0x09823b6e, 0x0d4326d9, 0x130476dc, 0x17c56b6b, 0x1a864db2, 0x1e475005,
@@ -134,6 +138,7 @@ void ts_parse(
     bool parse_verbose
 )
 {
+    pthread_mutex_lock(&ts_parse_mutex);
     /* Reset Stats */
     //ts_pat_program_pid = 0x00; // Updated by PAT parse
     ts_packet_total_count = 0;
@@ -363,4 +368,6 @@ void ts_parse(
     }
 
     callback_ts_stats(&ts_packet_total_count, &ts_null_percentage);
+
+    pthread_mutex_unlock(&ts_parse_mutex);
 }
