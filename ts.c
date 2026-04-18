@@ -186,7 +186,7 @@ void *loop_ts_tuner2(void *arg) {
     thread_vars_t *thread_vars=(thread_vars_t *)arg;
     uint8_t *err = &thread_vars->thread_err;
     longmynd_config_t *config = thread_vars->config;
-    longmynd_status_t *status = thread_vars->status2;
+    longmynd_status_t *status = thread_vars->status;
 
     uint8_t *buffer;
     uint16_t len=0;
