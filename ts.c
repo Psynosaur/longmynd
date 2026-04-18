@@ -212,7 +212,7 @@ void *loop_ts_tuner2(void *arg) {
 
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE){
         /* If reset flag is active (eg. just started or changed station), then clear out the ts buffer */
-        if(config->ts_reset) {
+        if(config->ts_reset_tuner2) {
             do {
                 if (*err==ERROR_NONE) *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
             } while (*err==ERROR_NONE && len>2);
@@ -230,7 +230,7 @@ void *loop_ts_tuner2(void *arg) {
 
             pthread_mutex_unlock(&status->mutex);
 
-           config->ts_reset = false;
+           config->ts_reset_tuner2 = false;
         }
 
         *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);

@@ -1327,7 +1327,7 @@ void *loop_i2c(void *arg)
             pthread_mutex_lock(&thread_vars->config->mutex);
             memcpy(&config_cpy, thread_vars->config, sizeof(longmynd_config_t));
             thread_vars->config->new_config_tuner2 = false;
-            thread_vars->config->ts_reset = true;
+            thread_vars->config->ts_reset_tuner2 = true;
             pthread_mutex_unlock(&thread_vars->config->mutex);
 
             fprintf(stderr, "New Tuner2 Config!\n");
