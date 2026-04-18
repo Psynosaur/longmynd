@@ -1159,6 +1159,14 @@ uint8_t stv0910_init_regs() {
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
 
+    /* Reset P1 and P2 TS FIFOs after GENCFG change.
+       RST_HWARE is bit 0 of P1/P2_TSCFGH — pulse it high then low to flush
+       the TSFIFO and ensure TS output starts cleanly in dual-demod mode. */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert reset */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81);
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert reset */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80);
+
     /* Diagnostic: read back key TS output registers after full init */
     if (err==ERROR_NONE) {
         uint8_t v_p1_tscfgh=0, v_p1_tscfgm=0, v_p1_tscfgl=0;
