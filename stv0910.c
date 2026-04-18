@@ -1164,24 +1164,38 @@ uint8_t stv0910_init_regs() {
         uint8_t v_p1_tscfgh=0, v_p1_tscfgm=0, v_p1_tscfgl=0;
         uint8_t v_p2_tscfgh=0, v_p2_tscfgm=0, v_p2_tscfgl=0;
         uint8_t v_gencfg=0, v_outcfg=0, v_outcfg2=0, v_tsgeneral=0;
-        stv0910_read_reg(RSTV0910_P1_TSCFGH,  &v_p1_tscfgh);
-        stv0910_read_reg(RSTV0910_P1_TSCFGM,  &v_p1_tscfgm);
-        stv0910_read_reg(RSTV0910_P1_TSCFGL,  &v_p1_tscfgl);
-        stv0910_read_reg(RSTV0910_P2_TSCFGH,  &v_p2_tscfgh);
-        stv0910_read_reg(RSTV0910_P2_TSCFGM,  &v_p2_tscfgm);
-        stv0910_read_reg(RSTV0910_P2_TSCFGL,  &v_p2_tscfgl);
-        stv0910_read_reg(RSTV0910_GENCFG,     &v_gencfg);
-        stv0910_read_reg(RSTV0910_OUTCFG,     &v_outcfg);
-        stv0910_read_reg(RSTV0910_OUTCFG2,    &v_outcfg2);
-        stv0910_read_reg(RSTV0910_TSGENERAL,  &v_tsgeneral);
+        uint8_t v_p1_tsstatus=0, v_p1_tsstatus2=0;
+        uint8_t v_p2_tsstatus=0, v_p2_tsstatus2=0;
+        stv0910_read_reg(RSTV0910_P1_TSCFGH,    &v_p1_tscfgh);
+        stv0910_read_reg(RSTV0910_P1_TSCFGM,    &v_p1_tscfgm);
+        stv0910_read_reg(RSTV0910_P1_TSCFGL,    &v_p1_tscfgl);
+        stv0910_read_reg(RSTV0910_P2_TSCFGH,    &v_p2_tscfgh);
+        stv0910_read_reg(RSTV0910_P2_TSCFGM,    &v_p2_tscfgm);
+        stv0910_read_reg(RSTV0910_P2_TSCFGL,    &v_p2_tscfgl);
+        stv0910_read_reg(RSTV0910_GENCFG,       &v_gencfg);
+        stv0910_read_reg(RSTV0910_OUTCFG,       &v_outcfg);
+        stv0910_read_reg(RSTV0910_OUTCFG2,      &v_outcfg2);
+        stv0910_read_reg(RSTV0910_TSGENERAL,    &v_tsgeneral);
+        stv0910_read_reg(RSTV0910_P1_TSSTATUS,  &v_p1_tsstatus);
+        stv0910_read_reg(RSTV0910_P1_TSSTATUS2, &v_p1_tsstatus2);
+        stv0910_read_reg(RSTV0910_P2_TSSTATUS,  &v_p2_tsstatus);
+        stv0910_read_reg(RSTV0910_P2_TSSTATUS2, &v_p2_tsstatus2);
         fprintf(stderr,
             "DBG stv0910_init_regs:\n"
             "  P1_TSCFGH=0x%02x P1_TSCFGM=0x%02x P1_TSCFGL=0x%02x\n"
             "  P2_TSCFGH=0x%02x P2_TSCFGM=0x%02x P2_TSCFGL=0x%02x\n"
-            "  GENCFG=0x%02x OUTCFG=0x%02x OUTCFG2=0x%02x TSGENERAL=0x%02x\n",
+            "  GENCFG=0x%02x OUTCFG=0x%02x OUTCFG2=0x%02x TSGENERAL=0x%02x\n"
+            "  P1_TSSTATUS=0x%02x (LINEOK=%d ERR=%d NOSYNC=%d)\n"
+            "  P1_TSSTATUS2=0x%02x (DEMODSEL=%d)\n"
+            "  P2_TSSTATUS=0x%02x (LINEOK=%d ERR=%d NOSYNC=%d)\n"
+            "  P2_TSSTATUS2=0x%02x (DEMODSEL=%d)\n",
             v_p1_tscfgh, v_p1_tscfgm, v_p1_tscfgl,
             v_p2_tscfgh, v_p2_tscfgm, v_p2_tscfgl,
-            v_gencfg, v_outcfg, v_outcfg2, v_tsgeneral);
+            v_gencfg, v_outcfg, v_outcfg2, v_tsgeneral,
+            v_p1_tsstatus, (v_p1_tsstatus>>7)&1, (v_p1_tsstatus>>6)&1, (v_p1_tsstatus>>4)&1,
+            v_p1_tsstatus2, (v_p1_tsstatus2>>7)&1,
+            v_p2_tsstatus, (v_p2_tsstatus>>7)&1, (v_p2_tsstatus>>6)&1, (v_p2_tsstatus>>4)&1,
+            v_p2_tsstatus2, (v_p2_tsstatus2>>7)&1);
     }
 
     return err;
