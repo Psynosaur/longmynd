@@ -38,6 +38,7 @@
 #include <netinet/in.h>
 #include "errors.h"
 #include "udp.h"
+#include "logging.h"
 #include <mutex>
 #include <unordered_set>
 #include <CivetServer.h>
@@ -280,13 +281,13 @@ void udp_send_normalize(u_int8_t *b, int len)
                 b = b + start_packet;
                 len = len - start_packet;
                 IsSync = true;
-                fprintf(stderr, "Recover Sync %d\n", start_packet);
+                lm_log("Recover Sync %d\n", start_packet);
                 
                 break;
             }
         }
         
-        fprintf(stderr, "Not Sync!\n");
+        lm_log("Not Sync!\n");
     }
 
     if (Buffer[0] != 0x47)
@@ -295,7 +296,7 @@ void udp_send_normalize(u_int8_t *b, int len)
         {
             IsSync = false;
             Size = 0;
-            fprintf(stderr, "Lost Sync\n");
+            lm_log("Lost Sync\n");
             return;
         }
     }
@@ -349,11 +350,11 @@ void udp_send_normalize_tuner2(u_int8_t *b, int len)
                 b = b + start_packet;
                 len = len - start_packet;
                 IsSync_t2 = true;
-                fprintf(stderr, "T2: Recover Sync %d\n", start_packet);
+                lm_log("T2: Recover Sync %d\n", start_packet);
                 break;
             }
         }
-        fprintf(stderr, "T2: Not Sync!\n");
+        lm_log("T2: Not Sync!\n");
     }
 
     if (Buffer_t2[0] != 0x47)
@@ -362,7 +363,7 @@ void udp_send_normalize_tuner2(u_int8_t *b, int len)
         {
             IsSync_t2 = false;
             Size_t2 = 0;
-            fprintf(stderr, "T2: Lost Sync\n");
+            lm_log("T2: Lost Sync\n");
             return;
         }
     }

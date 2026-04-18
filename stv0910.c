@@ -36,6 +36,7 @@
 #include "stv0910_regs_init.h"
 
 #include "register_logging.h"
+#include "logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* Dynamic Clock Management and Optimized Carrier Loop Implementation                                 */
@@ -99,7 +100,7 @@ void stv0910_mutex_init(void) {
         pthread_mutex_init(&stv0910_i2c_mutex, NULL);
         pthread_mutex_init(&stv0910_reg_mutex, NULL);
         stv0910_mutex_initialized = true;
-        printf("Flow: STV0910 mutex protection initialized\n");
+        lm_log("Flow: STV0910 mutex protection initialized\n");
     }
 }
 
@@ -113,7 +114,7 @@ void stv0910_mutex_destroy(void) {
         pthread_mutex_destroy(&stv0910_i2c_mutex);
         pthread_mutex_destroy(&stv0910_reg_mutex);
         stv0910_mutex_initialized = false;
-        printf("Flow: STV0910 mutex protection destroyed\n");
+        lm_log("Flow: STV0910 mutex protection destroyed\n");
     }
 }
 
@@ -636,8 +637,8 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     uint8_t lock = 0;
     uint16_t timeout = 0;
 
-    printf("Flow: STV0910 set dynamic MCLK to %u Hz\n", master_clock);
-    printf("Debug: Crystal frequency: %u Hz\n", quartz);
+    lm_log("Flow: STV0910 set dynamic MCLK to %u Hz\n", master_clock);
+    lm_log("Debug: Crystal frequency: %u Hz\n", quartz);
 
     /* Safety check for valid frequencies */
     if (master_clock < 50000000 || master_clock > 200000000) {
@@ -665,7 +666,7 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     }
 
     ndiv = (fphi_mhz * odf * idf) / quartz_mhz;
-    printf("Debug: NDIV calculation: (%u * %u * %u) / %u = %u\n", fphi_mhz, odf, idf, quartz_mhz, ndiv);
+    lm_log("Debug: NDIV calculation: (%u * %u * %u) / %u = %u\n", fphi_mhz, odf, idf, quartz_mhz, ndiv);
 
     /* Calculate CP based on NDIV range (from dddvb) */
     if (ndiv < 6) cp = 0;
@@ -683,25 +684,25 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
     else if (ndiv < 257) cp = 14;
     else cp = 15;
 
-    printf("Debug: PLL parameters - ODF=%u, IDF=%u, NDIV=%u, CP=%u\n", odf, idf, ndiv, cp);
+    lm_log("Debug: PLL parameters - ODF=%u, IDF=%u, NDIV=%u, CP=%u\n", odf, idf, ndiv, cp);
 
     /* Write PLL parameters */
-    printf("Debug: Writing PLL parameters...\n");
+    lm_log("Debug: Writing PLL parameters...\n");
     if (err == ERROR_NONE) {
         err = stv0910_write_reg_field(FSTV0910_ODF, odf);
-        printf("Debug: ODF write result: %u\n", err);
+        lm_log("Debug: ODF write result: %u\n", err);
     }
     if (err == ERROR_NONE) {
         err = stv0910_write_reg_field(FSTV0910_IDF, idf);
-        printf("Debug: IDF write result: %u\n", err);
+        lm_log("Debug: IDF write result: %u\n", err);
     }
     if (err == ERROR_NONE) {
         err = stv0910_write_reg_field(FSTV0910_N_DIV, ndiv);
-        printf("Debug: NDIV write result: %u\n", err);
+        lm_log("Debug: NDIV write result: %u\n", err);
     }
     if (err == ERROR_NONE) {
         err = stv0910_write_reg_field(FSTV0910_CP, cp);
-        printf("Debug: CP write result: %u\n", err);
+        lm_log("Debug: CP write result: %u\n", err);
     }
 
     /* Turn on all the clocks */
@@ -722,7 +723,7 @@ uint8_t stv0910_set_mclock_dynamic(uint32_t master_clock) {
 
     if (err == ERROR_NONE) {
         current_mclk = master_clock;
-        printf("Flow: STV0910 dynamic MCLK set successfully to %u Hz\n", master_clock);
+        lm_log("Flow: STV0910 dynamic MCLK set successfully to %u Hz\n", master_clock);
     } else {
         printf("ERROR: STV0910 set dynamic MCLK failed\n");
     }
@@ -764,7 +765,7 @@ uint8_t stv0910_setup_clocks() {
     uint8_t lock=0;
     uint16_t timeout=0;
 
-    printf("Flow: STV0910 set MCLK\n");
+    lm_log("Flow: STV0910 set MCLK\n");
 
     /* 800MHz < Fvco < 1800MHz                              */
     /* Fvco = (ExtClk * 2 * NDIV) / IDF                     */
@@ -820,7 +821,7 @@ uint8_t stv0910_setup_equalisers(uint8_t demod) {
 /*  return: error code                                                                                */
 /* -------------------------------------------------------------------------------------------------- */
 
-    printf("Flow: Setup equlaizers %i\n", demod);
+    lm_log("Flow: Setup equlaizers %i\n", demod);
 
     return ERROR_NONE;
 }
@@ -851,7 +852,7 @@ uint8_t stv0910_setup_carrier_loop(uint8_t demod, uint32_t halfscan_sr) {
     uint8_t err;
     int64_t temp;
 
-    printf("Flow: Setup carrier loop %i\n", demod);
+    lm_log("Flow: Setup carrier loop %i\n", demod);
 
     /* Set register logging context for carrier loop setup */
     SET_REG_CONTEXT(REG_CONTEXT_CARRIER_LOOP);
@@ -918,7 +919,7 @@ uint8_t stv0910_get_optim_cloop(fe_stv0910_modcod_t modcod, uint32_t symbol_rate
     /* Get coefficient from lookup table */
     aclc = s2car_loop[modcod * 10 + coeff_index];
 
-    printf("Flow: Optimized carrier loop MODCOD=%d SR=%uMHz pilots=%d coeff=0x%02x\n",
+    lm_log("Flow: Optimized carrier loop MODCOD=%d SR=%uMHz pilots=%d coeff=0x%02x\n",
            modcod, sr_mhz, pilots, aclc);
 
     return aclc;
@@ -939,7 +940,7 @@ uint8_t stv0910_setup_carrier_loop_optimized(uint8_t demod, uint32_t symbol_rate
     int64_t temp;
     uint32_t halfscan_sr = symbol_rate / 2;  /* Half scan range */
 
-    printf("Flow: Setup optimized carrier loop demod=%d SR=%u MODCOD=%d pilots=%d\n",
+    lm_log("Flow: Setup optimized carrier loop demod=%d SR=%u MODCOD=%d pilots=%d\n",
            demod, symbol_rate, modcod, pilots);
 
     /* Set register logging context for optimized carrier loop setup */
@@ -1020,7 +1021,7 @@ uint8_t stv0910_setup_timing_loop(uint8_t demod, uint32_t sr) {
     uint8_t err=ERROR_NONE;
     uint16_t sr_reg; 
 
-    printf("Flow: Setup timing loop %i\n", demod);
+    lm_log("Flow: Setup timing loop %i\n", demod);
 
     /* Set register logging context for symbol rate setup */
     SET_REG_CONTEXT(REG_CONTEXT_SYMBOL_RATE_SETUP);
@@ -1069,7 +1070,7 @@ uint8_t stv0910_setup_ts(uint8_t demod) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    printf("Flow: Setup ts %i\n", demod);
+    lm_log("Flow: Setup ts %i\n", demod);
 
     return err;
 }
@@ -1093,7 +1094,7 @@ uint8_t stv0910_start_scan(uint8_t demod) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    printf("Flow: STV0910 start scan\n");
+    lm_log("Flow: STV0910 start scan\n");
 
     /* Set register logging context for demodulator control */
     SET_REG_CONTEXT(REG_CONTEXT_DEMOD_CONTROL);
@@ -1137,7 +1138,7 @@ uint8_t stv0910_init_regs() {
     uint8_t err;
     uint16_t i=0;
 
-    printf("Flow: stv0910 init regs\n");
+    lm_log("Flow: stv0910 init regs\n");
 
     /* first we check on the IDs */
     err=nim_read_demod(0xf100, &val1);
@@ -1182,7 +1183,7 @@ uint8_t stv0910_init(uint32_t sr1, uint32_t sr2, float halfscan_ratio1, float ha
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    printf("Flow: STV0910 init\n");
+    lm_log("Flow: STV0910 init\n");
 
     /* first we stop the demodulators in case they are already running */
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_DMDISTATE, 0x1c);

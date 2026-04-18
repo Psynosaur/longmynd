@@ -47,6 +47,10 @@
 #include "register_logging.h"
 #include "json_output.h"
 #include "mymqtt.h"
+#include "logging.h"
+
+/* Global quiet flag — set by -q, suppresses Flow:/Debug: output */
+bool lm_quiet = false;
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- DEFINES ------------------------------------------------------------------------ */
@@ -219,7 +223,7 @@ void config_reinit(bool increment_frsr)
 
     if (increment_frsr)
     {
-        printf("Flow: Config cycle: Frequency [%d] = %d KHz, Symbol Rate [%d] = %d KSymbols/s\n",
+        lm_log("Flow: Config cycle: Frequency [%d] = %d KHz, Symbol Rate [%d] = %d KSymbols/s\n",
                longmynd_config.freq_index, longmynd_config.freq_requested[longmynd_config.freq_index],
                longmynd_config.sr_index, longmynd_config.sr_requested[longmynd_config.sr_index]);
     }
@@ -289,7 +293,7 @@ void config_reinit_tuner2(bool increment_frsr)
 
     if (increment_frsr)
     {
-        printf("Flow: Tuner2 Config cycle: Frequency [%d] = %d KHz, Symbol Rate [%d] = %d KSymbols/s\n",
+        lm_log("Flow: Tuner2 Config cycle: Frequency [%d] = %d KHz, Symbol Rate [%d] = %d KSymbols/s\n",
                longmynd_config.tuner2_freq_index, longmynd_config.tuner2_freq_requested[longmynd_config.tuner2_freq_index],
                longmynd_config.tuner2_sr_index, longmynd_config.tuner2_sr_requested[longmynd_config.tuner2_sr_index]);
     }
@@ -369,6 +373,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     config->json_output_interval_ms = 1000;
     config->json_output_format = 0;  /* 0=full, 1=compact, 2=minimal */
     config->json_include_constellation = false;
+    config->quiet = false;
 
     uint8_t param = 1;
     while (param < argc - 2)
@@ -382,7 +387,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->tuner2_device_usb_bus = (uint8_t)strtol(argv[param++], NULL, 10);
                 config->tuner2_device_usb_addr = (uint8_t)strtol(argv[param], NULL, 10);
                 config->tuner2_enabled = true;
-                printf("Flow: Tuner 2 enabled with USB bus/device=%d,%d\n",
+                lm_log("Flow: Tuner 2 enabled with USB bus/device=%d,%d\n",
                        config->tuner2_device_usb_bus, config->tuner2_device_usb_addr);
             }
             else if (strcmp(argv[param], "-i2") == 0)
@@ -392,7 +397,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->tuner2_ts_ip_port = (uint16_t)strtol(argv[param], NULL, 10);
                 config->tuner2_ts_use_ip = true;
                 tuner2_ts_ip_set = true;
-                printf("Flow: Tuner 2 TS output configured for IP=%s:%d\n",
+                lm_log("Flow: Tuner 2 TS output configured for IP=%s:%d\n",
                        config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
             }
             else if (strcmp(argv[param], "-f2") == 0)            {
@@ -403,7 +408,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->tuner2_freq_requested[3] = 0;
                 config->tuner2_freq_index = 0;
                 tuner2_freq_set = true;
-                printf("Flow: Tuner 2 frequency set to %d KHz\n", config->tuner2_freq_requested[0]);
+                lm_log("Flow: Tuner 2 frequency set to %d KHz\n", config->tuner2_freq_requested[0]);
             }
             else if (strcmp(argv[param], "-sr2") == 0)
             {
@@ -414,7 +419,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 config->tuner2_sr_requested[3] = 0;
                 config->tuner2_sr_index = 0;
                 tuner2_sr_set = true;
-                printf("Flow: Tuner 2 symbol rate set to %d KSymbols/s\n", config->tuner2_sr_requested[0]);
+                lm_log("Flow: Tuner 2 symbol rate set to %d KSymbols/s\n", config->tuner2_sr_requested[0]);
             }
             else
             {
@@ -497,6 +502,10 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
             case 'C':
                 config->json_include_constellation = true;
                 param--; /* there is no data for this so go back */
+                break;
+            case 'q':
+                config->quiet = true;
+                param--; /* no data for this flag */
                 break;
 
                 }
@@ -803,7 +812,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
             config->tuner2_sr_requested[3] = 0;
             config->tuner2_sr_index = 0;
         }
-        printf("Flow: Tuner 2 will scan freq=%d KHz, sr=%d KSymbols/s\n",
+        lm_log("Flow: Tuner 2 will scan freq=%d KHz, sr=%d KSymbols/s\n",
                config->tuner2_freq_requested[0], config->tuner2_sr_requested[0]);
     }
 
@@ -863,7 +872,7 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config)
         /* Tuner Lock timeout on some NIMs - Print message and pause, do..while() handles the retry logic */
         if (err == ERROR_NONE && tuner_err == ERROR_TUNER_LOCK_TIMEOUT)
         {
-            printf("Flow: Caught tuner lock timeout, %" PRIu32 " attempts at stv6120_init() remaining.\n", tuner_lock_attempts);
+            lm_log("Flow: Caught tuner lock timeout, %" PRIu32 " attempts at stv6120_init() remaining.\n", tuner_lock_attempts);
             /* Power down the synthesizers to potentially improve success on retry. */
             /* - Everything else gets powered down as well to stay within datasheet-defined states */
             err = stv6120_powerdown_both_paths();
@@ -1694,7 +1703,7 @@ static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread
         /* Create tuner 2 TS processing thread */
         if (0 == pthread_create(&thread_ts_tuner2, NULL, loop_ts_tuner2, (void *)&thread_vars_ts_tuner2))
         {
-            printf("Flow: Tuner 2 TS processing thread created\n");
+            lm_log("Flow: Tuner 2 TS processing thread created\n");
         }
         else
         {
@@ -1705,7 +1714,7 @@ static uint8_t initialize_worker_threads(uint8_t *err_ptr, thread_vars_t *thread
         /* Create tuner 2 TS parsing thread */
         if (err == ERROR_NONE && 0 == pthread_create(&thread_ts_parse_tuner2, NULL, loop_ts_parse_tuner2, (void *)&thread_vars_ts_parse_tuner2))
         {
-            printf("Flow: Tuner 2 TS parsing thread created\n");
+            lm_log("Flow: Tuner 2 TS parsing thread created\n");
         }
         else
         {
@@ -1841,7 +1850,7 @@ int main(int argc, char *argv[])
     uint8_t (*status_string_write)(uint8_t, char *, bool *);
     bool status_output_ready = true;
 
-    printf("Flow: main\n");
+    lm_log("Flow: main\n");
 
     /* Initialize register logging system */
     register_logging_init();
@@ -1856,6 +1865,9 @@ int main(int argc, char *argv[])
     /* Process command line arguments */
     if (err == ERROR_NONE)
         err = process_command_line(argc, argv, &longmynd_config);
+
+    /* Apply quiet mode */
+    lm_quiet = longmynd_config.quiet;
 
     /* Configure register logging based on command line options */
     if (err == ERROR_NONE)
@@ -1883,10 +1895,10 @@ int main(int argc, char *argv[])
 
     /* Initialize tuner 2 FTDI interface if enabled */
     if (err == ERROR_NONE && longmynd_config.tuner2_enabled) {
-        printf("Flow: Initializing Tuner 2 FTDI interface\n");
+        lm_log("Flow: Initializing Tuner 2 FTDI interface\n");
         err = ftdi_init_tuner2(longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
         if (err == ERROR_NONE) {
-            printf("Flow: Tuner 2 FTDI device initialized successfully on USB bus/device=%d,%d\n",
+            lm_log("Flow: Tuner 2 FTDI device initialized successfully on USB bus/device=%d,%d\n",
                    longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
         } else {
             printf("ERROR: Failed to initialize Tuner 2 FTDI device\n");
@@ -1896,7 +1908,7 @@ int main(int argc, char *argv[])
     /* Initialize STV0910 mutex protection for thread-safe register access */
     if (err == ERROR_NONE) {
         stv0910_mutex_init();
-        printf("Flow: STV0910 mutex protection initialized\n");
+        lm_log("Flow: STV0910 mutex protection initialized\n");
     }
 
     /* Initialize tuner 2 status structure if tuner 2 is enabled */
@@ -1904,7 +1916,7 @@ int main(int argc, char *argv[])
         memset(&longmynd_status2, 0, sizeof(longmynd_status_t));
         pthread_mutex_init(&longmynd_status2.mutex, NULL);
         pthread_cond_init(&longmynd_status2.signal, NULL);
-        printf("Flow: Tuner 2 status structure initialized\n");
+        lm_log("Flow: Tuner 2 status structure initialized\n");
     }
 
     /* Initialize and start worker threads */
@@ -1918,7 +1930,7 @@ int main(int argc, char *argv[])
         err = run_main_status_loop(status_write, status_string_write, &status_output_ready,
                                   &thread_vars_ts, &thread_vars_ts_parse, &thread_vars_i2c, &thread_vars_beep);
 
-    printf("Flow: Main loop aborted, waiting for threads.\n");
+    lm_log("Flow: Main loop aborted, waiting for threads.\n");
 
     /* No fatal errors are currently possible here, so don't currently check return values */
     pthread_join(thread_ts_parse, NULL);
@@ -1930,21 +1942,21 @@ int main(int argc, char *argv[])
     if (longmynd_config.tuner2_enabled) {
         pthread_join(thread_ts_parse_tuner2, NULL);
         pthread_join(thread_ts_tuner2, NULL);
-        printf("Flow: Tuner 2 threads joined\n");
+        lm_log("Flow: Tuner 2 threads joined\n");
     }
 
     /* Cleanup STV0910 mutex protection */
     stv0910_mutex_destroy();
-    printf("Flow: STV0910 mutex protection cleaned up\n");
+    lm_log("Flow: STV0910 mutex protection cleaned up\n");
 
     /* Cleanup tuner 2 status structure if it was initialized */
     if (longmynd_config.tuner2_enabled) {
         pthread_mutex_destroy(&longmynd_status2.mutex);
         pthread_cond_destroy(&longmynd_status2.signal);
-        printf("Flow: Tuner 2 status structure cleaned up\n");
+        lm_log("Flow: Tuner 2 status structure cleaned up\n");
     }
 
-    printf("Flow: All threads accounted for. Exiting cleanly.\n");
+    lm_log("Flow: All threads accounted for. Exiting cleanly.\n");
 
     return err;
 }

@@ -36,6 +36,7 @@
 #include "stv6120_utils.h"
 #include "errors.h"
 #include "register_logging.h"
+#include "logging.h"
 
 extern uint64_t monotonic_ms(void);
 
@@ -84,7 +85,7 @@ uint8_t stv6120_cal_lowpass(uint8_t tuner) {
     uint8_t val;
     uint64_t timeout;
 
-    printf("Flow: Tuner cal lowpass\n");
+    lm_log("Flow: Tuner cal lowpass\n");
 
     /* turn on the clock for the low pass filter. This is in ctrl7/16 so we have a shadow for it */
     if (tuner==TUNER_1) err=stv6120_write_reg(STV6120_CTRL7 ,  ctrl7 & ~(1 << STV6120_CTRL7_RCCLKOFF_SHIFT));
@@ -120,7 +121,7 @@ void stv6120_calc_pll(uint32_t freq, uint8_t *p, uint32_t *f_vco, uint16_t *n, u
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t pos;
 
-    printf("Flow: Tuner set freq\n");
+    lm_log("Flow: Tuner set freq\n");
 
     /* the global rdiv has already been set up in the init routines */
 
@@ -175,7 +176,7 @@ uint8_t stv6120_set_freq(uint8_t tuner, uint32_t freq) {
     uint64_t timeout;
     uint8_t cfhf;
 
-    printf("Flow: Tuner set freq\n");
+    lm_log("Flow: Tuner set freq\n");
 
     /* Set register logging context for frequency tuning */
     SET_REG_CONTEXT(REG_CONTEXT_FREQUENCY_TUNING);
@@ -274,7 +275,7 @@ uint8_t stv6120_init(uint32_t freq_tuner_1, uint32_t freq_tuner_2, bool swap) {
     uint8_t err=ERROR_NONE;
     uint8_t k;
 
-    printf("Flow: Tuner init\n");
+    lm_log("Flow: Tuner init\n");
 
     /* Set register logging context for initialization */
     SET_REG_CONTEXT(REG_CONTEXT_INIT);
@@ -473,7 +474,7 @@ uint8_t stv6120_powerdown_both_paths(void) {
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err;
 
-    printf("Flow: Powering down both stv6120 signal paths\n");
+    lm_log("Flow: Powering down both stv6120 signal paths\n");
 
     /* Path 1 */
     err=stv6120_write_reg(STV6120_CTRL2,

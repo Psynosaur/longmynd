@@ -33,6 +33,7 @@
 #include "nim.h"
 #include "ftdi.h"
 #include "errors.h"
+#include "logging.h"
 
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- GLOBALS ------------------------------------------------------------------------ */
@@ -189,7 +190,7 @@ uint8_t nim_init() {
     uint8_t err=ERROR_NONE;
     uint8_t val;
 
-    printf("Flow: NIM init\n");
+    lm_log("Flow: NIM init\n");
 
     repeater_on = false;
 

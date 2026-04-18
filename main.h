@@ -27,6 +27,9 @@
 #include <inttypes.h>
 #include <pthread.h>
 
+/* Global quiet flag — set by -q CLI flag; suppresses Flow:/Debug: log output */
+extern bool lm_quiet;
+
 /* states of the main loop state machine */
 #define STATE_INIT               0
 #define STATE_DEMOD_HUNTING      1
@@ -138,6 +141,7 @@ typedef struct {
 
     bool new_config;
     bool new_config_tuner2;
+    bool quiet;
     pthread_mutex_t mutex;
 } longmynd_config_t;
 
