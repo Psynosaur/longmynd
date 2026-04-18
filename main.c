@@ -1221,6 +1221,11 @@ static uint8_t process_demodulator_state_transition(uint8_t tuner, longmynd_stat
         else if (status_cpy->demod_state == DEMOD_S2)
         {
             status_cpy->state = STATE_DEMOD_S2;
+            /* One-shot diagnostic: dump TS status the first time T1 locks */
+            if (tuner == 1) {
+                static bool dbg_ts_done = false;
+                if (!dbg_ts_done) { dbg_ts_done = true; stv0910_dbg_ts_status("first-lock-T1"); }
+            }
         }
         else if (status_cpy->demod_state == DEMOD_S)
         {

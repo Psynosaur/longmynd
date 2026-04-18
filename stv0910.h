@@ -121,5 +121,8 @@ uint8_t stv0910_read_shared_reg_field(uint32_t field, uint8_t *field_val);
 void stv0910_mutex_init(void);
 void stv0910_mutex_destroy(void);
 
+/* Diagnostic: print TS status registers to stderr */
+void stv0910_dbg_ts_status(const char *label);
+
 #endif
 
