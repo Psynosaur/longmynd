@@ -639,7 +639,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
-    { RSTV0910_TSGENERAL,         0x00 }, // TSGENERAL        enable output of second line in parallel line
+    { RSTV0910_TSGENERAL,         0x40 }, // TSGENERAL        TSFIFO_DISTS2PAR=1: enable separate second parallel TS output line (P1->line2, P2->line1)
 ///                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
 ///                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1
     /* DISEQC P1 Registers */
@@ -881,8 +881,8 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 
 ///    { RSTV0910_P1_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
-    { RSTV0910_P1_TSCFGH,         0x80 }, 		// serial output, clock off when no data
-    { RSTV0910_P2_TSCFGH,         0x80 },
+    { RSTV0910_P1_TSCFGH,         0x00 }, 		// P1 parallel 8-bit TS output (DVBCI=0, SERIAL=0) for NIM connector -> FTDI2
+    { RSTV0910_P2_TSCFGH,         0x80 },		// P2 keep DVBCI=1 as T1 (FTDI1 path) works with this value
     { RSTV0910_GENCFG,            0x15}, 	// dual TS mode - open_tuner value (bits 4,2,0 set); CROSSINPUT=0
     { RSTV0910_OUTCFG2,           0x00 }, 		// invert VALID and CLOCK
 ///    { RSTV0910_P1_TSDIVN,         0x83 }, 		// output clock adapts to data rate
