@@ -338,6 +338,8 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     bool status_mqtt_set = false;
     bool status_fifo_set = false;
     bool tuner2_ts_ip_set = false;
+    bool tuner2_freq_set = false;
+    bool tuner2_sr_set = false;
 
     /* Defaults */
     config->port_swap = false;
@@ -401,6 +403,28 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 tuner2_ts_ip_set = true;
                 printf("Flow: Tuner 2 TS output configured for IP=%s:%d\n",
                        config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
+            }
+            else if (strcmp(argv[param], "-f2") == 0)
+            {
+                param++;
+                config->tuner2_freq_requested[0] = (uint32_t)strtol(argv[param], NULL, 10);
+                config->tuner2_freq_requested[1] = 0;
+                config->tuner2_freq_requested[2] = 0;
+                config->tuner2_freq_requested[3] = 0;
+                config->tuner2_freq_index = 0;
+                tuner2_freq_set = true;
+                printf("Flow: Tuner 2 frequency set to %d KHz\n", config->tuner2_freq_requested[0]);
+            }
+            else if (strcmp(argv[param], "-sr2") == 0)
+            {
+                param++;
+                config->tuner2_sr_requested[0] = (uint32_t)strtol(argv[param], NULL, 10);
+                config->tuner2_sr_requested[1] = 0;
+                config->tuner2_sr_requested[2] = 0;
+                config->tuner2_sr_requested[3] = 0;
+                config->tuner2_sr_index = 0;
+                tuner2_sr_set = true;
+                printf("Flow: Tuner 2 symbol rate set to %d KSymbols/s\n", config->tuner2_sr_requested[0]);
             }
             else
             {
@@ -770,6 +794,29 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
 
     config->new_config = true;
 
+    /* If tuner 2 is enabled, default its freq/SR to tuner 1 values if not explicitly set */
+    if (config->tuner2_enabled)
+    {
+        if (!tuner2_freq_set)
+        {
+            config->tuner2_freq_requested[0] = config->freq_requested[0];
+            config->tuner2_freq_requested[1] = 0;
+            config->tuner2_freq_requested[2] = 0;
+            config->tuner2_freq_requested[3] = 0;
+            config->tuner2_freq_index = 0;
+        }
+        if (!tuner2_sr_set)
+        {
+            config->tuner2_sr_requested[0] = config->sr_requested[0];
+            config->tuner2_sr_requested[1] = 0;
+            config->tuner2_sr_requested[2] = 0;
+            config->tuner2_sr_requested[3] = 0;
+            config->tuner2_sr_index = 0;
+        }
+        printf("Flow: Tuner 2 will scan freq=%d KHz, sr=%d KSymbols/s\n",
+               config->tuner2_freq_requested[0], config->tuner2_sr_requested[0]);
+    }
+
     return err;
 }
 
@@ -796,9 +843,14 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config)
         /* init all the modules - PRESERVE EXACT INITIALIZATION ORDER */
         if (err == ERROR_NONE)
             err = nim_init();
-        /* we are only using the one demodulator so set the other to 0 to turn it off */
+        /* Initialise STV0910: pass tuner 2 SR for BOTTOM demod if enabled, else 0 */
         if (err == ERROR_NONE)
-            err = stv0910_init(config->sr_requested[config->sr_index], 0, config->halfscan_ratio, 0.0);
+        {
+            uint32_t sr2 = config->tuner2_enabled
+                           ? config->tuner2_sr_requested[config->tuner2_sr_index]
+                           : 0;
+            err = stv0910_init(config->sr_requested[config->sr_index], sr2, config->halfscan_ratio, 0.0);
+        }
         /* Initialize tuner(s) in STV6120 */
         if (err == ERROR_NONE)
         {
