@@ -116,15 +116,6 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		uint32_t sr = (uint32_t)atol(svalue);
 		config_set_symbolrate_tuner2(sr);
 	}
-	if (strcmp(key, "cmd/longmynd/tuner2/polar") == 0)
-	{
-		if (strcmp(svalue, "h") == 0)
-			config_set_lnbv_tuner2(true, true);
-		if (strcmp(svalue, "v") == 0)
-			config_set_lnbv_tuner2(true, false);
-		if (strcmp(svalue, "n") == 0)
-			config_set_lnbv_tuner2(false, false);
-	}
 }
 
 /* Callback called when the client receives a message. */

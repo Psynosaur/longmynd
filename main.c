@@ -263,16 +263,6 @@ void config_set_symbolrate_tuner2(uint32_t symbolrate)
     }
 }
 
-void config_set_lnbv_tuner2(bool enabled, bool horizontal)
-{
-    pthread_mutex_lock(&longmynd_config.mutex);
-
-    longmynd_config.tuner2_polarisation_supply = enabled;
-    longmynd_config.tuner2_polarisation_horizontal = horizontal;
-    longmynd_config.new_config_tuner2 = true;
-
-    pthread_mutex_unlock(&longmynd_config.mutex);
-}
 
 void config_reinit_tuner2(bool increment_frsr)
 {
@@ -363,6 +353,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
     strcpy(config->tuner2_status_fifo_path, "longmynd_tuner2_status");
     strcpy(config->tuner2_status_ip_addr, "230.0.0.4");
     config->tuner2_status_ip_port = 1235;
+
     config->ts_use_ip = false;
     config->status_use_mqtt = false;
     strcpy(config->ts_fifo_path, "longmynd_main_ts");
@@ -404,8 +395,7 @@ uint8_t process_command_line(int argc, char *argv[], longmynd_config_t *config)
                 printf("Flow: Tuner 2 TS output configured for IP=%s:%d\n",
                        config->tuner2_ts_ip_addr, config->tuner2_ts_ip_port);
             }
-            else if (strcmp(argv[param], "-f2") == 0)
-            {
+            else if (strcmp(argv[param], "-f2") == 0)            {
                 param++;
                 config->tuner2_freq_requested[0] = (uint32_t)strtol(argv[param], NULL, 10);
                 config->tuner2_freq_requested[1] = 0;
@@ -849,7 +839,7 @@ static uint8_t hardware_initialize_modules(const longmynd_config_t *config)
             uint32_t sr2 = config->tuner2_enabled
                            ? config->tuner2_sr_requested[config->tuner2_sr_index]
                            : 0;
-            err = stv0910_init(config->sr_requested[config->sr_index], sr2, config->halfscan_ratio, 0.0);
+            err = stv0910_init(config->sr_requested[config->sr_index], sr2, config->halfscan_ratio, config->halfscan_ratio);
         }
         /* Initialize tuner(s) in STV6120 */
         if (err == ERROR_NONE)
@@ -1360,10 +1350,10 @@ void *loop_i2c(void *arg)
             if (*err == ERROR_NONE)
                 *err = stv0910_start_scan(STV0910_DEMOD_BOTTOM);
 
-            /* Apply tuner 2 LNB polarisation voltage */
+            /* Apply LNB polarisation voltage — shared supply, use tuner 1 settings */
             if (*err == ERROR_NONE)
-                *err = ftdi_set_polarisation_supply(config_cpy.tuner2_polarisation_supply,
-                                                    config_cpy.tuner2_polarisation_horizontal);
+                *err = ftdi_set_polarisation_supply(config_cpy.polarisation_supply,
+                                                    config_cpy.polarisation_horizontal);
 
             status_cpy_2.state = STATE_DEMOD_HUNTING;
         }

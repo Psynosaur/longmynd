@@ -135,10 +135,6 @@ typedef struct {
     char tuner2_status_ip_addr[16];
     int tuner2_status_ip_port;
 
-    // Tuner 2 polarisation (independent LNB control)
-    bool tuner2_polarisation_supply;
-    bool tuner2_polarisation_horizontal;
-
     bool new_config;
     bool new_config_tuner2;
     pthread_mutex_t mutex;
@@ -206,7 +202,6 @@ void config_set_tsip(char *tsip);
 /* Tuner 2 config setters */
 void config_set_frequency_tuner2(uint32_t frequency);
 void config_set_symbolrate_tuner2(uint32_t symbolrate);
-void config_set_lnbv_tuner2(bool enabled, bool horizontal);
 void config_reinit_tuner2(bool increment_frsr);
 
 #endif
