@@ -1152,6 +1152,7 @@ static uint8_t process_demodulator_state_transition(uint8_t tuner, longmynd_stat
     /* Process state transitions based on current state - PRESERVE EXACT LOGIC */
     switch (status_cpy->state)
     {
+    case STATE_INIT:            /* fall through: treat uninitialised state as HUNTING */
     case STATE_DEMOD_HUNTING:
         if (status_cpy->demod_state == DEMOD_FOUND_HEADER)
         {
