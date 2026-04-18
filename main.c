@@ -1221,11 +1221,6 @@ static uint8_t process_demodulator_state_transition(uint8_t tuner, longmynd_stat
         else if (status_cpy->demod_state == DEMOD_S2)
         {
             status_cpy->state = STATE_DEMOD_S2;
-            /* One-shot diagnostic: dump TS status the first time T1 locks */
-            if (tuner == 1) {
-                static bool dbg_ts_done = false;
-                if (!dbg_ts_done) { dbg_ts_done = true; stv0910_dbg_ts_status("first-lock-T1"); }
-            }
         }
         else if (status_cpy->demod_state == DEMOD_S)
         {
@@ -1259,6 +1254,16 @@ static uint8_t process_demodulator_state_transition(uint8_t tuner, longmynd_stat
         break;
 
     case STATE_DEMOD_S2:
+        /* Repeating TS status diagnostic while T1 holds lock */
+        if (tuner == 1) {
+            static int dbg_locked_count = 0;
+            if (dbg_locked_count < 5) {
+                dbg_locked_count++;
+                char label[32];
+                snprintf(label, sizeof(label), "locked-T1-poll-%d", dbg_locked_count);
+                stv0910_dbg_ts_status(label);
+            }
+        }
         if (status_cpy->demod_state == DEMOD_HUNTING)
         {
             status_cpy->state = STATE_DEMOD_HUNTING;
