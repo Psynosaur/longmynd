@@ -996,6 +996,9 @@ uint8_t do_report(uint8_t tuner, longmynd_status_t *status)
         status->pilots = 0;
     }
 
+    if (err != ERROR_NONE)
+        printf("ERROR: do_report(tuner=%d demod=%d) failed at err=%d\n", tuner, demod, err);
+
     return err;
 }
 
@@ -1740,6 +1743,9 @@ static uint8_t run_main_status_loop(uint8_t (*status_write)(uint8_t, uint32_t, b
             (thread_vars_ts->thread_err != ERROR_NONE || thread_vars_ts_parse->thread_err != ERROR_NONE ||
              thread_vars_beep->thread_err != ERROR_NONE || thread_vars_i2c->thread_err != ERROR_NONE))
         {
+            printf("ERROR: Thread error detected: ts=%d ts_parse=%d beep=%d i2c=%d\n",
+                   thread_vars_ts->thread_err, thread_vars_ts_parse->thread_err,
+                   thread_vars_beep->thread_err, thread_vars_i2c->thread_err);
             err = ERROR_THREAD_ERROR;
         }
 
