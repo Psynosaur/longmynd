@@ -31,5 +31,12 @@ uint8_t fifo_ts_init(char *fifo_path, bool*);
 uint8_t fifo_status_init(char *fifo_path, bool*);
 uint8_t fifo_close(bool);
 
+/* Tuner 2 FIFO functions */
+uint8_t fifo_ts_write_tuner2(uint8_t*, uint32_t, bool*);
+uint8_t fifo_status_write_tuner2(uint8_t, uint32_t, bool*);
+uint8_t fifo_status_string_write_tuner2(uint8_t, char*, bool*);
+uint8_t fifo_ts_init_tuner2(char *fifo_path, bool*);
+uint8_t fifo_status_init_tuner2(char *fifo_path, bool*);
+
 #endif
 

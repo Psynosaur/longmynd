@@ -29,16 +29,19 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
-    /* SYS registers */
+ /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
 /*  { RSTV0910_DID,               0x20 },    DID              R only */
     { RSTV0910_DACR1,             0x00 }, /* DACR1            DAC 1 freq=0, mode=0 */
     { RSTV0910_DACR2,             0x00 }, /* DACR2            DAC 2 freq=0, mode=0 */
     { RSTV0910_PADCFG,            0x05 }, /* PADCFG           AGCRF_1 inverted, Push-pull, AGCRF_2 same*/
-    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2          all Transport stream signals not inverted  */
-    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG           TS2 serial pins push-pull, ts1 serial pins push-pull, 
-                                                                 ts2 parallel pins push-pull, ts1 parallel pins push-pull 
-                                                                 serial data output is D7 */
+///    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2          all Transport stream signals not inverted  */
+///    { RSTV0910_OUTCFG2,           0x44 }, /* OUTCFG2    invert VALID (DPN) */
+///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
+///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
+    { RSTV0910_OUTCFG2,           0x00 },
+    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG           TS2 serial pins push-pull, ts1 serial pins push-pull, /                                                                 ts2 parallel pins push-pull, ts1 parallel pins push-pull
+                                                              serial data output is D7 */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
@@ -52,7 +55,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
                                                                  P1 repeater off, repeater speed =135/32Mhz, delay on SCL, manual stop
                                                                  bidirectional SDAT2SDA */
     { RSTV0910_P2_I2CRPT,         0x38 }, /* P2_I2CRPT        P2 as above  */
-    { RSTV0910_GPIO0CFG,          0x82 }, /* GPIO0CFG         GPIO 0 push-pull  iconfig = 0x01 (force to 1),  non inverting */ 
+    { RSTV0910_GPIO0CFG,          0x82 }, /* GPIO0CFG         GPIO 0 push-pull  iconfig = 0x01 (force to 1},  non inverting */
     { RSTV0910_GPIO1CFG,          0x82 }, /* GPIO1CFG              1 "  */
     { RSTV0910_GPIO2CFG,          0x82 }, /* GPIO2CFG              2 "  */
     { RSTV0910_GPIO3CFG,          0x82 }, /* GPIO3CFG              3 "  */
@@ -88,7 +91,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_FSKTDELTAF1,       0x01 }, /* FSKTDELTAF1      */
     { RSTV0910_FSKTDELTAF0,       0x37 }, /* FSKTDELTAF0      */
     { RSTV0910_FSKTCTRL,          0x08 }, /* FSKTCTRL         modulator on when FSKTX_EN=1,
-                                                                 FSKTX_OUT=Fc-df  (FSKTX_IN=0) = fc+df (FSKTX_IN=1),  
+                                                                 FSKTX_OUT=Fc-df  (FSKTX_IN=0) = fc+df (FSKTX_IN=1},
                                                                  modulator enabled by FSKTX_EN input,
                                                                  fsk modulator output second order sig-delta */
     { RSTV0910_FSKRFC2,           0x10 }, /* FSKRFC2          */
@@ -112,7 +115,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_FSKRLOSS,          0x4d }, /* FSKRLOSS         */
 
     /* clocks and power registers */
-    { RSTV0910_NCOARSE,           0x39 }, /* NCOARSE          charge pump (CP)=7 (for NDIV from 8 to 71), IDF=1 */ 
+    { RSTV0910_NCOARSE,           0x39 }, /* NCOARSE          charge pump (CP)=7 (for NDIV from 8 to 71}, IDF=1 */
                                           /*                  f_mclk2 = 270 MHz, = f_ref * n_div / IDF / 2. f_ref=xtal=30MHz */
     { RSTV0910_NCOARSE1,          0x12 }, /* NCOARSE1         N_DIV = 0x12 */
     { RSTV0910_NCOARSE2,          0x04 }, /* NCOARSE2         ODF=0x4 f_ana = 135MHz =  f_ref * n_div / IDF / ODF*/
@@ -125,16 +128,20 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_PREGCTL,           0x00 }, /* PREGCTL          DCDC 3v3 to 2v5 on */
     { RSTV0910_TSTTNR0,           0x00 }, /* TSTTNR0          was 0x04 updated to  0x00
                                                                  FSK analog cell off */
-    { RSTV0910_TSTTNR1,           0x44 }, /* TSTTNR1          was 0x46 updated to 0x44
-                                                                 ADC1 power off. note reset=0x26, upper bits are reserved */
-    { RSTV0910_TSTTNR2,           0x4b }, /* TSTTNR2          was 0x6b updated to 0x4b
-                                                                 I2C DiSEqC ADC 1 power off, diseqc clock div = 0xb
-                                                                 f_diseqc = 135MHz/2*(diseq_clk_div+17) = 2.41MHz */
+
+    // ***
+    { RSTV0910_TSTTNR1,           0x44 },  //TSTTNR1          was 0x46 updated to 0x44
+                                                                 //ADC1 power off. note reset=0x26, upper bits are reserved
+    { RSTV0910_TSTTNR1,           0x46 }, // TSTTNR1           ADC1 power on		(~!~!~)
+    { RSTV0910_TSTTNR2,           0x4b }, // TSTTNR2          was 0x6b updated to 0x4b
+///                                                                 I2C DiSEqC ADC 1 power off, diseqc clock div = 0xb
+///                                                                 f_diseqc = 135MHz/2*(diseq_clk_div+17) = 2.41MHz y
     { RSTV0910_TSTTNR3,           0x46 }, /* TSTTNR3          ADC2 power on. note again reset=0x26 again 0x46 writes to reserved  */
+    // ***
 
     /* DMD P2 Registers */
     { RSTV0910_P2_IQCONST,        0x00 }, /* P2_IQCONST */
-    { RSTV0910_P2_NOSCFG,         0x14 }, /* P2_NOSCFG */
+    { RSTV0910_P2_NOSCFG,   0x20 +      0x14 }, /* P2_NOSCFG */
     { RSTV0910_P2_ISYMB,          0x0e }, /* P2_ISYMB */
     { RSTV0910_P2_QSYMB,          0xfc }, /* P2_QSYMB */
     { RSTV0910_P2_AGC1CFG,        0x54 }, /* P2_AGC1CFG */
@@ -372,100 +379,13 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P2_KDIV78,         0x50 }, /* P2_KDIV78 */
     { RSTV0910_P2_TSPIDFLT1,      0x00 }, /* P2_TSPIDFLT1 */
     { RSTV0910_P2_TSPIDFLT0,      0x00 }, /* P2_TSPIDFLT0 */
+
     /* DVB2 P2 Registers */
-    { RSTV0910_P2_PDELCTRL0,      0x01 }, /* P2_PDELCTRL0 */
-    { RSTV0910_P2_PDELCTRL1,      0x00 }, /* P2_PDELCTRL1 */
-    { RSTV0910_P2_PDELCTRL2,      0x20 }, /* P2_PDELCTRL2  THIS ONE*/
-    { RSTV0910_P2_HYSTTHRESH,     0x41 }, /* P2_HYSTTHRESH */
-    { RSTV0910_P2_UPLCCST0,       0xe6 }, /* P2_UPLCCST0 */
-    { RSTV0910_P2_ISIENTRY,       0x00 }, /* P2_ISIENTRY */
-    { RSTV0910_P2_ISIBITENA,      0x00 }, /* P2_ISIBITENA */
-    { RSTV0910_P2_MATSTR1,        0xf0 }, /* P2_MATSTR1 */
-    { RSTV0910_P2_MATSTR0,        0x00 }, /* P2_MATSTR0 */
-    { RSTV0910_P2_UPLSTR1,        0x05 }, /* P2_UPLSTR1 */
-    { RSTV0910_P2_UPLSTR0,        0xe0 }, /* P2_UPLSTR0 */
-    { RSTV0910_P2_DFLSTR1,        0x7d }, /* P2_DFLSTR1 */
-    { RSTV0910_P2_DFLSTR0,        0x80 }, /* P2_DFLSTR0 */
-    { RSTV0910_P2_SYNCSTR,        0x47 }, /* P2_SYNCSTR */
-    { RSTV0910_P2_SYNCDSTR1,      0x00 }, /* P2_SYNCDSTR1 */
-    { RSTV0910_P2_SYNCDSTR0,      0x00 }, /* P2_SYNCDSTR0 */
-    { RSTV0910_P2_PDELSTATUS1,    0x94 }, /* P2_PDELSTATUS1 */
-    { RSTV0910_P2_PDELSTATUS2,    0x92 }, /* P2_PDELSTATUS2 */
-    { RSTV0910_P2_BBFCRCKO1,      0x00 }, /* P2_BBFCRCKO1 */
-    { RSTV0910_P2_BBFCRCKO0,      0x00 }, /* P2_BBFCRCKO0 */
-    { RSTV0910_P2_UPCRCKO1,       0x00 }, /* P2_UPCRCKO1 */
-    { RSTV0910_P2_UPCRCKO0,       0x00 }, /* P2_UPCRCKO0 */
-    { RSTV0910_P2_PDELCTRL3,      0x00 }, /* P2_PDELCTRL3 */
-    /* TS P2 Registers */
-    { RSTV0910_P2_TSSTATEM,       0xf0 }, /* P2_TSSTATEM */
-    { RSTV0910_P2_TSSTATEL,       0x12 }, /* P2_TSSTATEL */
-    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH */
-    { RSTV0910_P2_TSCFGM,         0x04 }, /* P2_TSCFGM */
-    { RSTV0910_P2_TSCFGL,         0x20 }, /* P2_TSCFGL */
-    { RSTV0910_P2_TSSYNC,         0x00 }, /* P2_TSSYNC */
-    { RSTV0910_P2_TSINSDELH,      0x00 }, /* P2_TSINSDELH */
-    { RSTV0910_P2_TSINSDELM,      0x00 }, /* P2_TSINSDELM */
-    { RSTV0910_P2_TSINSDELL,      0x00 }, /* P2_TSINSDELL */
-    { RSTV0910_P2_TSDIVN,         0x03 }, /* P2_TSDIVN */
-    { RSTV0910_P2_TSCFG4,         0x00 }, /* P2_TSCFG4 */
-    { RSTV0910_P2_TSSPEED,        0x33 }, /* P2_TSSPEED */
-/*  { RSTV0910_P2_TSSTATUS,       0x52 },    P2_TSSTATUS */
-    { RSTV0910_P2_TSSTATUS2,      0x02 }, /* P2_TSSTATUS2 */
-    { RSTV0910_P2_TSBITRATE1,     0x00 }, /* P2_TSBITRATE1 */
-    { RSTV0910_P2_TSBITRATE0,     0x03 }, /* P2_TSBITRATE0 */
-    { RSTV0910_P2_TSPACKLEN1,     0x00 }, /* P2_TSPACKLEN1 */
-    { RSTV0910_P2_TSDLY2,         0x00 }, /* P2_TSDLY2 */
-    { RSTV0910_P2_TSDLY1,         0x00 }, /* P2_TSDLY1 */
-    { RSTV0910_P2_TSDLY0,         0x00 }, /* P2_TSDLY0 */
-    { RSTV0910_P2_TSNPDAV,        0x00 }, /* P2_TSNPDAV */
-    { RSTV0910_P2_TSBUFSTAT2,     0x00 }, /* P2_TSBUFSTAT2 */
-    { RSTV0910_P2_TSBUFSTAT1,     0x00 }, /* P2_TSBUFSTAT1 */
-    { RSTV0910_P2_TSBUFSTAT0,     0x00 }, /* P2_TSBUFSTAT0 */
-    { RSTV0910_P2_TSDEBUGL,       0x04 }, /* P2_TSDEBUGL */
-    { RSTV0910_P2_TSDLYSET2,      0x01 }, /* P2_TSDLYSET2 */
-    { RSTV0910_P2_TSDLYSET1,      0x18 }, /* P2_TSDLYSET1 */
-    { RSTV0910_P2_TSDLYSET0,      0x00 }, /* P2_TSDLYSET0 */
-    { RSTV0910_P2_ERRCTRL1,       0x67 }, /* P2_ERRCTRL1 */
-    { RSTV0910_P2_ERRCNT12,       0x00 }, /* P2_ERRCNT12 */
-    { RSTV0910_P2_ERRCNT11,       0x00 }, /* P2_ERRCNT11 */
-    { RSTV0910_P2_ERRCNT10,       0x00 }, /* P2_ERRCNT10 */
-    { RSTV0910_P2_ERRCTRL2,       0xc1 }, /* P2_ERRCTRL2 */
-    { RSTV0910_P2_ERRCNT22,       0x00 }, /* P2_ERRCNT22 */
-    { RSTV0910_P2_ERRCNT21,       0x00 }, /* P2_ERRCNT21 */
-    { RSTV0910_P2_ERRCNT20,       0x00 }, /* P2_ERRCNT20 */
-    { RSTV0910_P2_FECSPY,         0xa8 }, /* P2_FECSPY */
-    { RSTV0910_P2_FSPYCFG,        0x2c }, /* P2_FSPYCFG */
-    { RSTV0910_P2_FSPYDATA,       0x3a }, /* P2_FSPYDATA */
-    { RSTV0910_P2_FSPYOUT,        0x07 }, /* P2_FSPYOUT */
-    { RSTV0910_P2_FSTATUS,        0x00 }, /* P2_FSTATUS */
-    { RSTV0910_P2_FBERCPT4,       0x00 }, /* P2_FBERCPT4 */
-    { RSTV0910_P2_FBERCPT3,       0x00 }, /* P2_FBERCPT3 */
-    { RSTV0910_P2_FBERCPT2,       0x00 }, /* P2_FBERCPT2 */
-    { RSTV0910_P2_FBERCPT1,       0x00 }, /* P2_FBERCPT1 */
-    { RSTV0910_P2_FBERCPT0,       0x00 }, /* P2_FBERCPT0 */
-    { RSTV0910_P2_FBERERR2,       0x00 }, /* P2_FBERERR2 */
-    { RSTV0910_P2_FBERERR1,       0x00 }, /* P2_FBERERR1 */
-    { RSTV0910_P2_FBERERR0,       0x00 }, /* P2_FBERERR0 */
-    { RSTV0910_P2_FSPYBER,        0x12 }, /* P2_FSPYBER */
-    { RSTV0910_P2_SFERROR,        0xff }, /* P2_SFERROR */
-    /* SFEC P2 Registers */
-    { RSTV0910_P2_SFECSTATUS,     0x46 }, /* P2_SFECSTATUS */
-    { RSTV0910_P2_SFKDIV12,       0x1f }, /* P2_SFKDIV12 */
-    { RSTV0910_P2_SFKDIV23,       0x22 }, /* P2_SFKDIV23 */
-    { RSTV0910_P2_SFKDIV34,       0x24 }, /* P2_SFKDIV34 */
-    { RSTV0910_P2_SFKDIV56,       0x24 }, /* P2_SFKDIV56 */
-    { RSTV0910_P2_SFKDIV67,       0x29 }, /* P2_SFKDIV67 */
-    { RSTV0910_P2_SFKDIV78,       0x2c }, /* P2_SFKDIV78 */
-    { RSTV0910_P2_SFSTATUS,       0x4e }, /* P2_SFSTATUS */
-    { RSTV0910_P2_SFDLYSET2,      0x00 }, /* P2_SFDLYSET2 */
-    { RSTV0910_P2_SFERRCTRL,      0x94 }, /* P2_SFERRCTRL */
-    { RSTV0910_P2_SFERRCNT2,      0x80 }, /* P2_SFERRCNT2 */
-    { RSTV0910_P2_SFERRCNT1,      0x00 }, /* P2_SFERRCNT1 */
-    { RSTV0910_P2_SFERRCNT0,      0x00 }, /* P2_SFERRCNT0 */
+
 
     /* DMD P1 Registers */
     { RSTV0910_P1_IQCONST,        0x00 }, /* P1_IQCONST */
-    { RSTV0910_P1_NOSCFG,         0x14 }, /* P1_NOSCFG */
+    { RSTV0910_P1_NOSCFG,  0x20 +       0x14 }, /* P1_NOSCFG */
     { RSTV0910_P1_ISYMB,          0x0e }, /* P1_ISYMB         was 0xfe */
     { RSTV0910_P1_QSYMB,          0xf7 }, /* P1_QSYMB         was 0x07 */
     { RSTV0910_P1_AGC1CFG,        0x54 }, /* P1_AGC1CFG */
@@ -476,7 +396,8 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_POWERI,         0x09 }, /* P1_POWERI */
     { RSTV0910_P1_POWERQ,         0x0a }, /* P1_POWERQ        was 0x09 */
     { RSTV0910_P1_AGC1AMM,        0xfd }, /* P1_AGC1AMM */
-    { RSTV0910_P1_AGC1QUAD,       0x05 }, /* P1_AGC1QUAD */
+///    { RSTV0910_P1_AGC1QUAD,       0x05 }, /* P1_AGC1QUAD */
+    { RSTV0910_P1_AGC1QUAD,       0xfd }, /* P1_AGC1QUAD */
     { RSTV0910_P1_AGCIQIN1,       0x00 }, /* P1_AGCIQIN1 */
     { RSTV0910_P1_AGCIQIN0,       0x00 }, /* P1_AGCIQIN0 */
     /* demodulator registers */
@@ -486,7 +407,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 /*  { RSTV0910_P1_DSTATUS2,       0x80 },    P1_DSTATUS2      R only */
     { RSTV0910_P1_DMDCFGMD,       0xc9 }, /* P1_DMDCFGMD */
     { RSTV0910_P1_DMDCFG2,        0x3b }, /* P1_DMDCFG2       parallel search (DVBS/S2,  infinite relock tries,  */
-    { RSTV0910_P1_DMDISTATE,      0x5c }, /* P1_DMDISTATE */   
+    { RSTV0910_P1_DMDISTATE,      0x5c }, /* P1_DMDISTATE */
     { RSTV0910_P1_DMDT0M,         0x40 }, /* P1_DMDT0M */
 /*  { RSTV0910_P1_DMDSTATE,       0x1c },    P1_DMDSTATE      R only */
 /*  { RSTV0910_P1_DMDFLYW,        0x00 },    P1_DMDFLYW       R only */
@@ -525,7 +446,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_ACLCS2,         0x00 }, /* P1_ACLCS2    */
     { RSTV0910_P1_BCLCS2,         0x00 }, /* P1_BCLCS2    */
     { RSTV0910_P1_CARFREQ,        0x79 }, /* P1_CARFREQ       course loop coeff=0x7 (mid) DVBS1 beta freq coeff=0x9 mid */
-    { RSTV0910_P1_CARHDR,         0x1c }, /* P1_CARHDR        DVBS2 freq_hdr */ 
+    { RSTV0910_P1_CARHDR,         0x1c }, /* P1_CARHDR        DVBS2 freq_hdr */
     { RSTV0910_P1_LDT,            0xd0 }, /* P1_LDT           +ve threshold for lock detect =0xd0 (reset value)*/
     { RSTV0910_P1_LDT2,           0xb8 }, /* P1_LDT2          -ve threshold =0xb8 (reset) */
     { RSTV0910_P1_CFRICFG,        0xf9 }, /* P1_CFRICFG       was 0xf8 CFRINIT +ve increments mode */
@@ -537,19 +458,19 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_CFRLOW0,        0x97 }, /* P1_CFRLOW0                                  LSByte */
     { RSTV0910_P1_CFRINIT1,       0x01 }, /* P1_CFRINIT1      was 0xff inital carrier offset                   MSByte */
     { RSTV0910_P1_CFRINIT0,       0xf5 }, /* P1_CFRINIT0      was 0x7a  cfr_init (MHz)=ckadc * CFR_INIT /2^16  LSByte */
-    { RSTV0910_P1_CFRINC1,        0x03 }, /* P1_CFRINC1       step size (MHz)=MCLK*CFR_INC/2^13 [13:8} */
-    { RSTV0910_P1_CFRINC0,        0x8e }, /* P1_CFRINC0       was 0x10            step size                         [7:0] 
+    { RSTV0910_P1_CFRINC1,        0x03 }, /* P1_CFRINC1       step size (MHz)=MCLK*CFR_INC/2^13 [13:8) */
+    { RSTV0910_P1_CFRINC0,        0x8e }, /* P1_CFRINC0       was 0x10            step size                         [7:0]
                                                                  note someting off about spec here .. last 2 bits */
     { RSTV0910_P1_CFR2,           0x01 }, /* P1_CFR2          was 0xff carrier offset (in MHz) - mclk * freq / 2^24 [23:16] */
     { RSTV0910_P1_CFR1,           0xf5 }, /* P1_CFR1          was 0x7a                                              [15:8]  */
     { RSTV0910_P1_CFR0,           0x00 }, /* P1_CFR0                                                                [7:0]   */
-    { RSTV0910_P1_LDI,            0xb6 }, /* P1_LDI           carrier lock indicator accumulator. used with LDT/LDT2 to 
+    { RSTV0910_P1_LDI,            0xb6 }, /* P1_LDI           carrier lock indicator accumulator. used with LDT/LDT2 to
                                                                  generate DTSATUS.CAR_LOCK */
     /* timing loop registers */
     { RSTV0910_P1_TMGCFG,         0xd3 }, /* P1_TMGCFG        lock indicator fastest, DVBS2 usr SR calculated on 2ns PLHeader
                                                                  compensate for SR min rate min = 1/2048 MCLK (0.066Msymbols@135MHz) */
-    { RSTV0910_P1_RTC,            0x68 }, /* P1_RTC           DVBS1 alpha=6 (under mid), beta=8 (mid) */
-    { RSTV0910_P1_RTCS2,          0x68 }, /* P1_RTCS2         DVBS2 alpha=6 (under mid), beta=8 (mid) */
+    { RSTV0910_P1_RTC,            0x68 }, /* P1_RTC           DVBS1 alpha=6 (under mid}, beta=8 (mid) */
+    { RSTV0910_P1_RTCS2,          0x68 }, /* P1_RTCS2         DVBS2 alpha=6 (under mid}, beta=8 (mid) */
     { RSTV0910_P1_TMGTHRISE,      0x1e }, /* P1_TMGTHRISE     +ve edge of timing lock indicator used in QUALITY in DSTATUS */
     { RSTV0910_P1_TMGTHFALL,      0x08 }, /* P1_TMGTHFALL     -ve edge of timing lock indicator used for QUALITY in DSTATUS */
     { RSTV0910_P1_SFRUPRATIO,     0x20 }, /* P1_SFRUPRATIO    was 0x20 updated to 0x01
@@ -557,14 +478,14 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
                                                                  default ratio is 0.125 of SR  */
     { RSTV0910_P1_SFRLOWRATIO,    0xd0 }, /* P1_SFRLOWRATIO   */
     { RSTV0910_P1_KTTMG,          0xa0 }, /* P1_KTTMG         NOT IN DATASHEET */
-    { RSTV0910_P1_KREFTMG,        0x80 }, /* P1_KREFTMG       refn level for SR course. 0x80=mid level */ 
+    { RSTV0910_P1_KREFTMG,        0x80 }, /* P1_KREFTMG       refn level for SR course. 0x80=mid level */
     { RSTV0910_P1_SFRSTEP,        0x88 }, /* P1_SFRSTEP       scanstep=mid, centerstep=mid */
     { RSTV0910_P1_TMGCFG2,        0x80 }, /* P1_TMGCFG2       */
 /*  { RSTV0910_P1_KREFTMG2,       0x80 },    P1_KREFTMG2      R only */
     { RSTV0910_P1_TMGCFG3,        0x06 }, /* P1_TMGCFG3       */
     { RSTV0910_P1_SFRINIT1,       0x38 }, /* P1_SFRINIT1      */
     { RSTV0910_P1_SFRINIT0,       0xe3 }, /* P1_SFRINIT0      */
-    { RSTV0910_P1_SFRUP1,         0x3f }, /* P1_SFRUP1        was 0x19 
+    { RSTV0910_P1_SFRUP1,         0x3f }, /* P1_SFRUP1        was 0x19
                                                                  when in manual mode, upper symbol rate to try MSByte */
     { RSTV0910_P1_SFRUP0,         0xff }, /* P1_SFRUP0        was 0x99                                               LSByte */
     { RSTV0910_P1_SFRLOW1,        0x2e }, /* P1_SFRLOW1       was 0x12 in manual mode, lower symbol rate to try      MSByte */
@@ -716,114 +637,11 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_KDIV78,         0x50 }, /* P1_KDIV78 */
     { RSTV0910_P1_TSPIDFLT1,      0x00 }, /* P1_TSPIDFLT1 */
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
+
     /* DVB2 P1 Registers */
-    { RSTV0910_P1_PDELCTRL0,      0x01 }, /* P1_PDELCTRL0 */
-    { RSTV0910_P1_PDELCTRL1,      0x00 }, /* P1_PDELCTRL1 */
-    { RSTV0910_P1_PDELCTRL2,      0x20 }, /* P1_PDELCTRL2     was 0x00 */
-    { RSTV0910_P1_HYSTTHRESH,     0x41 }, /* P1_HYSTTHRESH */
-    { RSTV0910_P1_UPLCCST0,       0xe6 }, /* P1_UPLCCST0 */
-    { RSTV0910_P1_ISIENTRY,       0x00 }, /* P1_ISIENTRY */
-    { RSTV0910_P1_ISIBITENA,      0x00 }, /* P1_ISIBITENA */
-    { RSTV0910_P1_MATSTR1,        0xf0 }, /* P1_MATSTR1 */
-    { RSTV0910_P1_MATSTR0,        0x00 }, /* P1_MATSTR0 */
-    { RSTV0910_P1_UPLSTR1,        0x05 }, /* P1_UPLSTR1 */
-    { RSTV0910_P1_UPLSTR0,        0xe0 }, /* P1_UPLSTR0 */
-    { RSTV0910_P1_DFLSTR1,        0x7d }, /* P1_DFLSTR1 */
-    { RSTV0910_P1_DFLSTR0,        0x80 }, /* P1_DFLSTR0 */
-    { RSTV0910_P1_SYNCSTR,        0x47 }, /* P1_SYNCSTR */
-    { RSTV0910_P1_SYNCDSTR1,      0x00 }, /* P1_SYNCDSTR1 */
-    { RSTV0910_P1_SYNCDSTR0,      0x00 }, /* P1_SYNCDSTR0 */
-    { RSTV0910_P1_PDELSTATUS1,    0x94 }, /* P1_PDELSTATUS1 */
-    { RSTV0910_P1_PDELSTATUS2,    0x92 }, /* P1_PDELSTATUS2   was 0x12 */
-    { RSTV0910_P1_BBFCRCKO1,      0x00 }, /* P1_BBFCRCKO1 */
-    { RSTV0910_P1_BBFCRCKO0,      0x00 }, /* P1_BBFCRCKO0 */
-    { RSTV0910_P1_UPCRCKO1,       0x00 }, /* P1_UPCRCKO1 */
-    { RSTV0910_P1_UPCRCKO0,       0x00 }, /* P1_UPCRCKO0 */
-    { RSTV0910_P1_PDELCTRL3,      0x00 }, /* P1_PDELCTRL3 */
-    /* TS P1 Registers */
-    { RSTV0910_P1_TSSTATEM,       0xf0 }, /*F0 P1_TSSTATEM      deinterleaver on, reed-solomon on, descrambler on,
-                                                                 TS enabled, immediate output of data*/
-    { RSTV0910_P1_TSSTATEL,       0x12 }, /* P1_TSSTATEL */
-    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH        was 0x40
-                                                                 DVBCI mode, max granularity, parallel output, no headers,
-                                                                 label error packets */
-    { RSTV0910_P1_TSCFGM,         0x04 }, /* P1_TSCFGM        auto speed, d0-d7 not switched, no invert */
-    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL        no delay on clkout, error mode=0b10, d/p=1 suring header and footer
-                                                                 don't load legacy, auto bitspeed */
-    { RSTV0910_P1_TSSYNC,         0x00 }, /* P1_TSSYNC */
-    { RSTV0910_P1_TSINSDELH,      0x00 }, /* P1_TSINSDELH */
-    { RSTV0910_P1_TSINSDELM,      0x00 }, /* P1_TSINSDELM */
-    { RSTV0910_P1_TSINSDELL,      0x00 }, /* P1_TSINSDELL */
-    { RSTV0910_P1_TSDIVN,         0x03 }, /* P1_TSDIVN */
-    { RSTV0910_P1_TSCFG4,         0x00 }, /* P1_TSCFG4 */
-    { RSTV0910_P1_TSSPEED,        0x33 }, /* P1_TSSPEED       was 0xff */
-    { RSTV0910_P1_TSSTATUS,       0x52 }, /* P1_TSSTATUS      R Only */
-    { RSTV0910_P1_TSSTATUS2,      0x02 }, /* P1_TSSTATUS2     was 0xa8 */
-    { RSTV0910_P1_TSBITRATE1,     0x00 }, /* P1_TSBITRATE1 */
-    { RSTV0910_P1_TSBITRATE0,     0x03 }, /* P1_TSBITRATE0 */
-    { RSTV0910_P1_TSPACKLEN1,     0x00 }, /* P1_TSPACKLEN1 */
-    { RSTV0910_P1_TSDLY2,         0x00 }, /* P1_TSDLY2 */
-    { RSTV0910_P1_TSDLY1,         0x00 }, /* P1_TSDLY1 */
-    { RSTV0910_P1_TSDLY0,         0x00 }, /* P1_TSDLY0 */
-    { RSTV0910_P1_TSNPDAV,        0x00 }, /* P1_TSNPDAV */
-    { RSTV0910_P1_TSBUFSTAT2,     0x00 }, /* P1_TSBUFSTAT2 */
-    { RSTV0910_P1_TSBUFSTAT1,     0x00 }, /* P1_TSBUFSTAT1 */
-    { RSTV0910_P1_TSBUFSTAT0,     0x00 }, /* P1_TSBUFSTAT0 */
-    { RSTV0910_P1_TSDEBUGL,       0x04 }, /* P1_TSDEBUGL */
-    { RSTV0910_P1_TSDLYSET2,      0x01 }, /* P1_TSDLYSET2 */
-    { RSTV0910_P1_TSDLYSET1,      0x18 }, /* P1_TSDLYSET1 */
-    { RSTV0910_P1_TSDLYSET0,      0x00 }, /* P1_TSDLYSET0 */
-    { RSTV0910_P1_ERRCTRL1,       0x67 }, /* P1_ERRCTRL1 */
-    { RSTV0910_P1_ERRCNT12,       0x00 }, /* P1_ERRCNT12 */
-    { RSTV0910_P1_ERRCNT11,       0x00 }, /* P1_ERRCNT11 */
-    { RSTV0910_P1_ERRCNT10,       0x00 }, /* P1_ERRCNT10 */
-    { RSTV0910_P1_ERRCTRL2,       0xc1 }, /* P1_ERRCTRL2 */
-    { RSTV0910_P1_ERRCNT22,       0x00 }, /* P1_ERRCNT22 */
-    { RSTV0910_P1_ERRCNT21,       0x00 }, /* P1_ERRCNT21 */
-    { RSTV0910_P1_ERRCNT20,       0x00 }, /* P1_ERRCNT20 */
-    { RSTV0910_P1_FECSPY,         0xa8 }, /* P1_FECSPY   enable, serial mode, BER, lmode=0, Normal operation */
-    { RSTV0910_P1_FSPYCFG,        0x2c }, /* P1_FSPYCFG  */
-    { RSTV0910_P1_FSPYDATA,       0x3a }, /* P1_FSPYDATA */
-    { RSTV0910_P1_FSPYOUT,        0x07 }, /* P1_FSPYOUT  */
-    { RSTV0910_P1_FSTATUS,        0x00 }, /* P1_FSTATUS  */
-    { RSTV0910_P1_FBERCPT4,       0x00 }, /* P1_FBERCPT4 */
-    { RSTV0910_P1_FBERCPT3,       0x00 }, /* P1_FBERCPT3 */
-    { RSTV0910_P1_FBERCPT2,       0x00 }, /* P1_FBERCPT2 */
-    { RSTV0910_P1_FBERCPT1,       0x00 }, /* P1_FBERCPT1 */
-    { RSTV0910_P1_FBERCPT0,       0x00 }, /* P1_FBERCPT0 */
-    { RSTV0910_P1_FBERERR2,       0x00 }, /* P1_FBERERR2 */
-    { RSTV0910_P1_FBERERR1,       0x00 }, /* P1_FBERERR1 */
-    { RSTV0910_P1_FBERERR0,       0x00 }, /* P1_FBERERR0 */
-    { RSTV0910_P1_FSPYBER,        0x12 }, /* P1_FSPYBER  was 0x11, set couting to 2^15 bytes */
-    { RSTV0910_P1_SFERROR,        0xff }, /* P1_SFERROR  */
-    /* SFEC P1 Registers */
-    { RSTV0910_P1_SFECSTATUS,     0x46 }, /* P1_SFECSTATUS    was 0x44 */
-    { RSTV0910_P1_SFKDIV12,       0x1f }, /* P1_SFKDIV12 */
-    { RSTV0910_P1_SFKDIV23,       0x22 }, /* P1_SFKDIV23 */
-    { RSTV0910_P1_SFKDIV34,       0x24 }, /* P1_SFKDIV34 */
-    { RSTV0910_P1_SFKDIV56,       0x24 }, /* P1_SFKDIV56 */
-    { RSTV0910_P1_SFKDIV67,       0x29 }, /* P1_SFKDIV67 */
-    { RSTV0910_P1_SFKDIV78,       0x2c }, /* P1_SFKDIV78 */
-    { RSTV0910_P1_SFSTATUS,       0x4e }, /* P1_SFSTATUS      was 0x46 */
-    { RSTV0910_P1_SFDLYSET2,      0x00 }, /* P1_SFDLYSET2 */
-    { RSTV0910_P1_SFERRCTRL,      0x94 }, /* P1_SFERRCTRL */
-    { RSTV0910_P1_SFERRCNT2,      0x80 }, /* P1_SFERRCNT2 */
-    { RSTV0910_P1_SFERRCNT1,      0x00 }, /* P1_SFERRCNT1 */
-    { RSTV0910_P1_SFERRCNT0,      0x00 }, /* P1_SFERRCNT0 */
-
-    /* RC registers */
-    { RSTV0910_RCCFG2,            0x60 }, /* RCCFG2           */
-    { RSTV0910_RCCFG1,            0x00 }, /* RCCFG1           */
-    { RSTV0910_RCCFG0,            0x00 }, /* RCCFG0           */
-    { RSTV0910_RCINSDEL2,         0x00 }, /* RCINSDEL2        */
-    { RSTV0910_RCINSDEL1,         0x00 }, /* RCINSDEL1        */
-    { RSTV0910_RCINSDEL0,         0x00 }, /* RCINSDEL0        */
-    { RSTV0910_RCSTATUS,          0x00 }, /* RCSTATUS         */
-    { RSTV0910_RCSPEED,           0xff }, /* RCSPEED          */
-
-    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL        enable output of second line in parallel line
-                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
-                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1 */
+    { RSTV0910_TSGENERAL,         0x00 }, // TSGENERAL        enable output of second line in parallel line
+///                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
+///                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1
     /* DISEQC P1 Registers */
     { RSTV0910_P1_DISIRQCFG,      0x00 }, /* P1_DISIRQCFG     */
 /*  { RSTV0910_P1_DISIRQSTAT,     0x00 },    P1_DISIRQSTAT    R only */
@@ -877,7 +695,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P2_DISRXSHORT22K,  0x0f }, /* P2_DISRXSHORT22K */
 
     /* P2 aux clock control registers */
-    { RSTV0910_P2_ACRPRESC,       0x01 }, /* P2_ACRPRESC      auxiliary clock - not used */ 
+    { RSTV0910_P2_ACRPRESC,       0x01 }, /* P2_ACRPRESC      auxiliary clock - not used */
     { RSTV0910_P2_ACRDIV,         0x14 }, /* P2_ACRDIV        auxiliary clock - not used */
 
     /* P1 NBITER registers */
@@ -994,7 +812,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_GAINLLR_SF26,      0x20 }, /* GAINLLR_SF26     */
     { RSTV0910_GAINLLR_SF27,      0x20 }, /* GAINLLR_SF27     */
     { RSTV0910_CFGEXT,            0x02 }, /* CFGEXT           */
-    { RSTV0910_GENCFG,            0x15 }, /* GENCFG           IP is in dual demod mode so both input streams are processed */
+///
 /*  { RSTV0910_LDPCERR1,          0x00 },    LDPCERR1         R only : error counter MSByte */
 /*  { RSTV0910_LDPCERR0,          0x00 },    LDPCERR0         R only : error counter LSByte */
 /*  { RSTV0910_BCHERR,            0x00 },    BCHERR           R only : error flag and error counter */
@@ -1060,10 +878,49 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P2_NBITER_SF26,    0x1b }, /* P2_NBITER_SF26 */
     { RSTV0910_P2_NBITER_SF27,    0x1c }, /* P2_NBITER_SF27 */
 
-    { RSTV0910_TSTRES0,           0x00 }, /* TSTRES0          */
-    { RSTV0910_TSTOUT,            0x00 }, /* TSTOUT           */
-    { RSTV0910_TSTIN,             0x00 }, /* TSTIN            */
 
+///    { RSTV0910_P1_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
+///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
+    { RSTV0910_P1_TSCFGH,         0x80 }, 		// serial output, clock off when no data
+    { RSTV0910_P2_TSCFGH,         0x80 },
+    { RSTV0910_GENCFG,            0x15}, 	// dual TS mode -  CROSSOVER bit 1 appears to do nothing
+    { RSTV0910_OUTCFG2,           0x00 }, 		// invert VALID and CLOCK
+///    { RSTV0910_P1_TSDIVN,         0x83 }, 		// output clock adapts to data rate
+///    { RSTV0910_P2_TSDIVN,         0x83 },
+    { RSTV0910_P1_TSDIVN,         0x03 }, 		// default
+    { RSTV0910_P2_TSDIVN,         0x03 },
+
+    { RSTV0910_P1_TSSTATUS2,      0x02 }, 		// *
+    { RSTV0910_P2_TSSTATUS2,      0x02 }, 		// *
+
+
+
+
+///
+///    { RSTV0910_TSTRES0,           0x00 }, /* TSTRES0          */
+///    { RSTV0910_TSTOUT,            0x00 }, /* TSTOUT           */
+///    { RSTV0910_TSTIN,             0x00 }, /* TSTIN            */
+
+// SR scan range
+
+///    { RSTV0910_P2_SFRUP1,         0x3f }, /* P2_SFRUP1 */
+///    { RSTV0910_P2_SFRUP0,         0xff }, /* P2_SFRUP0 */
+///    { RSTV0910_P1_SFRLOW1,        0x2e }, /* P2_SFRLOW1 */
+///    { RSTV0910_P2_SFRLOW1,        0x2e }, /* P2_SFRLOW1 */
+
+/*
+    { RSTV0910_P1_SFRUP1,         0x80 },
+    { RSTV0910_P1_SFRUP0,         0x00 },
+    { RSTV0910_P1_SFRLOW1,        0x80 },
+    { RSTV0910_P1_SFRLOW0,        0x00 },
+    { RSTV0910_P2_SFRUP1,         0x80 },
+    { RSTV0910_P2_SFRUP0,         0x00 },
+    { RSTV0910_P2_SFRLOW1,        0x80 },
+    { RSTV0910_P2_SFRLOW0,        0x00 },
+*/
+
+// wh52
+//
     { RSTV0910_P2_TSTDMD,         0x00 }, /* P2_TSTDMD */
     { RSTV0910_P2_TCTL1,          0x00 }, /* P2_TCTL1 */
     /* TST P2 Registers */

@@ -41,7 +41,9 @@
 #define STV6120_LPFCAL_TIMEOUT_MS 50 // Nominally 2-4ms
 
 uint8_t stv6120_init(uint32_t, uint32_t, bool);
+uint8_t stv6120_init_dual(uint32_t freq1, uint32_t sr1, uint32_t freq2, uint32_t sr2);
 uint8_t stv6120_set_freq(uint8_t, uint32_t);
+uint8_t stv6120_set_freq_tuner(uint8_t tuner_id, uint32_t freq, uint32_t sr);
 uint8_t stv6120_cal_lowpass(uint8_t);
 void stv6120_print_settings();
 uint8_t stv6120_powerdown_both_paths(void);

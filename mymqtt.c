@@ -104,6 +104,27 @@ void on_message(struct mosquitto *mosq, void *obj, const struct mosquitto_messag
 		if (strcmp(svalue, "n") == 0)
 			config_set_lnbv(false, false);
 	}
+
+	/* Tuner 2 command handlers */
+	if (strcmp(key, "cmd/longmynd/tuner2/frequency") == 0)
+	{
+		uint32_t freq = (uint32_t)atol(svalue);
+		config_set_frequency_tuner2(freq);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/sr") == 0)
+	{
+		uint32_t sr = (uint32_t)atol(svalue);
+		config_set_symbolrate_tuner2(sr);
+	}
+	if (strcmp(key, "cmd/longmynd/tuner2/polar") == 0)
+	{
+		if (strcmp(svalue, "h") == 0)
+			config_set_lnbv_tuner2(true, true);
+		if (strcmp(svalue, "v") == 0)
+			config_set_lnbv_tuner2(true, false);
+		if (strcmp(svalue, "n") == 0)
+			config_set_lnbv_tuner2(false, false);
+	}
 }
 
 /* Callback called when the client receives a message. */
@@ -344,6 +365,125 @@ uint8_t mqtt_status_string_write(uint8_t message, char *data, bool *output_ready
 	char status_topic[255];
 
 	sprintf(status_topic, "dt/longmynd/%s", StatusString[message]);
+	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
+
+	return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t mqtt_status_write_tuner2(uint8_t message, uint32_t data, bool *output_ready)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Publishes tuner 2 status to MQTT broker using dt2/longmynd/ prefix                               */
+	/* Mirrors mqtt_status_write() but uses "dt2" prefix and tuner2 PCR globals                         */
+	/* -------------------------------------------------------------------------------------------------- */
+	(void)output_ready;
+	uint8_t err = ERROR_NONE;
+	char status_topic[255];
+	char status_message[255];
+	static int latest_modcod_t2 = 0;
+
+	sprintf(status_topic, "dt2/longmynd/%s", StatusString[message]);
+
+	if (message == STATUS_STATE)
+	{
+		sprintf(status_message, "%s", StateString[data]);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_SYMBOL_RATE)
+	{
+		data = (data + 500) / 1000;
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_MODCOD)
+	{
+		int modcod = data;
+		latest_modcod_t2 = modcod;
+		char modulation[50];
+		char fec[50];
+		const char TabFec[][255] = {"none", "1/4", "1/3", "2/5", "1/2", "3/5", "2/3", "3/4", "4/5", "5/6", "8/9", "9/10", "3/5", "2/3", "3/4", "5/6",
+									"8/9", "9/10", "2/3", "3/4", "4/5", "5/6", "8/9", "9/10", "3/4", "4/5", "5/6", "8/9", "9/10"};
+
+		if (modcod < 12) strcpy(modulation, "QPSK");
+		if (modcod == 0) strcpy(modulation, "none");
+		if ((modcod >= 12) && (modcod <= 17)) strcpy(modulation, "8PSK");
+		if ((modcod >= 18) && (modcod <= 23)) strcpy(modulation, "16APSK");
+		if ((modcod >= 24) && (modcod <= 28)) strcpy(modulation, "32APSK");
+
+		strcpy(fec, TabFec[modcod]);
+		mosquitto_publish(mosq, NULL, "dt2/longmynd/modulation", strlen(modulation), modulation, 2, false);
+		mosquitto_publish(mosq, NULL, "dt2/longmynd/fec", strlen(fec), fec, 2, false);
+	}
+	else if (message == STATUS_MATYPE2)
+	{
+		sprintf(status_message, "%x", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_ROLLOFF)
+	{
+		sprintf(status_topic, "dt2/longmynd/rolloff");
+		if (data == 0) sprintf(status_message, "0.35");
+		if (data == 1) sprintf(status_message, "0.25");
+		if (data == 2) sprintf(status_message, "0.20");
+		if (data == 3) sprintf(status_message, "0.15");
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else if (message == STATUS_MATYPE1)
+	{
+		char matype[50];
+		switch ((data & 0xC0) >> 6)
+		{
+		case 0: strcpy(matype, "Generic packetized"); break;
+		case 1: strcpy(matype, "Generic continuous"); break;
+		case 2: strcpy(matype, "Generic packetized"); break;
+		case 3: strcpy(matype, "Transport"); break;
+		}
+		mosquitto_publish(mosq, NULL, status_topic, strlen(matype), matype, 2, false);
+	}
+	else if (message == STATUS_MER)
+	{
+		int TheoricMER[] = {0, -24, -12, 0, 10, 22, 32, 40, 46, 52, 62, 65, 55, 66, 79, 94, 106, 110, 90, 102, 110, 116, 129, 131, 126, 136, 143, 157, 161};
+		sprintf(status_message, "%0.1f", ((int)data) / 10.0);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+		char smargin[50];
+		if (latest_modcod_t2 != 0)
+		{
+			int Margin = (int)data - TheoricMER[latest_modcod_t2];
+			sprintf(smargin, "%d", Margin / 10);
+			mosquitto_publish(mosq, NULL, "dt2/longmynd/margin_db", strlen(smargin), smargin, 2, false);
+		}
+		else
+		{
+			sprintf(smargin, "%d", 0);
+			mosquitto_publish(mosq, NULL, "dt2/longmynd/margin_db", strlen(smargin), smargin, 2, false);
+		}
+	}
+	else if ((message == STATUS_CONSTELLATION_I) || (message == STATUS_CONSTELLATION_Q))
+	{
+		sprintf(status_message, "%d", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+	else
+	{
+		sprintf(status_message, "%i", data);
+		mosquitto_publish(mosq, NULL, status_topic, strlen(status_message), status_message, 2, false);
+	}
+
+	return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t mqtt_status_string_write_tuner2(uint8_t message, char *data, bool *output_ready)
+{
+	/* -------------------------------------------------------------------------------------------------- */
+	/* Publishes tuner 2 string status to MQTT broker using dt2/longmynd/ prefix                        */
+	/* -------------------------------------------------------------------------------------------------- */
+	(void)output_ready;
+	uint8_t err = ERROR_NONE;
+	char status_topic[255];
+
+	sprintf(status_topic, "dt2/longmynd/%s", StatusString[message]);
 	mosquitto_publish(mosq, NULL, status_topic, strlen(data), data, 2, false);
 
 	return err;

@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
 #include "nim.h"
 #include "ftdi.h"
 #include "errors.h"
@@ -42,6 +43,25 @@
    is turned off. We need to keep track of this when we access the NIM  */
 bool repeater_on;
 
+/* Mutex to serialize I2C access across tuner threads (recursive: nim_read_demod calls nim_write_demod) */
+static pthread_mutex_t nim_i2c_mutex;
+static pthread_once_t nim_mutex_once = PTHREAD_ONCE_INIT;
+
+static void nim_mutex_init_once(void)
+{
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&nim_i2c_mutex, &attr);
+    pthread_mutexattr_destroy(&attr);
+}
+
+void nim_set_i2c_mutex(pthread_mutex_t *mutex_ptr)
+{
+    /* Kept for API compatibility; internal recursive mutex is always used */
+    (void)mutex_ptr;
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -49,16 +69,11 @@ bool repeater_on;
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_read_demod(uint16_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* reads a demodulator register and takes care of the i2c bus repeater                                */
-/*    reg: which demod register to read                                                               */
-/*    val: where to put the result                                                                    */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
 
-    /* if we are not using the tuner or lna any more then we can turn off
-       the repeater to reduce noise 
-       this is bit 7 of the Px_I2CRPT register. Other bits define I2C speed etc. */
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
+
     if (repeater_on) {
         repeater_on=false;
         err=nim_write_demod(0xf12a,0x38);
@@ -66,20 +81,17 @@ uint8_t nim_read_demod(uint16_t reg, uint8_t *val) {
     if (err==ERROR_NONE) err=ftdi_i2c_read_reg16(NIM_DEMOD_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: demod read 0x%.4x\n",reg);
 
-    /* note we don't turn the repeater off as there might be other r/w to tuner/LNAs */
-
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_write_demod(uint16_t reg, uint8_t val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* writes to a demodulator register and takes care of the i2c bus repeater                            */
-/*    reg: which demod register to write to                                                           */
-/*    val: what to write to it                                                                        */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
+
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
 
     if (repeater_on) {
         repeater_on=false;
@@ -88,19 +100,17 @@ uint8_t nim_write_demod(uint16_t reg, uint8_t val) {
     if (err==ERROR_NONE) err=ftdi_i2c_write_reg16(NIM_DEMOD_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: demod write 0x%.4x, 0x%.2x\n",reg,val);
 
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_read_lna(uint8_t lna_addr, uint8_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* reads from the specified lna taking care of the i2c bus repeater                                   */
-/*  lna_addr: i2c address of the lna to access                                                        */
-/*       reg: which lna register to read                                                              */
-/*       val: where to put the result                                                                 */
-/*    return: error code                                                                              */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
+
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
 
     if (!repeater_on) {
         err=nim_write_demod(0xf12a,0xb8);
@@ -109,19 +119,17 @@ uint8_t nim_read_lna(uint8_t lna_addr, uint8_t reg, uint8_t *val) {
     if (err==ERROR_NONE) err=ftdi_i2c_read_reg8(lna_addr,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: lna read 0x%.2x, 0x%.2x\n",lna_addr,reg);
 
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_write_lna(uint8_t lna_addr, uint8_t reg, uint8_t val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* writes to the specified lna taking care of the i2c bus repeater                                    */
-/*  lna_addr: i2c address of the lna to access                                                        */
-/*       reg: which lna register to write to                                                          */
-/*       val: what to write to it                                                                     */
-/*    return: error code                                                                              */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
+
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
 
     if (!repeater_on) {
         err=nim_write_demod(0xf12a,0xb8);
@@ -130,18 +138,17 @@ uint8_t nim_write_lna(uint8_t lna_addr, uint8_t reg, uint8_t val) {
     if (err==ERROR_NONE) err=ftdi_i2c_write_reg8(lna_addr,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: lna write 0x%.2x, 0x%.2x,0x%.2x\n",lna_addr,reg,val);
 
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_read_tuner(uint8_t reg, uint8_t *val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* reads from the stv0910 (tuner) taking care of the i2c bus repeater                                 */
-/*    reg: which tuner register to read from                                                          */
-/*    val: where to put the result                                                                    */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
+
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
 
     if (!repeater_on) {
         err=nim_write_demod(0xf12a,0xb8);
@@ -150,18 +157,17 @@ uint8_t nim_read_tuner(uint8_t reg, uint8_t *val) {
     if (err==ERROR_NONE) err=ftdi_i2c_read_reg8(NIM_TUNER_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: tuner read 0x%.2x\n",reg);
 
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t nim_write_tuner(uint8_t reg, uint8_t val) {
 /* -------------------------------------------------------------------------------------------------- */
-/* writes to the stv0910 (tuner) taking care of the i2c bus repeater                                  */
-/*    reg: which tuner register to write to                                                           */
-/*    val: what to write to it                                                                        */
-/* return: error code                                                                                 */
-/* -------------------------------------------------------------------------------------------------- */
     uint8_t err=ERROR_NONE;
+
+    pthread_once(&nim_mutex_once, nim_mutex_init_once);
+    pthread_mutex_lock(&nim_i2c_mutex);
 
     if (!repeater_on) {
         err=nim_write_demod(0xf12a,0xb8);
@@ -170,6 +176,7 @@ uint8_t nim_write_tuner(uint8_t reg, uint8_t val) {
     if (err==ERROR_NONE) err=ftdi_i2c_write_reg8(NIM_TUNER_ADDR,reg,val);
     if (err!=ERROR_NONE) printf("ERROR: tuner write %i,%i\n",reg,val);
 
+    pthread_mutex_unlock(&nim_i2c_mutex);
     return err;
 }
 

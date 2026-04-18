@@ -493,3 +493,33 @@ uint8_t stv6120_powerdown_both_paths(void) {
 
     return err;
 }
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv6120_init_dual(uint32_t freq1, uint32_t sr1, uint32_t freq2, uint32_t sr2)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Initializes both STV6120 tuner paths for dual-tuner operation.                                     */
+/* Tuner 1 → STV0910 P2 (TOP/DEMOD_TOP), Tuner 2 → STV0910 P1 (BOTTOM/DEMOD_BOTTOM)                 */
+/* P2 must be initialized before P1 (hardware requirement).                                           */
+/* sr1/sr2 reserved for future LPF calibration.                                                       */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    (void)sr1;
+    (void)sr2;
+    return stv6120_init(freq1, freq2, false);
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t stv6120_set_freq_tuner(uint8_t tuner_id, uint32_t freq, uint32_t sr)
+{
+/* -------------------------------------------------------------------------------------------------- */
+/* Re-tunes a single STV6120 path without full re-initialization.                                     */
+/*   tuner_id: 1 = TUNER_1 (TOP/P2), 2 = TUNER_2 (BOTTOM/P1)                                        */
+/*   freq    : frequency in KHz                                                                       */
+/*   sr      : symbol rate in KSymbols/s (reserved)                                                  */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    (void)sr;
+    uint8_t stv_tuner = (tuner_id == 1) ? TUNER_1 : TUNER_2;
+    return stv6120_set_freq(stv_tuner, freq);
+}

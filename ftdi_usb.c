@@ -101,6 +101,12 @@ static libusb_device_handle *usb_device_handle_ts; // interface 1, endpoints: 0x
 static libusb_context *usb_context_i2c;
 static libusb_context *usb_context_ts;
 
+/* Tuner 2 device handles for dual tuner support */
+static libusb_device_handle *usb_device_handle_i2c_tuner2; // interface 0, endpoints: 0x81, 0x02
+static libusb_device_handle *usb_device_handle_ts_tuner2; // interface 1, endpoints: 0x83, 0x04
+static libusb_context *usb_context_i2c_tuner2;
+static libusb_context *usb_context_ts_tuner2;
+
 /* -------------------------------------------------------------------------------------------------- */
 /* ----------------- ROUTINES ----------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------------------------------- */
@@ -242,6 +248,15 @@ uint8_t ftdi_usb_set_mpsse_mode_ts(void){
     return ftdi_usb_set_mpsse_mode(usb_device_handle_ts);
 }
 
+/* Tuner 2 MPSSE mode functions */
+uint8_t ftdi_usb_set_mpsse_mode_i2c_tuner2(void){
+    return ftdi_usb_set_mpsse_mode(usb_device_handle_i2c_tuner2);
+}
+
+uint8_t ftdi_usb_set_mpsse_mode_ts_tuner2(void){
+    return ftdi_usb_set_mpsse_mode(usb_device_handle_ts_tuner2);
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 static uint8_t ftdi_usb_init(libusb_context **usb_context_ptr, libusb_device_handle **usb_device_handle_ptr, int interface_num, uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -350,6 +365,15 @@ uint8_t ftdi_usb_init_ts(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16
     return ftdi_usb_init(&usb_context_ts, &usb_device_handle_ts, 1, usb_bus, usb_addr, vid, pid);
 }
 
+/* Tuner 2 initialization functions */
+uint8_t ftdi_usb_init_i2c_tuner2(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
+    return ftdi_usb_init(&usb_context_i2c_tuner2, &usb_device_handle_i2c_tuner2, 0, usb_bus, usb_addr, vid, pid);
+}
+
+uint8_t ftdi_usb_init_ts_tuner2(uint8_t usb_bus, uint8_t usb_addr, uint16_t vid, uint16_t pid) {
+    return ftdi_usb_init(&usb_context_ts_tuner2, &usb_device_handle_ts_tuner2, 1, usb_bus, usb_addr, vid, pid);
+}
+
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
 /* -------------------------------------------------------------------------------------------------- */
@@ -371,6 +395,31 @@ uint8_t ftdi_usb_ts_read(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
     } else *len=rxed; /* just type converting */
 
     if (err!=ERROR_NONE) printf("ERROR: FTDI USB ts read\n");
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_ts_read_tuner2(uint8_t *buffer, uint16_t *len, uint32_t frame_size) {
+/* -------------------------------------------------------------------------------------------------- */
+/* read transport stream data from tuner 2 device                                                    */
+/* *buffer: the buffer to collect the ts data into                                                    */
+/*    *len: how many bytes we put into the buffer                                                     */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err=ERROR_NONE;
+    int rxed=0;
+    int res=0;
+
+    /* the TS traffic is on endpoint 0x83 */
+    res=libusb_bulk_transfer(usb_device_handle_ts_tuner2, 0x83, buffer, frame_size, &rxed, USB_FAST_TIMEOUT);
+
+    if (res<0) {
+        printf("ERROR: USB TS Data Read Tuner2 %i (%s), received %i\n",res,libusb_error_name(res),rxed);
+        err=ERROR_USB_TS_READ;
+    } else *len=rxed; /* just type converting */
+
+    if (err!=ERROR_NONE) printf("ERROR: FTDI USB ts read tuner2\n");
 
     return err;
 }

@@ -84,6 +84,10 @@ typedef struct {
     uint8_t device_usb_bus;
     uint8_t device_usb_addr;
 
+    // Tuner 2 FTDI device configuration
+    uint8_t tuner2_device_usb_bus;
+    uint8_t tuner2_device_usb_addr;
+
     bool ts_use_ip;
     bool ts_reset;
     char ts_fifo_path[128];
@@ -136,6 +140,7 @@ typedef struct {
     bool tuner2_polarisation_horizontal;
 
     bool new_config;
+    bool new_config_tuner2;
     pthread_mutex_t mutex;
 } longmynd_config_t;
 
@@ -197,6 +202,12 @@ void config_set_lnbv(bool enabled, bool horizontal);
 void config_reinit(bool increment_frsr);
 void config_set_swport(bool sport);
 void config_set_tsip(char *tsip);
+
+/* Tuner 2 config setters */
+void config_set_frequency_tuner2(uint32_t frequency);
+void config_set_symbolrate_tuner2(uint32_t symbolrate);
+void config_set_lnbv_tuner2(bool enabled, bool horizontal);
+void config_reinit_tuner2(bool increment_frsr);
 
 #endif
 

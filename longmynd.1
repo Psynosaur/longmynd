@@ -2,8 +2,9 @@
 .SH NAME
 longmynd \- Outputs transport streams from the Minitiouner DVB-S/S2 demodulator
 .SH SYNOPSIS
-.B longmynd \fR[\fB\-u\fR \fIUSB_BUS USB_DEVICE\fR]
+.B longmynd \fR[\fB\-u\fR \fIUSB_BUS USB_DEVICE\fR] [\fB\-u2\fR \fIUSB_BUS2 USB_DEVICE2\fR]
          [\fB\-i\fR \fIMAIN_IP_ADDR\fR  \fIMAIN_PORT\fR | \fB\-t\fR \fIMAIN_TS_FIFO\fR]
+         [\fB\-i2\fR \fITUNER2_IP_ADDR\fR  \fITUNER2_PORT\fR]
          [\fB\-I\fR \fISTATUS_IP_ADDR\fR  \fISTATUS_PORT\fR | \fB\-s\fR \fIMAIN_STATUS_FIFO\fR]
          [\fB\-w\fR] [\fB\-b\fR] [\fB\-p\fR \fIh\fR | \fB\-p\fR \fIv\fR] [\fB\-r\fR \fITS_TIMEOUT_PERIOD\fR]
          [\fB\-S\fR \fIHALFSCAN_WIDTH\fR] [\fB\-D\fR]
@@ -20,9 +21,17 @@ The Main TS stream is the one coming out of the Primary FTDI Board.
 Sets the USB Bus and USB Device Number of the required Minitiouner in a multi device system.
 Default uses the first detected Minitiouner.
 .TP
+.BR \-u2 " " \fIUSB_BUS2\fR " " \fIUSB_DEVICE2\fR
+Sets the USB Bus and USB Device Number of the second Minitiouner for dual tuner operation.
+When specified, enables dual tuner mode with independent TS processing for both tuners.
+.TP
 .BR \-i " " \fIIP_ADDR\fR " " \fIPORT\fR
 If UDP output is required (instead of the default FIFO output), this option sets the IP Address and Port to send the Main TS Stream to.
 Default is to use a FIFO for Main TS Stream.
+.TP
+.BR \-i2 " " \fIIP_ADDR2\fR " " \fIPORT2\fR
+If UDP output is required for tuner 2, this option sets the IP Address and Port to send the Tuner 2 TS Stream to.
+Only available when dual tuner mode is enabled with -u2. Default is to use a FIFO for Tuner 2 TS Stream.
 .TP
 .BR \-I " " \fIIP_ADDR\fR " " \fIPORT\fR
 If UDP output is required (instead of the default FIFO output), this option sets the IP Address and Port to send the Main Status Stream to.
@@ -91,3 +100,6 @@ As above but after 5000 milliseconds with no TS data the Tuner configuration wil
  * 146 MHz, 66 Ks/s
  * 146 MHz, 125 Ks/s
  * [repeat from start]
+.TP
+longmynd -u 1 10 -u2 1 13 -i 230.0.0.2 1234 -i2 230.0.0.3 1235 741500 1500
+Dual tuner mode: uses Minitiouner at USB 1,10 for main tuner and USB 1,13 for tuner 2. Main tuner outputs TS to 230.0.0.2:1234, tuner 2 outputs TS to 230.0.0.3:1235. Both tuners search for 741.5 MHz at 1500 Ks/s.

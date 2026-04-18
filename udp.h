@@ -34,5 +34,11 @@ uint8_t udp_ts_write(uint8_t *buffer, uint32_t len, bool *output_ready);
 uint8_t udp_bb_write(uint8_t *buffer, uint32_t len, bool *output_ready);
 uint8_t udp_close(void);
 
+/* Tuner 2 UDP functions */
+uint8_t udp_status_init_tuner2(char *udp_ip, int udp_port);
+uint8_t udp_ts_init_tuner2(char *udp_ip, int udp_port);
+uint8_t udp_ts_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready);
+uint8_t udp_bb_write_tuner2(uint8_t *buffer, uint32_t len, bool *output_ready);
+
 #endif
 
