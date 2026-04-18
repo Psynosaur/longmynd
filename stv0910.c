@@ -7,36 +7,10 @@
 /*
     This file is part of longmynd.
 
-
-/* -------------------------------------------------------------------------------------------------- */
-void stv0910_dbg_ts_status(const char *label) {
-/* -------------------------------------------------------------------------------------------------- */
-/* Reads and prints P1/P2 TS status registers. Call after demod has locked for meaningful data.       */
-/* -------------------------------------------------------------------------------------------------- */
-    uint8_t v_p1_tsstatus=0, v_p1_tsstatus2=0;
-    uint8_t v_p2_tsstatus=0, v_p2_tsstatus2=0;
-    uint8_t v_p1_tscfgh=0, v_p2_tscfgh=0;
-    uint8_t v_p1_dmdistate=0, v_p2_dmdistate=0;
-    stv0910_read_reg(RSTV0910_P1_TSSTATUS,  &v_p1_tsstatus);
-    stv0910_read_reg(RSTV0910_P1_TSSTATUS2, &v_p1_tsstatus2);
-    stv0910_read_reg(RSTV0910_P2_TSSTATUS,  &v_p2_tsstatus);
-    stv0910_read_reg(RSTV0910_P2_TSSTATUS2, &v_p2_tsstatus2);
-    stv0910_read_reg(RSTV0910_P1_TSCFGH,    &v_p1_tscfgh);
-    stv0910_read_reg(RSTV0910_P2_TSCFGH,    &v_p2_tscfgh);
-    stv0910_read_reg(RSTV0910_P1_DMDISTATE, &v_p1_dmdistate);
-    stv0910_read_reg(RSTV0910_P2_DMDISTATE, &v_p2_dmdistate);
-    fprintf(stderr,
-        "DBG TS status [%s]:\n"
-        "  P1: TSCFGH=0x%02x DMDISTATE=0x%02x TSSTATUS=0x%02x(LINEOK=%d ERR=%d NOSYNC=%d) TSSTATUS2=0x%02x(DEMODSEL=%d)\n"
-        "  P2: TSCFGH=0x%02x DMDISTATE=0x%02x TSSTATUS=0x%02x(LINEOK=%d ERR=%d NOSYNC=%d) TSSTATUS2=0x%02x(DEMODSEL=%d)\n",
-        label,
-        v_p1_tscfgh, v_p1_dmdistate, v_p1_tsstatus,
-        (v_p1_tsstatus>>7)&1, (v_p1_tsstatus>>6)&1, (v_p1_tsstatus>>4)&1,
-        v_p1_tsstatus2, (v_p1_tsstatus2>>7)&1,
-        v_p2_tscfgh, v_p2_dmdistate, v_p2_tsstatus,
-        (v_p2_tsstatus>>7)&1, (v_p2_tsstatus>>6)&1, (v_p2_tsstatus>>4)&1,
-        v_p2_tsstatus2, (v_p2_tsstatus2>>7)&1);
-}
+    Longmynd is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
 
     Longmynd is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -1318,5 +1292,35 @@ uint8_t stv0910_reset_tsfifo(void) {
     }
 
     return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+void stv0910_dbg_ts_status(const char *label) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Reads and prints P1/P2 TS status registers. Call after demod has locked for meaningful data.       */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t v_p1_tsstatus=0, v_p1_tsstatus2=0;
+    uint8_t v_p2_tsstatus=0, v_p2_tsstatus2=0;
+    uint8_t v_p1_tscfgh=0, v_p2_tscfgh=0;
+    uint8_t v_p1_dmdistate=0, v_p2_dmdistate=0;
+    stv0910_read_reg(RSTV0910_P1_TSSTATUS,  &v_p1_tsstatus);
+    stv0910_read_reg(RSTV0910_P1_TSSTATUS2, &v_p1_tsstatus2);
+    stv0910_read_reg(RSTV0910_P2_TSSTATUS,  &v_p2_tsstatus);
+    stv0910_read_reg(RSTV0910_P2_TSSTATUS2, &v_p2_tsstatus2);
+    stv0910_read_reg(RSTV0910_P1_TSCFGH,    &v_p1_tscfgh);
+    stv0910_read_reg(RSTV0910_P2_TSCFGH,    &v_p2_tscfgh);
+    stv0910_read_reg(RSTV0910_P1_DMDISTATE, &v_p1_dmdistate);
+    stv0910_read_reg(RSTV0910_P2_DMDISTATE, &v_p2_dmdistate);
+    fprintf(stderr,
+        "DBG TS status [%s]:\n"
+        "  P1: TSCFGH=0x%02x DMDISTATE=0x%02x TSSTATUS=0x%02x(LINEOK=%d ERR=%d NOSYNC=%d) TSSTATUS2=0x%02x(DEMODSEL=%d)\n"
+        "  P2: TSCFGH=0x%02x DMDISTATE=0x%02x TSSTATUS=0x%02x(LINEOK=%d ERR=%d NOSYNC=%d) TSSTATUS2=0x%02x(DEMODSEL=%d)\n",
+        label,
+        v_p1_tscfgh, v_p1_dmdistate, v_p1_tsstatus,
+        (v_p1_tsstatus>>7)&1, (v_p1_tsstatus>>6)&1, (v_p1_tsstatus>>4)&1,
+        v_p1_tsstatus2, (v_p1_tsstatus2>>7)&1,
+        v_p2_tscfgh, v_p2_dmdistate, v_p2_tsstatus,
+        (v_p2_tsstatus>>7)&1, (v_p2_tsstatus>>6)&1, (v_p2_tsstatus>>4)&1,
+        v_p2_tsstatus2, (v_p2_tsstatus2>>7)&1);
 }
 
