@@ -898,9 +898,6 @@ static uint8_t hardware_start_demodulator_scan(const longmynd_config_t *config, 
     return err;
 }
 
-    return err;
-}
-
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t do_report(uint8_t tuner, longmynd_status_t *status)
 {
