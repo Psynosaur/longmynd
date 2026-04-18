@@ -1919,8 +1919,9 @@ int main(int argc, char *argv[])
         if (err == ERROR_NONE) {
             lm_log("Flow: Tuner 2 FTDI device initialized successfully on USB bus/device=%d,%d\n",
                    longmynd_config.tuner2_device_usb_bus, longmynd_config.tuner2_device_usb_addr);
-            /* Enable TS2SYNC to route STV0910 P1 TS output to FTDI2 */
-            err = ftdi_enable_ts2sync();
+            /* TEST: Do NOT drive TS2SYNC — hypothesis: AC1 is TS clock not mux select.
+               Driving it high was freezing FTDI2 FIFO. Leave it as input (default). */
+            /* err = ftdi_enable_ts2sync(); */
         } else {
             printf("ERROR: Failed to initialize Tuner 2 FTDI device\n");
         }
