@@ -235,6 +235,13 @@ void *loop_ts_tuner2(void *arg) {
 
         *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
 
+        /* Diagnostic: log every read result (len=0 means timeout, len>0 means data) */
+        {
+            static uint32_t t2_dbg_count = 0;
+            if (++t2_dbg_count % 20 == 1)
+                fprintf(stderr, "T2 DBG: read#%u err=%u len=%u\n", t2_dbg_count, *err, len);
+        }
+
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
         if ((*err==ERROR_NONE) && (len>2)) {
