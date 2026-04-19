@@ -1432,17 +1432,9 @@ void *loop_i2c(void *arg)
             bool t2_just_locked = (status_cpy_2.state == STATE_DEMOD_S2 || status_cpy_2.state == STATE_DEMOD_S)
                                 && (t2_state_before == STATE_DEMOD_HUNTING || t2_state_before == STATE_DEMOD_FOUND_HEADER || t2_state_before == STATE_INIT);
             if (t2_just_locked && *err == ERROR_NONE) {
-                fprintf(stderr, "DBG T2 first lock — waiting for P1 LINEOK then flushing TSFIFO\n");
-                /* Poll P1_TSSTATUS until LINEOK (bit7) is set, or timeout after 500ms */
-                uint8_t tsstatus = 0;
-                for (int _w = 0; _w < 50; _w++) {
-                    stv0910_read_shared_reg(RSTV0910_P1_TSSTATUS, &tsstatus);
-                    if (tsstatus & 0x80) break;
-                    usleep(10 * 1000); /* 10ms per poll */
-                }
-                fprintf(stderr, "DBG T2 LINEOK wait done: P1_TSSTATUS=0x%02x (LINEOK=%d)\n",
-                        tsstatus, (tsstatus >> 7) & 1);
-                stv0910_reset_tsfifo();
+                fprintf(stderr, "DBG T2 first lock — clearing FTDI2 halt (no RST_HWARE)\n");
+                /* Do NOT pulse RST_HWARE here — it kills LINEOK and stops TS output.
+                   Just clear any USB endpoint halt on FTDI2 so reads can resume. */
                 ftdi_usb_clear_halt_tuner2();
             }
 
