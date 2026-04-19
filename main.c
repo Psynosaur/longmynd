@@ -1094,6 +1094,12 @@ static uint8_t handle_configuration_change(const thread_vars_t *thread_vars, lon
     if (local_err != ERROR_NONE)
         *err = local_err;
 
+    /* nim_init() -> ftdi_setup_ftdi_io() hardcodes AC1 (TS2SYNC) LOW and as INPUT,
+       which disables the NAND gate WR# path from STV0910 P1 to FTDI2.
+       Re-enable it here every time after NIM init. */
+    if (*err == ERROR_NONE && config_cpy->tuner2_enabled)
+        ftdi_enable_ts2sync();
+
     /* Configure LNA and polarization - PRESERVE EXACT SEQUENCES */
     if (*err == ERROR_NONE)
         local_err = hardware_configure_lna_and_polarization(config_cpy, status_cpy);
