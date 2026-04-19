@@ -33,7 +33,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     The chip reset defaults (GENCFG=0x14 BROADCAST=1, TSGENERAL=0x40 DISTS2PAR=1)
     suppress P1/FTDI2 output. Writing these first keeps TS alive during the rest of init. */
     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 ΓÇö must be first write */
-    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0, P1/P2 independent outputs */
+    { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=0, P1/P2 independent outputs, bit4=1 (dual demod, per Linux kernel stv0910.c) */
     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0, single parallel line */
     { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
     { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — enables parallel FIFO output to FTDI2 */
