@@ -29,19 +29,16 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — written FIRST so these take effect before the rest of init.
-    Key findings:
-      GENCFG=0x14 (BROADCAST=1, DDEMOD=0): FTDI2 gets data (len=19) but P2/T1 TSFIFO breaks (demod1 inactive).
-      GENCFG=0x05 (BROADCAST=0, DDEMOD=1): P2/T1 works but FTDI2 gets len=2.
-      OUTCFG2=0x00 (pre-init default): T2 gets len=3547. OUTCFG2=0x11 (invert both clocks): T2 drops to len=2.
-      ROOT CAUSE HYPOTHESIS: OUTCFG2=0x11 inverts P1 clock — FTDI2 (245-FIFO) samples on wrong edge → no data.
-    Current test: OUTCFG2=0x10 (invert P2/T1 clock only, leave P1/T2 clock non-inverted). */
-    { RSTV0910_OUTCFG2,           0x10 }, /* OUTCFG2: TS2_CLOCKOUT_XOR only (bit4=0x10) — invert P2/T1 clock for FTDI1, but NOT P1/T2 clock. Pre-init OUTCFG2=0x00 gives T2 len=3547; after OUTCFG2=0x11 (invert both) T2 drops to len=2. FTDI2 (245-FIFO) samples on wrong edge when P1 clock is inverted. T1/FTDI1 still needs clock inversion — only P2 bit set. */
-    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Chip reset default is 0x14 (BROADCAST=1) but BROADCAST=1 breaks P2/T1 TSFIFO — P2_TSSTATUS stays 0x52 (NOSYNC) permanently. Must stay 0x05. */
-    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Reset default is 0x40 but DISTS2PAR=1 routes a second parallel line which may interfere with P2/T1 serial TSFIFO — breaking T1 (P2_TSSTATUS stayed 0x52 with TSGENERAL=0x40). */
-    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
-    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — enables parallel FIFO output to FTDI2 */
-    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
+ /* TS OUTPUT CONFIG — OpenTuner approach: both ports in SERIAL mode with dual-demod.
+     PIVOT: Previous parallel approach (P1 parallel + P2 serial) got T1 working but T2 stuck at len=2.
+     OpenTuner config: GENCFG=0x15 (BROADCAST=1, DDEMOD=1), both P1+P2 TSCFGH=0x80 (serial).
+     Hypothesis: FTDI2 expects serial TS input, not parallel 245-FIFO. Parallel mode was wrong approach. */
+     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: 0x11 (invert both clocks). In serial mode, both demods' TS outputs need clock inversion. */
+     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=1 (bit4=1), DDEMOD=1 (bit0=1). Enables dual-demod output to both ports. */
+     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Serial mode, not parallel routing. */
+     { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 for serial mode on P1 (matching P2). Demod0/T2 via P1 serial. */
+     { RSTV0910_P1_TSCFGL,         0x00 }, /* P1_TSCFGL: serial mode, no parallel FIFO. */
+     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for serial mode on P2 (demod1/T1). */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
@@ -54,7 +51,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
-    { RSTV0910_OUTCFG,            0x10 }, /* OUTCFG: TS1_OUTSER_HZ=1 (bit4) — tristate P1 serial pins, leaving P1 parallel active. In dual-demod (DDEMOD=1) mode, OUTCFG=0x00 gives len=2 on FTDI2 despite P1_TSSTATUS=0x81. Hypothesis: chip needs P1 serial explicitly tristated to force parallel-only mode. TS2_OUTPAR_HZ(bit3) and TS2_OUTSER_HZ(bit5) left 0 = P2 serial driven. */
+     { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 in serial mode (TS1 serial active). Both ports output serial TS. */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
