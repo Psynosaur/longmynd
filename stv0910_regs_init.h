@@ -29,14 +29,12 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — written FIRST to avoid glitching FTDI2 clock during init.
-    The chip reset defaults (GENCFG=0x14 BROADCAST=1, TSGENERAL=0x40 DISTS2PAR=1)
-    suppress P1/FTDI2 output. Writing these first keeps TS alive during the rest of init. */
+ /* TS OUTPUT CONFIG — written FIRST to avoid glitching FTDI2 clock during init. */
     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 — must be first write */
-    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0, P1/P2 independent outputs */
-    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0, single parallel line */
-    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
-    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 (bit5) — matches chip power-on default; required for P1 parallel output to FTDI2 */
+    { RSTV0910_GENCFG,            0x14 }, /* GENCFG: restore chip power-on default 0x14 (BROADCAST=1) — 0x05 broke both TS outputs */
+    { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: restore chip power-on default 0x40 (DISTS2PAR=1) — 0x00 broke both TS outputs */
+    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 */
+    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — matches chip power-on default */
     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
 
  /* SYS registers */
