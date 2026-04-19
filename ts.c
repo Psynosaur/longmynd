@@ -213,9 +213,13 @@ void *loop_ts_tuner2(void *arg) {
     while(*err == ERROR_NONE && *thread_vars->main_err_ptr == ERROR_NONE){
         /* If reset flag is active (eg. just started or changed station), then clear out the ts buffer */
         if(config->ts_reset_tuner2) {
+            /* Drain the FTDI2 buffer. USB errors here (e.g. pipe error after NIM reset)
+               are expected and must NOT propagate to the outer loop — reset err afterwards. */
             do {
-                if (*err==ERROR_NONE) *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
-            } while (*err==ERROR_NONE && len>2);
+                uint8_t drain_err = ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
+                if (drain_err != ERROR_NONE) { len = 0; break; } /* stop drain on USB error */
+            } while (len > 2);
+            *err = ERROR_NONE; /* never let drain errors kill the thread */
 
             pthread_mutex_lock(&status->mutex);
 
@@ -233,7 +237,18 @@ void *loop_ts_tuner2(void *arg) {
            config->ts_reset_tuner2 = false;
         }
 
-        *err=ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
+        {
+            uint8_t read_err = ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
+            if (read_err != ERROR_NONE) {
+                /* USB pipe/IO errors after NIM reinit are transient — log, clear halt and continue */
+                fprintf(stderr, "T2 DBG: read USB err=%u, clearing halt and retrying\n", read_err);
+                ftdi_usb_clear_halt_tuner2();
+                len = 0;
+                /* do NOT propagate to *err — keep thread alive */
+            } else {
+                *err = ERROR_NONE;
+            }
+        }
 
         /* Diagnostic: log every read result (len=0 means timeout, len>0 means data) */
         {
