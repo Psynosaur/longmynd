@@ -1140,6 +1140,36 @@ uint8_t stv0910_init_regs() {
 
     lm_log("Flow: stv0910 init regs\n");
 
+    /* Dump chip power-on TS register state BEFORE any writes — this is the state that makes FTDI2 work */
+    {
+        uint8_t _p1_tscfgh=0, _p1_tscfgm=0, _p1_tscfgl=0;
+        uint8_t _p2_tscfgh=0, _p2_tscfgm=0, _p2_tscfgl=0;
+        uint8_t _gencfg=0, _outcfg=0, _outcfg2=0, _tsgeneral=0;
+        uint8_t _p1_tsstatus=0, _p1_tsstatus2=0;
+        nim_read_demod(RSTV0910_P1_TSCFGH,   &_p1_tscfgh);
+        nim_read_demod(RSTV0910_P1_TSCFGM,   &_p1_tscfgm);
+        nim_read_demod(RSTV0910_P1_TSCFGL,   &_p1_tscfgl);
+        nim_read_demod(RSTV0910_P2_TSCFGH,   &_p2_tscfgh);
+        nim_read_demod(RSTV0910_P2_TSCFGM,   &_p2_tscfgm);
+        nim_read_demod(RSTV0910_P2_TSCFGL,   &_p2_tscfgl);
+        nim_read_demod(RSTV0910_GENCFG,      &_gencfg);
+        nim_read_demod(RSTV0910_OUTCFG,      &_outcfg);
+        nim_read_demod(RSTV0910_OUTCFG2,     &_outcfg2);
+        nim_read_demod(RSTV0910_TSGENERAL,   &_tsgeneral);
+        nim_read_demod(RSTV0910_P1_TSSTATUS, &_p1_tsstatus);
+        nim_read_demod(RSTV0910_P1_TSSTATUS2,&_p1_tsstatus2);
+        fprintf(stderr,
+            "DBG PRE-INIT chip state (working):\n"
+            "  P1_TSCFGH=0x%02x P1_TSCFGM=0x%02x P1_TSCFGL=0x%02x\n"
+            "  P2_TSCFGH=0x%02x P2_TSCFGM=0x%02x P2_TSCFGL=0x%02x\n"
+            "  GENCFG=0x%02x OUTCFG=0x%02x OUTCFG2=0x%02x TSGENERAL=0x%02x\n"
+            "  P1_TSSTATUS=0x%02x P1_TSSTATUS2=0x%02x\n",
+            _p1_tscfgh, _p1_tscfgm, _p1_tscfgl,
+            _p2_tscfgh, _p2_tscfgm, _p2_tscfgl,
+            _gencfg, _outcfg, _outcfg2, _tsgeneral,
+            _p1_tsstatus, _p1_tsstatus2);
+    }
+
     /* first we check on the IDs */
     err=nim_read_demod(0xf100, &val1);
     if (err==ERROR_NONE) err=nim_read_demod(0xf101, &val2);
