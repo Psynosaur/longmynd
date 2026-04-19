@@ -884,7 +884,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSCFGH,         0x00 }, 		// P1 parallel (DVBCI=0) for NIM->FTDI2
     { RSTV0910_P2_TSCFGH,         0x80 },		// P2 DVBCI=1 — T1/FTDI1 working
     { RSTV0910_GENCFG,            0x05}, 	// BROADCAST=0: P1/P2 independent outputs (BROADCAST=1 suppresses P1 to FTDI2)
-    { RSTV0910_OUTCFG2,           0x01 }, 		// invert P1 clock only (low nibble=P1, high nibble=P2); 0x11 inverted both
+    { RSTV0910_OUTCFG2,           0x10 }, 		// invert P2 clock only (low nibble=P1, high nibble=P2); 0x01=P1 only, 0x11=both
 ///    { RSTV0910_P1_TSDIVN,         0x83 }, 		// output clock adapts to data rate
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
     { RSTV0910_P1_TSDIVN,         0x03 }, 		// default
