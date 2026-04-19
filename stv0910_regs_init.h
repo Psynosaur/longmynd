@@ -31,12 +31,12 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
  /* TS OUTPUT CONFIG — written FIRST so these take effect before the rest of init.
     Key findings:
-      GENCFG=0x14 (BROADCAST=1, DDEMOD=0): FTDI2 gets data (len=19) but P2/T1 TSFIFO breaks (NOSYNC).
+      GENCFG=0x14 (BROADCAST=1, DDEMOD=0): FTDI2 gets data (len=19) but P2/T1 TSFIFO breaks (demod1 inactive).
       GENCFG=0x05 (BROADCAST=0, DDEMOD=1): P2/T1 works but FTDI2 gets len=2.
-      GENCFG=0x15 (BROADCAST=1, DDEMOD=1): Both broken (FTDI2 len=2, P2 NOSYNC).
-    Current test: GENCFG=0x05 + OUTCFG=0x10 (tristate P1 serial pins to force P1 parallel-only in DDEMOD=1 mode).
-    OUTCFG2=0x11 (clock inversion) must be written — chip reset default is 0x00. */
-    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 ΓÇö must be first write */
+      OUTCFG2=0x00 (pre-init default): T2 gets len=3547. OUTCFG2=0x11 (invert both clocks): T2 drops to len=2.
+      ROOT CAUSE HYPOTHESIS: OUTCFG2=0x11 inverts P1 clock — FTDI2 (245-FIFO) samples on wrong edge → no data.
+    Current test: OUTCFG2=0x10 (invert P2/T1 clock only, leave P1/T2 clock non-inverted). */
+    { RSTV0910_OUTCFG2,           0x10 }, /* OUTCFG2: TS2_CLOCKOUT_XOR only (bit4=0x10) — invert P2/T1 clock for FTDI1, but NOT P1/T2 clock. Pre-init OUTCFG2=0x00 gives T2 len=3547; after OUTCFG2=0x11 (invert both) T2 drops to len=2. FTDI2 (245-FIFO) samples on wrong edge when P1 clock is inverted. T1/FTDI1 still needs clock inversion — only P2 bit set. */
     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Chip reset default is 0x14 (BROADCAST=1) but BROADCAST=1 breaks P2/T1 TSFIFO — P2_TSSTATUS stays 0x52 (NOSYNC) permanently. Must stay 0x05. */
     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Reset default is 0x40 but DISTS2PAR=1 routes a second parallel line which may interfere with P2/T1 serial TSFIFO — breaking T1 (P2_TSSTATUS stayed 0x52 with TSGENERAL=0x40). */
     { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
