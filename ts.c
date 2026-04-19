@@ -258,6 +258,24 @@ void *loop_ts_tuner2(void *arg) {
                 fprintf(stderr, "T2 DBG: read#%u err=%u len=%u\n", t2_dbg_count, *err, len);
         }
 
+        /* Stall detection: if T2 is locked but P1 TSFIFO has produced no data for many
+           consecutive reads, pulse P1 RST_HWARE to re-arm it. P2 (T1) is not touched. */
+        {
+            static uint32_t t2_stall_count = 0;
+            bool t2_locked = (status->state == STATE_DEMOD_S2 || status->state == STATE_DEMOD_S);
+            if (t2_locked && len <= 2) {
+                t2_stall_count++;
+                if (t2_stall_count == 200) { /* ~200 empty reads ≈ a few hundred ms */
+                    fprintf(stderr, "T2 DBG: stall detected (%u empty reads while locked) — pulsing P1 RST_HWARE\n", t2_stall_count);
+                    stv0910_reset_p1_tsfifo();
+                    ftdi_usb_clear_halt_tuner2();
+                    t2_stall_count = 0;
+                }
+            } else {
+                t2_stall_count = 0;
+            }
+        }
+
         /* if there is ts data then we send it out to the required output. But, we have to lose the first 2 bytes */
         /* that are the usual FTDI 2 byte response and not part of the TS */
         if ((*err==ERROR_NONE) && (len>2)) {

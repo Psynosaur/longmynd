@@ -1346,6 +1346,19 @@ uint8_t stv0910_reset_tsfifo(void) {
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t stv0910_reset_p1_tsfifo(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Pulses RST_HWARE (bit 0) on P1_TSCFGH only — re-arms P1 (T2 parallel) TSFIFO without touching   */
+/* P2 (T1 serial). Call when T2 is locked but P1 TSFIFO appears stalled (no data for many reads).   */
+/* return: error code                                                                                 */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x09); /* assert RST_HWARE */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x08); /* deassert RST_HWARE */
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 void stv0910_dbg_ts_status(const char *label) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Reads and prints P1/P2 TS status registers. Call after demod has locked for meaningful data.       */
