@@ -50,8 +50,10 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
-    { RSTV0910_OUTCFG,            0x7e }, /* OUTCFG: push-pull drive on all TS output pins (matches chip power-on default).
-                                                              0x00 leaves pins high-Z; parallel FIFO (FTDI2) requires active drive. */
+    { RSTV0910_OUTCFG,            0x0c }, /* OUTCFG: push-pull on T2/P1 parallel pins only (bits[3:2]=11).
+                                                              0x00=all high-Z (T1 serial works but T2 parallel needs drive).
+                                                              0x7e=all push-pull (breaks T1 serial — parallel pins conflict with FTDI1).
+                                                              0x0c=T2 parallel pins push-pull only, T1 serial stays high-Z. */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
