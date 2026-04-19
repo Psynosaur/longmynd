@@ -1417,9 +1417,22 @@ void *loop_i2c(void *arg)
             /* Update tuner 2 status from hardware */
             *err = do_report(2, &status_cpy_2);
 
+            /* Track previous T2 state to detect first-lock transition */
+            uint8_t t2_state_before = status_cpy_2.state;
+
             /* Process tuner 2 state transitions */
             if (*err == ERROR_NONE)
                 process_demodulator_state_transition(2, &status_cpy_2, err);
+
+            /* On first T2 lock (HUNTING/FOUND_HEADER -> S2 or S), pulse P1 RST_HWARE
+               so the TSFIFO flushes stale bytes and starts outputting fresh TS to FTDI2. */
+            bool t2_just_locked = (status_cpy_2.state == STATE_DEMOD_S2 || status_cpy_2.state == STATE_DEMOD_S)
+                                && (t2_state_before == STATE_DEMOD_HUNTING || t2_state_before == STATE_DEMOD_FOUND_HEADER || t2_state_before == STATE_INIT);
+            if (t2_just_locked && *err == ERROR_NONE) {
+                fprintf(stderr, "DBG T2 first lock — pulsing P1 RST_HWARE to flush TSFIFO\n");
+                stv0910_reset_tsfifo();
+                ftdi_usb_clear_halt_tuner2();
+            }
 
             /* Synchronize tuner 2 status into global status2 struct */
             static uint32_t last_ts_packet_count_t2 = 0;
