@@ -29,13 +29,13 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — written FIRST to avoid glitching FTDI2 clock during init. */
-    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 — must be first write */
-    { RSTV0910_GENCFG,            0x14 }, /* GENCFG: restore chip power-on default 0x14 (BROADCAST=1) — 0x05 broke both TS outputs */
-    { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: restore chip power-on default 0x40 (DISTS2PAR=1) — 0x00 broke both TS outputs */
+ /* TS OUTPUT CONFIG — written FIRST.
+    GENCFG, TSGENERAL, OUTCFG2 intentionally NOT written here — chip power-on defaults
+    (GENCFG=0x14, TSGENERAL=0x40, OUTCFG2=0x00) are required for both TS outputs to work.
+    We only set the per-port config and clock drive. */
     { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 */
-    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — matches chip power-on default */
-    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
+    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — chip power-on default */
+    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 serial */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
