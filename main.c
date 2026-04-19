@@ -1425,11 +1425,22 @@ void *loop_i2c(void *arg)
                 process_demodulator_state_transition(2, &status_cpy_2, err);
 
             /* On first T2 lock (HUNTING/FOUND_HEADER -> S2 or S), pulse P1 RST_HWARE
-               so the TSFIFO flushes stale bytes and starts outputting fresh TS to FTDI2. */
+               so the TSFIFO flushes stale bytes and starts outputting fresh TS to FTDI2.
+               Wait for P1_TSSTATUS.LINEOK to go high before pulsing, so the TSFIFO has
+               actually started outputting before we reset it. */
             bool t2_just_locked = (status_cpy_2.state == STATE_DEMOD_S2 || status_cpy_2.state == STATE_DEMOD_S)
                                 && (t2_state_before == STATE_DEMOD_HUNTING || t2_state_before == STATE_DEMOD_FOUND_HEADER || t2_state_before == STATE_INIT);
             if (t2_just_locked && *err == ERROR_NONE) {
-                fprintf(stderr, "DBG T2 first lock — pulsing P1 RST_HWARE to flush TSFIFO\n");
+                fprintf(stderr, "DBG T2 first lock — waiting for P1 LINEOK then flushing TSFIFO\n");
+                /* Poll P1_TSSTATUS until LINEOK (bit7) is set, or timeout after 500ms */
+                uint8_t tsstatus = 0;
+                for (int _w = 0; _w < 50; _w++) {
+                    stv0910_read_shared_reg(RSTV0910_P1_TSSTATUS, &tsstatus);
+                    if (tsstatus & 0x80) break;
+                    usleep(10 * 1000); /* 10ms per poll */
+                }
+                fprintf(stderr, "DBG T2 LINEOK wait done: P1_TSSTATUS=0x%02x (LINEOK=%d)\n",
+                        tsstatus, (tsstatus >> 7) & 1);
                 stv0910_reset_tsfifo();
                 ftdi_usb_clear_halt_tuner2();
             }
