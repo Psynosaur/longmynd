@@ -31,11 +31,12 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
  /* TS OUTPUT CONFIG — OpenTuner approach: both ports in SERIAL mode with dual-demod.
      PIVOT: Previous parallel approach (P1 parallel + P2 serial) got T1 working but T2 stuck at len=2.
-     OpenTuner config: GENCFG=0x15 (BROADCAST=1, DDEMOD=1), both P1+P2 TSCFGH=0x80 (serial).
-     Hypothesis: FTDI2 expects serial TS input, not parallel 245-FIFO. Parallel mode was wrong approach.
-     Clock inversion: OpenTuner uses 0x00 (no inversion). Try with 0x00 first; only add 0x11 if T1 breaks. */
+     Testing: GENCFG=0x05 (BROADCAST=0, independent outputs) instead of 0x15.
+     GENCFG bits: bit0=DDEMOD, bit2=CROSSINPUT, bit4=BROADCAST
+     0x05 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=0 (independent P1/P2 routing)
+     0x15 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=1 (may mix demod outputs) */
      { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 (NO clock inversion). OpenTuner uses this with GENCFG=0x15. */
-     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=1 (bit4=1), DDEMOD=1 (bit0=1). Enables dual-demod output to both ports. */
+     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Independent port outputs. */
      { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Serial mode, not parallel routing. */
      { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 for serial mode on P1 (matching P2). Demod0/T2 via P1 serial. */
      { RSTV0910_P1_TSCFGL,         0x00 }, /* P1_TSCFGL: serial mode, no parallel FIFO. */
