@@ -26,6 +26,7 @@
 /* -------------------------------------------------------------------------------------------------- */
 
 #include <stdio.h>
+#include <errno.h>
 #include <string.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -375,9 +376,15 @@ void udp_send_normalize_tuner2(u_int8_t *b, int len)
         {
             ProcessTSTiming(Buffer_t2, BUFF_T2_MAX_SIZE, &video_pcrpts_t2, &audio_pcrpts_t2, &transmission_delay_t2);
         }
+        {
+            static uint32_t t2_udp_count = 0;
+            t2_udp_count++;
+            if (t2_udp_count <= 5 || t2_udp_count % 100 == 1)
+                fprintf(stderr, "T2 UDP: sendto #%u IsSync=%d Size_t2=%d len=%d\n", t2_udp_count, (int)IsSync_t2, Size_t2, len);
+        }
         if (sendto(sockfd_ts_tuner2, Buffer_t2, BUFF_T2_MAX_SIZE, 0, (const struct sockaddr *)&servaddr_ts_tuner2, sizeof(struct sockaddr)) < 0)
         {
-            fprintf(stderr, "T2: UDP send failed\n");
+            fprintf(stderr, "T2: UDP send failed errno=%d\n", errno);
         }
         memmove(Buffer_t2, Buffer_t2 + BUFF_T2_MAX_SIZE, Size_t2 - BUFF_T2_MAX_SIZE + len);
         Size_t2 += len;
