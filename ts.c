@@ -253,7 +253,8 @@ void *loop_ts_tuner2(void *arg) {
         /* Diagnostic: log every read result (len=0 means timeout, len>0 means data) */
         {
             static uint32_t t2_dbg_count = 0;
-            if (++t2_dbg_count % 20 == 1)
+            t2_dbg_count++;
+            if (t2_dbg_count % 20 == 1 || len > 2)
                 fprintf(stderr, "T2 DBG: read#%u err=%u len=%u\n", t2_dbg_count, *err, len);
         }
 
