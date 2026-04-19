@@ -1150,10 +1150,31 @@ uint8_t stv0910_init_regs() {
     }
 
     /* next we initialise all the registers in the list */
-    do {
-        if (err==ERROR_NONE) err=stv0910_write_reg(STV0910DefVal[i].reg, STV0910DefVal[i].val);
-    }        
-    while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
+    /* Binary-search diagnostic: print P1 TS-related regs at quarter-points */
+    {
+        uint8_t _dbg_v=0;
+        do {
+            if (err==ERROR_NONE) err=stv0910_write_reg(STV0910DefVal[i].reg, STV0910DefVal[i].val);
+            /* Print diagnostic at quarter-points (i=206,411,617) */
+            if (i==206 || i==411 || i==617) {
+                uint8_t _tscfgh=0, _outcfg2=0, _gencfg=0, _tscfgl=0, _tsgeneral=0;
+                stv0910_read_reg(RSTV0910_P1_TSCFGH,  &_tscfgh);
+                stv0910_read_reg(RSTV0910_P1_TSCFGL,  &_tscfgl);
+                stv0910_read_reg(RSTV0910_OUTCFG2,    &_outcfg2);
+                stv0910_read_reg(RSTV0910_GENCFG,     &_gencfg);
+                stv0910_read_reg(RSTV0910_TSGENERAL,  &_tsgeneral);
+                /* Also read back the register we just wrote */
+                stv0910_read_reg(STV0910DefVal[i].reg, &_dbg_v);
+                fprintf(stderr,
+                    "DBG init@i=%d reg=0x%04x wrote=0x%02x read=0x%02x"
+                    " | P1_TSCFGH=0x%02x P1_TSCFGL=0x%02x OUTCFG2=0x%02x GENCFG=0x%02x TSGENERAL=0x%02x\n",
+                    i, STV0910DefVal[i].reg, STV0910DefVal[i].val, _dbg_v,
+                    _tscfgh, _tscfgl, _outcfg2, _gencfg, _tsgeneral);
+            }
+        }        
+        while (STV0910DefVal[i++].reg!=RSTV0910_TSTTSRS);
+        (void)_dbg_v;
+    }
 
     /* finally (from ST example code) reset the LDPC decoder */
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
