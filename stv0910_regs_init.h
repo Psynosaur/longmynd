@@ -35,7 +35,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 — must be first write */
     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0, P1/P2 independent outputs */
     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0, single parallel line */
-    { RSTV0910_P1_TSCFGH,         0x00 }, /* P1_TSCFGH: parallel mode (DVBCI=0) for FTDI2 */
+    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
     { RSTV0910_P1_TSCFGL,         0x00 }, /* P1_TSCFGL: TSFIFO_OUTFF=0 */
     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
 
