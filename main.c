@@ -37,6 +37,7 @@
 #include "ftdi.h"
 #include "ftdi_usb.h"
 #include "stv0910.h"
+#include "stv0910_regs.h"
 #include "stv6120.h"
 #include "stvvglna.h"
 #include "nim.h"
