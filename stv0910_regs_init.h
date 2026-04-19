@@ -35,7 +35,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     OUTCFG2=0x11 (clock inversion) overrides reset default of 0x00 and must be written. */
     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 ΓÇö must be first write */
     { RSTV0910_GENCFG,            0x14 }, /* GENCFG: BROADCAST=1 (bit4=1), DDEMOD=0 (bit0=0) — chip reset default. BROADCAST=1 routes both demod outputs to both TS ports. DDEMOD=0 here; was 0x05 but GENCFG=0x05 broke T1 (mem_200b1b43). Testing with chip default 0x14 to see if FTDI2 gets P1 data. */
-    { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: DISTS2PAR=1 — chip reset default. Was 0x00 but parallel output was dead. Testing whether DISTS2PAR=1 is required to route data to P1 parallel pins. */
+    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Reset default is 0x40 but DISTS2PAR=1 routes a second parallel line which may interfere with P2/T1 serial TSFIFO — breaking T1 (P2_TSSTATUS stayed 0x52 with TSGENERAL=0x40). */
     { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
     { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — enables parallel FIFO output to FTDI2 */
     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
