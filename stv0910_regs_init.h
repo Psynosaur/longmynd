@@ -881,10 +881,10 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 
 ///    { RSTV0910_P1_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
-    { RSTV0910_P1_TSCFGH,         0x00 }, 		// P1 parallel 8-bit TS output (DVBCI=0, SERIAL=0) for NIM connector -> FTDI2
-    { RSTV0910_P2_TSCFGH,         0x80 },		// P2 keep DVBCI=1 as T1 (FTDI1 path) works with this value
-    { RSTV0910_GENCFG,            0x05}, 	// dual TS mode: DDEMOD=1(bit0) + bit2; BROADCAST=0 (cleared bit4=0x10) so P1/P2 have independent TS outputs
-    { RSTV0910_OUTCFG2,           0x00 }, 		// invert VALID and CLOCK
+    { RSTV0910_P1_TSCFGH,         0x80 }, 		// DVBCI=1 — open_tuner value; serial output, clock off when no data
+    { RSTV0910_P2_TSCFGH,         0x80 },		// DVBCI=1 — open_tuner value
+    { RSTV0910_GENCFG,            0x15}, 	// dual TS mode — open_tuner value
+    { RSTV0910_OUTCFG2,           0x00 }, 		// no inversion — open_tuner value
 ///    { RSTV0910_P1_TSDIVN,         0x83 }, 		// output clock adapts to data rate
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
     { RSTV0910_P1_TSDIVN,         0x03 }, 		// default
