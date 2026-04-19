@@ -36,11 +36,14 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
      0x05 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=0 (independent P1/P2 routing)
      0x15 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=1 (may mix demod outputs) */
      { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 (NO clock inversion). OpenTuner uses this with GENCFG=0x15. */
-     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Independent port outputs. */
+     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Independent port outputs. */
      { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Serial mode, not parallel routing. */
      { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 for serial mode on P1 (matching P2). Demod0/T2 via P1 serial. */
-     { RSTV0910_P1_TSCFGL,         0x00 }, /* P1_TSCFGL: serial mode, no parallel FIFO. */
+     { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0 for dual-demod serial) */
+     { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 for dual-demod serial output (dddvb reference) */
      { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for serial mode on P2 (demod1/T1). */
+     { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0 for dual-demod serial) */
+     { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 for dual-demod serial output (dddvb reference) */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
