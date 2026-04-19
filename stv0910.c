@@ -1210,6 +1210,11 @@ uint8_t stv0910_init_regs() {
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x80);
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_TSTRES0, 0x00);
 
+    /* Route P1 TSFIFO to demod 1 (T2). P1_TSSTATUS2 bit7 = TSFIFO_DEMODSEL.
+     * Default=0 routes P1 to demod 0 (T1). We need demod 1 (T2). */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSSTATUS2, 0x80);
+    fprintf(stderr, "DBG: wrote P1_TSSTATUS2=0x80 (DEMODSEL=1 → P1 TSFIFO routed to demod 1/T2)\n");
+
     /* Diagnostic: read back key TS output registers after full init */
     if (err==ERROR_NONE) {
         uint8_t v_p1_tscfgh=0, v_p1_tscfgm=0, v_p1_tscfgl=0;
