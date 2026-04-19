@@ -29,13 +29,15 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — written FIRST.
-    GENCFG, TSGENERAL, OUTCFG2 intentionally NOT written here — chip power-on defaults
-    (GENCFG=0x14, TSGENERAL=0x40, OUTCFG2=0x00) are required for both TS outputs to work.
-    We only set the per-port config and clock drive. */
-    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 */
-    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — chip power-on default */
-    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 serial */
+ /* TS OUTPUT CONFIG ΓÇö written FIRST to avoid glitching FTDI2 clock during init.
+    The chip reset defaults (GENCFG=0x14 BROADCAST=1, TSGENERAL=0x40 DISTS2PAR=1)
+    suppress P1/FTDI2 output. Writing these first keeps TS alive during the rest of init. */
+    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 ΓÇö must be first write */
+    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0, P1/P2 independent outputs */
+    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0, single parallel line */
+    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
+    { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — enables parallel FIFO output to FTDI2 */
+    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for FTDI1/T1 */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
@@ -47,8 +49,9 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x44 }, /* OUTCFG2    invert VALID (DPN) */
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
-///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top — see TS OUTPUT CONFIG block above */
-    { RSTV0910_OUTCFG,            0x7e }, /* OUTCFG: push-pull drive on all TS output pins — matches chip power-on default 0x7e; 0x00 may tristate outputs */
+///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
+    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG           TS2 serial pins push-pull, ts1 serial pins push-pull, /                                                                 ts2 parallel pins push-pull, ts1 parallel pins push-pull
+                                                              serial data output is D7 */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
@@ -646,7 +649,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
-///    { RSTV0910_TSGENERAL,         0x00 }, // moved to top — see TS OUTPUT CONFIG block
+///    { RSTV0910_TSGENERAL,         0x00 }, // moved to top ΓÇö see TS OUTPUT CONFIG block
 ///                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
 ///                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1
     /* DISEQC P1 Registers */
@@ -888,7 +891,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 
 ///    { RSTV0910_P1_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
-///  P1_TSCFGH, P1_TSCFGL, P2_TSCFGH, GENCFG, OUTCFG2 moved to top of table — see TS OUTPUT CONFIG block
+///  P1_TSCFGH, P1_TSCFGL, P2_TSCFGH, GENCFG, OUTCFG2 moved to top of table ΓÇö see TS OUTPUT CONFIG block
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
     { RSTV0910_P1_TSDIVN,         0x03 }, 		// default
     { RSTV0910_P2_TSDIVN,         0x03 },
