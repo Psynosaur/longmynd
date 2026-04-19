@@ -35,6 +35,7 @@
 #include <signal.h>
 #include "main.h"
 #include "ftdi.h"
+#include "ftdi_usb.h"
 #include "stv0910.h"
 #include "stv6120.h"
 #include "stvvglna.h"
