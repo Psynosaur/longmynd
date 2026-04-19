@@ -42,6 +42,7 @@ uint8_t ftdi_usb_init_ts(uint8_t, uint8_t, uint16_t, uint16_t);
 uint8_t ftdi_usb_set_mpsse_mode_i2c_tuner2(void);
 uint8_t ftdi_usb_set_mpsse_mode_ts_tuner2(void);
 uint8_t ftdi_usb_ts_read_tuner2(uint8_t *, uint16_t *, uint32_t);
+uint8_t ftdi_usb_clear_halt_tuner2(void);
 uint8_t ftdi_usb_init_i2c_tuner2(uint8_t, uint8_t, uint16_t, uint16_t);
 uint8_t ftdi_usb_init_ts_tuner2(uint8_t, uint8_t, uint16_t, uint16_t);
 

@@ -427,3 +427,21 @@ uint8_t ftdi_usb_ts_read_tuner2(uint8_t *buffer, uint16_t *len, uint32_t frame_s
 
     return err;
 }
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_clear_halt_tuner2(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Clears a potential USB halt/stall on the FTDI2 bulk-in endpoint (0x83).                           */
+/* Call this after a TSFIFO reset to flush any stale USB state and allow fresh data to flow.          */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    int res = libusb_clear_halt(usb_device_handle_ts_tuner2, 0x83);
+    if (res < 0) {
+        fprintf(stderr, "DBG ftdi_usb_clear_halt_tuner2: libusb_clear_halt returned %d (%s)\n",
+                res, libusb_error_name(res));
+        /* Not fatal — LIBUSB_ERROR_NOT_FOUND means no halt condition, which is fine */
+    } else {
+        fprintf(stderr, "DBG ftdi_usb_clear_halt_tuner2: endpoint 0x83 halt cleared\n");
+    }
+    return ERROR_NONE;
+}

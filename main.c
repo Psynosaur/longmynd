@@ -1113,6 +1113,12 @@ static uint8_t handle_configuration_change(const thread_vars_t *thread_vars, lon
             *err = local_err;
     }
 
+    /* Clear any USB halt/stall on FTDI2 endpoint after TSFIFO reset so fresh
+       TS data can flow from the STV0910 P1 output. */
+    if (*err == ERROR_NONE && config_cpy->tuner2_enabled) {
+        ftdi_usb_clear_halt_tuner2();
+    }
+
     status_cpy->last_ts_or_reinit_monotonic = monotonic_ms();
 
     return local_err;
