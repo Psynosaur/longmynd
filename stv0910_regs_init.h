@@ -30,11 +30,14 @@ typedef struct{
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
  /* TS OUTPUT CONFIG — written FIRST so these take effect before the rest of init.
-    Chip reset defaults: GENCFG=0x14 (BROADCAST=1), TSGENERAL=0x40 (DISTS2PAR=1).
-    We now restore these defaults — previous attempts to change them (0x05/0x00) broke both TS outputs.
-    OUTCFG2=0x11 (clock inversion) overrides reset default of 0x00 and must be written. */
+    Key findings:
+      GENCFG=0x14 (BROADCAST=1, DDEMOD=0): FTDI2 gets data (len=19) but P2/T1 TSFIFO breaks (NOSYNC).
+      GENCFG=0x05 (BROADCAST=0, DDEMOD=1): P2/T1 works but FTDI2 gets len=2.
+      GENCFG=0x15 (BROADCAST=1, DDEMOD=1): Both broken (FTDI2 len=2, P2 NOSYNC).
+    Current test: GENCFG=0x05 + OUTCFG=0x10 (tristate P1 serial pins to force P1 parallel-only in DDEMOD=1 mode).
+    OUTCFG2=0x11 (clock inversion) must be written — chip reset default is 0x00. */
     { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2: invert clock for P1 and P2 ΓÇö must be first write */
-    { RSTV0910_GENCFG,            0x14 }, /* GENCFG: BROADCAST=1 (bit4=1), DDEMOD=0 (bit0=0) — chip reset default. BROADCAST=1 routes both demod outputs to both TS ports. DDEMOD=0 here; was 0x05 but GENCFG=0x05 broke T1 (mem_200b1b43). Testing with chip default 0x14 to see if FTDI2 gets P1 data. */
+    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Chip reset default is 0x14 (BROADCAST=1) but BROADCAST=1 breaks P2/T1 TSFIFO — P2_TSSTATUS stays 0x52 (NOSYNC) permanently. Must stay 0x05. */
     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Reset default is 0x40 but DISTS2PAR=1 routes a second parallel line which may interfere with P2/T1 serial TSFIFO — breaking T1 (P2_TSSTATUS stayed 0x52 with TSGENERAL=0x40). */
     { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode (DVBCI=0) + TSFIFO_HSGNLOUT=1 (keep clock running when idle, required for FTDI2 245 FIFO sync) */
     { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: TSFIFO_OUTFF=1 — enables parallel FIFO output to FTDI2 */
@@ -51,7 +54,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
-    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: _HZ bits are tristate/disable. 0x00=all outputs driven (nothing tristated). Was 0x04 (TS1_OUTPAR_HZ=1 = P1/T2 parallel tristated — wrong!). Linux kernel always uses 0x00. */
+    { RSTV0910_OUTCFG,            0x10 }, /* OUTCFG: TS1_OUTSER_HZ=1 (bit4) — tristate P1 serial pins, leaving P1 parallel active. In dual-demod (DDEMOD=1) mode, OUTCFG=0x00 gives len=2 on FTDI2 despite P1_TSSTATUS=0x81. Hypothesis: chip needs P1 serial explicitly tristated to force parallel-only mode. TS2_OUTPAR_HZ(bit3) and TS2_OUTSER_HZ(bit5) left 0 = P2 serial driven. */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
