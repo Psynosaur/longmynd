@@ -50,7 +50,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
-    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00=all high-Z. DO NOT CHANGE — any non-zero value breaks T1 serial sync. */
+    { RSTV0910_OUTCFG,            0x08 }, /* OUTCFG: bit3=TS2_OUTPAR_HZ(1=enable T2 parallel pins), all others 0. Testing if T2 parallel needs this bit while T1 serial survives. */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
