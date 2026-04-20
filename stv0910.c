@@ -1314,10 +1314,10 @@ uint8_t stv0910_reset_tsfifo(void) {
 
     lm_log("Flow: stv0910 reset tsfifo\n");
 
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x01); /* assert RST_HWARE (P1: chip default 0x00|0x01) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81); /* assert RST_HWARE (P2: DVBCI=1, required for T1) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x00); /* deassert RST_HWARE (P1: chip default, no TEIUPDATE) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80); /* deassert RST_HWARE (P2: DVBCI=1, required for T1) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE (P1: DVBCI=1, serial) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81); /* assert RST_HWARE (P2: DVBCI=1, serial) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE (P1: DVBCI=1, serial) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80); /* deassert RST_HWARE (P2: DVBCI=1, serial) */
 
     /* Diagnostic: read TS status immediately after RST_HWARE pulse */
     {
@@ -1348,13 +1348,13 @@ uint8_t stv0910_reset_tsfifo(void) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_reset_p1_tsfifo(void) {
 /* -------------------------------------------------------------------------------------------------- */
-/* Pulses RST_HWARE (bit 0) on P1_TSCFGH only — re-arms P1 (T2 parallel) TSFIFO without touching   */
-/* P2 (T1 serial). Call when T2 is locked but P1 TSFIFO appears stalled (no data for many reads).   */
+/* Pulses RST_HWARE (bit 0) on P1_TSCFGH only — re-arms P1 (T1 serial) TSFIFO without touching    */
+/* P2 (T1 serial). Call when P1 TSFIFO appears stalled (no data for many reads).                   */
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x01); /* assert RST_HWARE (chip default 0x00|0x01) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x00); /* deassert RST_HWARE (chip default) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE (P1: DVBCI=1, serial) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE (P1: DVBCI=1, serial) */
     return err;
 }
 

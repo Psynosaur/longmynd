@@ -29,24 +29,6 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG
-     P1 = parallel output to FTDI2. P2 = serial/DVBCI output to FTDI1.
-     TSGENERAL=0x40 MUST be preserved (DISTS2PAR=1) — clears kills T2 parallel output.
-     P1_TSCFGH=0x00 = chip default (parallel, no TEIUPDATE) — 0x20 breaks FTDI2 reads.
-     P1_TSCFGM/L = chip pre-init defaults (0x04/0x20). P1_TSSPEED=0x10 (parallel rate).
-     P2_TSCFGH=0x80 = DVBCI — required empirically for T1/FTDI1 serial sync. */
-     { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins driven (dddvb probe) */
-///  { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) — not in open_tuner init */
-///  { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: 0x40 = DISTS2PAR=1 (bit6) — chip default; distributes S2 data to parallel output on P1. MUST NOT be 0x00 — not in open_tuner init */
-///  { RSTV0910_P1_TSCFGH,         0x00 }, /* P1_TSCFGH: 0x00 = chip default — pre-init state that allows FTDI2 to read. 0x20 (TEIUPDATE) breaks FTDI2 — not in open_tuner init */
-///  { RSTV0910_P1_TSCFGM,         0x04 }, /* P1_TSCFGM: 0x04 = chip pre-init default (PERMDATA=1, MANSPEED=0) — not in open_tuner init */
-///  { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: 0x20 = chip pre-init default — not in open_tuner init */
-///  { RSTV0910_P1_TSSPEED,        0x10 }, /* P1_TSSPEED: parallel rate — not in open_tuner init */
-///  { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: 0x80 = DVBCI mode — required for T1/FTDI1 serial sync — not in open_tuner init */
-///  { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control — not in open_tuner init */
-///  { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 — not in open_tuner init */
-///  { RSTV0910_P2_TSSPEED,        0x28 }, /* P2_TSSPEED: 0x28 for serial mode — not in open_tuner init */
-
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
 /*  { RSTV0910_DID,               0x20 },    DID              R only */
@@ -58,6 +40,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK — was our setting, not in open_tuner */
     { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 — matches open_tuner (no clock inversion) */
+    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins push-pull */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
@@ -145,7 +128,9 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_TSTTNR0,           0x00 }, /* TSTTNR0          was 0x04 updated to  0x00
                                                                  FSK analog cell off */
 
-    { RSTV0910_TSTTNR1,           0x46 }, /* TSTTNR1          ADC1 power on. note reset=0x26, upper bits are reserved */
+    // ***
+    { RSTV0910_TSTTNR1,           0x44 }, /* TSTTNR1           ADC1 power off (was 0x46, updated to 0x44) */
+    { RSTV0910_TSTTNR1,           0x46 }, /* TSTTNR1           ADC1 power on (~!~!~) */
     { RSTV0910_TSTTNR2,           0x4b }, /* TSTTNR2          was 0x6b; diseqc clock div=0xb, f_diseqc=135MHz/2*(div+17)=2.41MHz */
     { RSTV0910_TSTTNR3,           0x46 }, /* TSTTNR3          ADC2 power on. note reset=0x26, 0x46 writes to reserved bits */
 
@@ -649,9 +634,16 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
-///    { RSTV0910_TSGENERAL,         0x00 }, // moved to top ΓÇö see TS OUTPUT CONFIG block
-///                                                                 override tsfifo_permparal and defineline1->TS3, line2->TS2,RCline->TS1
-///                                                                 tsfifo_perparal defines line1-> TS3, line2->TS2, RC LIne->TS1
+
+    /* TS output config — written at end matching open_tuner order exactly.
+       P1_TSCFGH=0x80 (DVBCI serial) — matches open_tuner.
+       P2_TSCFGH=0x80 (DVBCI serial) — matches open_tuner.
+       GENCFG=0x15 (DDEMOD=1, BROADCAST=1, dual serial) — matches open_tuner.
+       OUTCFG2=0x00 — matches open_tuner. */
+    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI serial — matches open_tuner */
+    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI serial — matches open_tuner */
+    { RSTV0910_GENCFG,            0x15 }, /* GENCFG: DDEMOD=1, BROADCAST=1 — dual serial, matches open_tuner */
+    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: duplicate write matching open_tuner end-section */
     /* DISEQC P1 Registers */
     { RSTV0910_P1_DISIRQCFG,      0x00 }, /* P1_DISIRQCFG     */
 /*  { RSTV0910_P1_DISIRQSTAT,     0x00 },    P1_DISIRQSTAT    R only */
