@@ -410,7 +410,7 @@ uint8_t stv6120_init(uint32_t freq_tuner_1, uint32_t freq_tuner_2, bool swap) {
     /* there is no tcal field in CTRL17 but we still need to remember the state in case we are using tuner 2 later */
     if (err==ERROR_NONE) {
         ctrl17 = (STV6120_CTRL8_CALTIME_500US << STV6120_CTRL8_TCAL_SHIFT); 
-        err=stv6120_write_reg(STV6120_CTRL17, ctrl8);
+        err=stv6120_write_reg(STV6120_CTRL17, ctrl17);
     }
 
     /* no need to touch the STAT2 status register for now */

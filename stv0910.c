@@ -1348,8 +1348,8 @@ uint8_t stv0910_reset_tsfifo(void) {
 /* -------------------------------------------------------------------------------------------------- */
 uint8_t stv0910_reset_p1_tsfifo(void) {
 /* -------------------------------------------------------------------------------------------------- */
-/* Pulses RST_HWARE (bit 0) on P1_TSCFGH only — re-arms P1 (T1 serial) TSFIFO without touching    */
-/* P2 (T1 serial). Call when P1 TSFIFO appears stalled (no data for many reads).                   */
+/* Pulses RST_HWARE (bit 0) on P1_TSCFGH only — re-arms P1 (serial) TSFIFO without touching      */
+/* P2 (serial). Call when P1 TSFIFO appears stalled (no data for many reads).                      */
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;

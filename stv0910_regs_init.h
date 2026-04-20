@@ -636,12 +636,12 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     /* DVB2 P1 Registers */
 
     /* TS output config — written at end matching open_tuner order exactly.
-       P1_TSCFGH=0x80 (DVBCI serial) — matches open_tuner.
-       P2_TSCFGH=0x80 (DVBCI serial) — matches open_tuner.
-       GENCFG=0x15 (DDEMOD=1, BROADCAST=1, dual serial) — matches open_tuner.
-       OUTCFG2=0x00 — matches open_tuner. */
-    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI serial — matches open_tuner */
-    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI serial — matches open_tuner */
+       P1_TSCFGH=0x80 (DVBCI=1, serial) — matches open_tuner.
+
+       GENCFG=0x15 (DDEMOD=1, BROADCAST=1) — matches open_tuner (dual serial).
+
+    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 serial — matches open_tuner */
+
     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: DDEMOD=1, BROADCAST=1 — dual serial, matches open_tuner */
     { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: duplicate write matching open_tuner end-section */
     /* DISEQC P1 Registers */
