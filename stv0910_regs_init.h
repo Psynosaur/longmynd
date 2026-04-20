@@ -40,7 +40,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
      { RSTV0910_P1_TSCFGH,         0x20 }, /* P1_TSCFGH: 0x20 = PARALLEL mode (dddvb: parallel?0x20:0x60). FTDI2 wired to D1[7:0] parallel bus, not STROUT1. */
      { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0) */
      { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 (dddvb) */
-     { RSTV0910_P1_TSSPEED,        0x28 }, /* P1_TSSPEED: 0x28 for serial mode (dddvb: parallel?0x10:0x28) */
+     { RSTV0910_P1_TSSPEED,        0x10 }, /* P1_TSSPEED: 0x10 for parallel mode (dddvb: parallel?0x10:0x28) */
      { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: 0x80 = DVBCI mode — required for T1/FTDI1 serial sync (empirically verified) */
      { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0) */
      { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 (dddvb) */
@@ -57,7 +57,6 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
-     { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 in serial mode (TS1 serial active). Both ports output serial TS. */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
