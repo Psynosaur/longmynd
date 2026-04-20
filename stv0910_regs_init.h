@@ -37,7 +37,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
      { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins driven (dddvb probe) */
      { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) */
      { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: 0x00 (dddvb: parallel==2 ? 0x02 : 0x00, we use serial) */
-     { RSTV0910_P1_TSCFGH,         0x60 }, /* P1_TSCFGH: 0x60 = serial mode (dddvb tscfgh=0x20|0x40). NOT DVBCI. */
+     { RSTV0910_P1_TSCFGH,         0x20 }, /* P1_TSCFGH: 0x20 = PARALLEL mode (dddvb: parallel?0x20:0x60). FTDI2 wired to D1[7:0] parallel bus, not STROUT1. */
      { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0) */
      { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 (dddvb) */
      { RSTV0910_P1_TSSPEED,        0x28 }, /* P1_TSSPEED: 0x28 for serial mode (dddvb: parallel?0x10:0x28) */
