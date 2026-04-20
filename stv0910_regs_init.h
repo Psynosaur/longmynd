@@ -35,12 +35,12 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
      GENCFG=0x15 for dual tuner (single=0). OUTCFG=0x00. OUTCFG2 not touched (chip default).
      TSCFGM=0xC0 (manual speed), TSCFGL=0x60, TSSPEED=0x28 (serial rate). */
      { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins driven (dddvb probe) */
-     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) */
-     { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: 0x40 = DISTS2PAR=1 (bit6) — chip default; distributes S2 data to parallel output on P1. Clearing this (0x00) kills T2 parallel TS. dddvb uses 0x00 only for pure serial mode. */
-     { RSTV0910_P1_TSCFGH,         0x20 }, /* P1_TSCFGH: 0x20 = PARALLEL mode (no HSGNLOUT — commit 61 value) */
+     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) */
+     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: 0x40 = DISTS2PAR=1 (bit6) — chip default; distributes S2 data to parallel output on P1. Clearing this (0x00) kills T2 parallel TS. dddvb uses 0x00 only for pure serial mode. */
+     { RSTV0910_P1_TSCFGH,         0x00 }, /* P1_TSCFGH: 0x00 = chip default — pre-init state that allows FTDI2 to read. 0x20 (TEIUPDATE) breaks FTDI2. */
      { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0) */
      { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 (dddvb) */
-     { RSTV0910_P1_TSSPEED,        0x28 }, /* P1_TSSPEED: 0x28 (commit 61 value — parallel rate TBD) */
+     { RSTV0910_P1_TSSPEED,        0x10 }, /* P1_TSSPEED: 0x28 (commit 61 value — parallel rate TBD) */
      { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: 0x80 = DVBCI mode — required for T1/FTDI1 serial sync (empirically verified) */
      { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0) */
      { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 (dddvb) */
@@ -55,7 +55,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2          all Transport stream signals not inverted  */
 ///    { RSTV0910_OUTCFG2,           0x44 }, /* OUTCFG2    invert VALID (DPN) */
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
-///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
+    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
