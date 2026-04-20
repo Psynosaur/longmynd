@@ -1314,10 +1314,12 @@ uint8_t stv0910_reset_tsfifo(void) {
 
     lm_log("Flow: stv0910 reset tsfifo\n");
 
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE (P1: DVBCI=1, serial) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81); /* assert RST_HWARE (P2: DVBCI=1, serial) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE (P1: DVBCI=1, serial) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80); /* deassert RST_HWARE (P2: DVBCI=1, serial) */
+    /* Assert RST_HWARE on both P1 and P2 simultaneously (reset stream merger) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x61); /* assert RST_HWARE (P1: SERIAL=1, RST=1) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x61); /* assert RST_HWARE (P2: SERIAL=1, RST=1) */
+    /* Deassert RST_HWARE on both P1 and P2 simultaneously */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x60); /* deassert RST_HWARE (P1: SERIAL=1) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x60); /* deassert RST_HWARE (P2: SERIAL=1) */
 
     /* Diagnostic: read TS status immediately after RST_HWARE pulse */
     {
@@ -1353,8 +1355,8 @@ uint8_t stv0910_reset_p1_tsfifo(void) {
 /* return: error code                                                                                 */
 /* -------------------------------------------------------------------------------------------------- */
     uint8_t err = ERROR_NONE;
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x81); /* assert RST_HWARE (P1: DVBCI=1, serial) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x80); /* deassert RST_HWARE (P1: DVBCI=1, serial) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x61); /* assert RST_HWARE (P1: SERIAL=1, RST=1) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x60); /* deassert RST_HWARE (P1: SERIAL=1) */
     return err;
 }
 
