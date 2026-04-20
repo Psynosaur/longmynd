@@ -429,6 +429,63 @@ uint8_t ftdi_usb_ts_read_tuner2(uint8_t *buffer, uint16_t *len, uint32_t frame_s
 }
 
 /* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_purge_rx_tuner2(void) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Purges the FTDI2 RX buffer via a USB control transfer (equivalent to FT_Purge(FT_PURGE_RX)).      */
+/* Call this after a TSFIFO reset to flush stale data accumulated during NIM init.                    */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    int res = libusb_control_transfer(usb_device_handle_ts_tuner2,
+                                      FTDI_DEVICE_OUT_REQTYPE,
+                                      SIO_RESET_REQUEST,
+                                      SIO_RESET_PURGE_RX,
+                                      2,       /* wIndex=2 = interface 1 (TS channel B) */
+                                      NULL, 0, USB_TIMEOUT);
+    if (res < 0) {
+        fprintf(stderr, "DBG ftdi_usb_purge_rx_tuner2: control transfer failed %d (%s)\n",
+                res, libusb_error_name(res));
+        /* Not fatal */
+    } else {
+        fprintf(stderr, "DBG ftdi_usb_purge_rx_tuner2: RX buffer purged\n");
+    }
+    return ERROR_NONE;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
+uint8_t ftdi_usb_ts_available_tuner2(uint32_t *bytes_available) {
+/* -------------------------------------------------------------------------------------------------- */
+/* Returns the number of bytes queued in the FTDI2 RX buffer without blocking.                       */
+/* Equivalent to FT_GetQueueStatus / GetRxBytesAvailable in the Windows D2XX API.                    */
+/* The FTDI chip reports its RX queue depth in the 2-byte modem status header prepended to every     */
+/* bulk-in transfer; there is no direct libusb equivalent, so we do a non-blocking read with         */
+/* timeout=0 and inspect how many bytes came back.                                                    */
+/*                                                                                                    */
+/* *bytes_available: set to number of TS bytes waiting (excluding the 2-byte FTDI header)            */
+/* return : error code                                                                                */
+/* -------------------------------------------------------------------------------------------------- */
+    uint8_t err = ERROR_NONE;
+    static uint8_t probe_buf[64];
+    int rxed = 0;
+
+    /* Use a zero timeout — returns immediately with whatever is buffered, or 0 on timeout */
+    int res = libusb_bulk_transfer(usb_device_handle_ts_tuner2, 0x83,
+                                   probe_buf, sizeof(probe_buf),
+                                   &rxed, 0 /* timeout=0: non-blocking */);
+
+    if (res == LIBUSB_ERROR_TIMEOUT || res == 0) {
+        /* rxed > 2 means real data beyond the 2-byte FTDI status header */
+        *bytes_available = (rxed > 2) ? (uint32_t)(rxed - 2) : 0;
+    } else {
+        fprintf(stderr, "DBG ftdi_usb_ts_available_tuner2: bulk probe failed %d (%s)\n",
+                res, libusb_error_name(res));
+        *bytes_available = 0;
+        err = ERROR_USB_TS_READ;
+    }
+
+    return err;
+}
+
+/* -------------------------------------------------------------------------------------------------- */
 uint8_t ftdi_usb_clear_halt_tuner2(void) {
 /* -------------------------------------------------------------------------------------------------- */
 /* Clears a potential USB halt/stall on the FTDI2 bulk-in endpoint (0x83).                           */

@@ -240,8 +240,9 @@ void *loop_ts_tuner2(void *arg) {
         {
             uint8_t read_err = ftdi_usb_ts_read_tuner2(buffer, &len, TS_FRAME_SIZE);
             if (read_err != ERROR_NONE) {
-                /* USB pipe/IO errors after NIM reinit are transient — log, clear halt and continue */
-                fprintf(stderr, "T2 DBG: read USB err=%u, clearing halt and retrying\n", read_err);
+                /* USB pipe/IO errors after NIM reinit are transient — log, purge, clear halt and continue */
+                fprintf(stderr, "T2 DBG: read USB err=%u, purging RX and clearing halt, retrying\n", read_err);
+                ftdi_usb_purge_rx_tuner2();
                 ftdi_usb_clear_halt_tuner2();
                 len = 0;
                 /* do NOT propagate to *err — keep thread alive */
@@ -268,6 +269,7 @@ void *loop_ts_tuner2(void *arg) {
                 if (t2_stall_count == 200) { /* ~200 empty reads ≈ a few hundred ms */
                     fprintf(stderr, "T2 DBG: stall detected (%u empty reads while locked) — pulsing P1 RST_HWARE\n", t2_stall_count);
                     stv0910_reset_p1_tsfifo();
+                    ftdi_usb_purge_rx_tuner2();
                     ftdi_usb_clear_halt_tuner2();
                     t2_stall_count = 0;
                 }

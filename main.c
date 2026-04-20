@@ -1122,8 +1122,10 @@ static uint8_t handle_configuration_change(const thread_vars_t *thread_vars, lon
     }
 
     /* Clear any USB halt/stall on FTDI2 endpoint after TSFIFO reset so fresh
-       TS data can flow from the STV0910 P1 output. */
+       TS data can flow from the STV0910 P1 output. Also purge the RX buffer
+       to discard any stale data accumulated during NIM init. */
     if (*err == ERROR_NONE && config_cpy->tuner2_enabled) {
+        ftdi_usb_purge_rx_tuner2();
         ftdi_usb_clear_halt_tuner2();
     }
 
@@ -1438,9 +1440,10 @@ void *loop_i2c(void *arg)
             bool t2_just_locked = (status_cpy_2.state == STATE_DEMOD_S2 || status_cpy_2.state == STATE_DEMOD_S)
                                 && (t2_state_before == STATE_DEMOD_HUNTING || t2_state_before == STATE_DEMOD_FOUND_HEADER || t2_state_before == STATE_INIT);
             if (t2_just_locked && *err == ERROR_NONE) {
-                fprintf(stderr, "DBG T2 first lock — clearing FTDI2 halt (no RST_HWARE)\n");
+                fprintf(stderr, "DBG T2 first lock — purging FTDI2 RX and clearing halt\n");
                 /* Do NOT pulse RST_HWARE here — it kills LINEOK and stops TS output.
-                   Just clear any USB endpoint halt on FTDI2 so reads can resume. */
+                   Purge RX to flush stale data and clear any USB endpoint halt. */
+                ftdi_usb_purge_rx_tuner2();
                 ftdi_usb_clear_halt_tuner2();
             }
 
