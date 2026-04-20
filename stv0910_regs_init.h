@@ -29,22 +29,23 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — aligned with dddvb (DigitalDevices) driver ground truth.
-     dddvb stv0910_attach(): tscfgh = 0x20 | (parallel ? 0 : 0x40) = 0x60 for serial mode.
-     0x60 = bit6(FIFO_RST_HWARE deasserted) + bit5(TSFIFO_SERIAL=1) — NOT DVBCI (0x80).
-     GENCFG=0x15 for dual tuner (single=0). OUTCFG=0x00. OUTCFG2 not touched (chip default).
-     TSCFGM=0xC0 (manual speed), TSCFGL=0x60, TSSPEED=0x28 (serial rate). */
+ /* TS OUTPUT CONFIG
+     P1 = parallel output to FTDI2. P2 = serial/DVBCI output to FTDI1.
+     TSGENERAL=0x40 MUST be preserved (DISTS2PAR=1) — clears kills T2 parallel output.
+     P1_TSCFGH=0x00 = chip default (parallel, no TEIUPDATE) — 0x20 breaks FTDI2 reads.
+     P1_TSCFGM/L = chip pre-init defaults (0x04/0x20). P1_TSSPEED=0x10 (parallel rate).
+     P2_TSCFGH=0x80 = DVBCI — required empirically for T1/FTDI1 serial sync. */
      { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins driven (dddvb probe) */
-     { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) */
-     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: 0x40 = DISTS2PAR=1 (bit6) — chip default; distributes S2 data to parallel output on P1. Clearing this (0x00) kills T2 parallel TS. dddvb uses 0x00 only for pure serial mode. */
-     { RSTV0910_P1_TSCFGH,         0x00 }, /* P1_TSCFGH: 0x00 = chip default — pre-init state that allows FTDI2 to read. 0x20 (TEIUPDATE) breaks FTDI2. */
-     { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0) */
-     { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 (dddvb) */
-     { RSTV0910_P1_TSSPEED,        0x10 }, /* P1_TSSPEED: 0x28 (commit 61 value — parallel rate TBD) */
-     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: 0x80 = DVBCI mode — required for T1/FTDI1 serial sync (empirically verified) */
-     { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0) */
-     { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 (dddvb) */
-     { RSTV0910_P2_TSSPEED,        0x28 }, /* P2_TSSPEED: 0x28 for serial mode (dddvb: parallel?0x10:0x28) */
+///  { RSTV0910_GENCFG,            0x05 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) — not in open_tuner init */
+///  { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: 0x40 = DISTS2PAR=1 (bit6) — chip default; distributes S2 data to parallel output on P1. MUST NOT be 0x00 — not in open_tuner init */
+///  { RSTV0910_P1_TSCFGH,         0x00 }, /* P1_TSCFGH: 0x00 = chip default — pre-init state that allows FTDI2 to read. 0x20 (TEIUPDATE) breaks FTDI2 — not in open_tuner init */
+///  { RSTV0910_P1_TSCFGM,         0x04 }, /* P1_TSCFGM: 0x04 = chip pre-init default (PERMDATA=1, MANSPEED=0) — not in open_tuner init */
+///  { RSTV0910_P1_TSCFGL,         0x20 }, /* P1_TSCFGL: 0x20 = chip pre-init default — not in open_tuner init */
+///  { RSTV0910_P1_TSSPEED,        0x10 }, /* P1_TSSPEED: parallel rate — not in open_tuner init */
+///  { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: 0x80 = DVBCI mode — required for T1/FTDI1 serial sync — not in open_tuner init */
+///  { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control — not in open_tuner init */
+///  { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 — not in open_tuner init */
+///  { RSTV0910_P2_TSSPEED,        0x28 }, /* P2_TSSPEED: 0x28 for serial mode — not in open_tuner init */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
@@ -55,8 +56,8 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2          all Transport stream signals not inverted  */
 ///    { RSTV0910_OUTCFG2,           0x44 }, /* OUTCFG2    invert VALID (DPN) */
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
-    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK */
-///    { RSTV0910_OUTCFG2,           0x00 }, /* moved to top ΓÇö see TS OUTPUT CONFIG block above */
+///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK — was our setting, not in open_tuner */
+    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 — matches open_tuner (no clock inversion) */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
@@ -144,15 +145,9 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_TSTTNR0,           0x00 }, /* TSTTNR0          was 0x04 updated to  0x00
                                                                  FSK analog cell off */
 
-    // ***
-    { RSTV0910_TSTTNR1,           0x44 },  //TSTTNR1          was 0x46 updated to 0x44
-                                                                 //ADC1 power off. note reset=0x26, upper bits are reserved
-    { RSTV0910_TSTTNR1,           0x46 }, // TSTTNR1           ADC1 power on		(~!~!~)
-    { RSTV0910_TSTTNR2,           0x4b }, // TSTTNR2          was 0x6b updated to 0x4b
-///                                                                 I2C DiSEqC ADC 1 power off, diseqc clock div = 0xb
-///                                                                 f_diseqc = 135MHz/2*(diseq_clk_div+17) = 2.41MHz y
-    { RSTV0910_TSTTNR3,           0x46 }, /* TSTTNR3          ADC2 power on. note again reset=0x26 again 0x46 writes to reserved  */
-    // ***
+    { RSTV0910_TSTTNR1,           0x46 }, /* TSTTNR1          ADC1 power on. note reset=0x26, upper bits are reserved */
+    { RSTV0910_TSTTNR2,           0x4b }, /* TSTTNR2          was 0x6b; diseqc clock div=0xb, f_diseqc=135MHz/2*(div+17)=2.41MHz */
+    { RSTV0910_TSTTNR3,           0x46 }, /* TSTTNR3          ADC2 power on. note reset=0x26, 0x46 writes to reserved bits */
 
     /* DMD P2 Registers */
     { RSTV0910_P2_IQCONST,        0x00 }, /* P2_IQCONST */
