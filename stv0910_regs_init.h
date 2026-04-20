@@ -29,21 +29,22 @@ typedef struct{
 
 static STReg  STV0910DefVal[STV0910_NBREGS]=
 {
- /* TS OUTPUT CONFIG — OpenTuner approach: both ports in SERIAL mode with dual-demod.
-     PIVOT: Previous parallel approach (P1 parallel + P2 serial) got T1 working but T2 stuck at len=2.
-     Testing: GENCFG=0x05 (BROADCAST=0, independent outputs) instead of 0x15.
-     GENCFG bits: bit0=DDEMOD, bit2=CROSSINPUT, bit4=BROADCAST
-     0x05 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=0 (independent P1/P2 routing)
-     0x15 = DDEMOD=1 (dual demod), CROSSINPUT=0, BROADCAST=1 (may mix demod outputs) */
-     { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 (NO clock inversion). OpenTuner uses this with GENCFG=0x15. */
-     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=0 (bit4=0), DDEMOD=1 (bit0=1). Independent port outputs. */
-     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0. Serial mode, not parallel routing. */
-     { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 for serial mode on P1 (matching P2). Demod0/T2 via P1 serial. */
-     { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0 for dual-demod serial) */
-     { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 for dual-demod serial output (dddvb reference) */
-     { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 for serial mode on P2 (demod1/T1). */
-     { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0 for dual-demod serial) */
-     { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 for dual-demod serial output (dddvb reference) */
+ /* TS OUTPUT CONFIG — aligned with dddvb (DigitalDevices) driver ground truth.
+     dddvb stv0910_attach(): tscfgh = 0x20 | (parallel ? 0 : 0x40) = 0x60 for serial mode.
+     0x60 = bit6(FIFO_RST_HWARE deasserted) + bit5(TSFIFO_SERIAL=1) — NOT DVBCI (0x80).
+     GENCFG=0x15 for dual tuner (single=0). OUTCFG=0x00. OUTCFG2 not touched (chip default).
+     TSCFGM=0xC0 (manual speed), TSCFGL=0x60, TSSPEED=0x28 (serial rate). */
+     { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins driven (dddvb probe) */
+     { RSTV0910_GENCFG,            0x15 }, /* GENCFG: BROADCAST=1(bit4), DDEMOD=1(bit0) — dual tuner (dddvb) */
+     { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: 0x00 (dddvb: parallel==2 ? 0x02 : 0x00, we use serial) */
+     { RSTV0910_P1_TSCFGH,         0x60 }, /* P1_TSCFGH: 0x60 = serial mode (dddvb tscfgh=0x20|0x40). NOT DVBCI. */
+     { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: Manual speed control (dddvb: 0xC0) */
+     { RSTV0910_P1_TSCFGL,         0x60 }, /* P1_TSCFGL: 0x60 (dddvb) */
+     { RSTV0910_P1_TSSPEED,        0x28 }, /* P1_TSSPEED: 0x28 for serial mode (dddvb: parallel?0x10:0x28) */
+     { RSTV0910_P2_TSCFGH,         0x60 }, /* P2_TSCFGH: 0x60 = serial mode (dddvb tscfgh=0x20|0x40). NOT DVBCI. */
+     { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: Manual speed control (dddvb: 0xC0) */
+     { RSTV0910_P2_TSCFGL,         0x60 }, /* P2_TSCFGL: 0x60 (dddvb) */
+     { RSTV0910_P2_TSSPEED,        0x28 }, /* P2_TSSPEED: 0x28 for serial mode (dddvb: parallel?0x10:0x28) */
 
  /* SYS registers */
 /*  { RSTV0910_MID,               0x51 },    MID              R only */
