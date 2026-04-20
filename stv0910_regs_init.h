@@ -637,13 +637,9 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 
     /* TS output config — written at end matching open_tuner order exactly.
        P1_TSCFGH=0x80 (DVBCI=1, serial) — matches open_tuner.
+       GENCFG=0x15 (DDEMOD=1, BROADCAST=1) — matches open_tuner (dual serial). */
 
-       GENCFG=0x15 (DDEMOD=1, BROADCAST=1) — matches open_tuner (dual serial).
 
-    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 serial — matches open_tuner */
-
-    { RSTV0910_GENCFG,            0x15 }, /* GENCFG: DDEMOD=1, BROADCAST=1 — dual serial, matches open_tuner */
-    { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: duplicate write matching open_tuner end-section */
     /* DISEQC P1 Registers */
     { RSTV0910_P1_DISIRQCFG,      0x00 }, /* P1_DISIRQCFG     */
 /*  { RSTV0910_P1_DISIRQSTAT,     0x00 },    P1_DISIRQSTAT    R only */
@@ -885,19 +881,21 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
 ///  P1_TSCFGH, P1_TSCFGL, P2_TSCFGH, GENCFG, OUTCFG2 moved to top of table ΓÇö see TS OUTPUT CONFIG block
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
-    { RSTV0910_P1_TSDIVN,         0x03 }, 		// default
-    { RSTV0910_P2_TSDIVN,         0x03 },
+    { RSTV0910_P1_TSCFGH,         0x80 }, /* P1_TSCFGH: DVBCI=1 serial — matches open_tuner */
+    {RSTV0910_P2_TSCFGH, 0x80}, /* P2_TSCFGH: DVBCI=1 serial — matches open_tuner */
+    {RSTV0910_GENCFG, 0x15}, /* GENCFG: DDEMOD=1, BROADCAST=1 — dual serial, matches open_tuner */
+    {RSTV0910_OUTCFG2, 0x00}, /* OUTCFG2: duplicate write matching open_tuner end-section */
+    {RSTV0910_P1_TSDIVN, 0x03}, // default
+    {RSTV0910_P2_TSDIVN, 0x03},
 
-    { RSTV0910_P1_TSSTATUS2,      0x02 }, 		// *
-    { RSTV0910_P2_TSSTATUS2,      0x02 }, 		// *
+ {RSTV0910_P1_TSSTATUS2, 0x02}, // *
+ {RSTV0910_P2_TSSTATUS2, 0x02}, // *
 
 
-
-
-///
-///    { RSTV0910_TSTRES0,           0x00 }, /* TSTRES0          */
-///    { RSTV0910_TSTOUT,            0x00 }, /* TSTOUT           */
-///    { RSTV0910_TSTIN,             0x00 }, /* TSTIN            */
+ ///
+ ///    { RSTV0910_TSTRES0,           0x00 }, /* TSTRES0          */
+ ///    { RSTV0910_TSTOUT,            0x00 }, /* TSTOUT           */
+ ///    { RSTV0910_TSTIN,             0x00 }, /* TSTIN            */
 
 // SR scan range
 
