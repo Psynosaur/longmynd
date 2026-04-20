@@ -1315,9 +1315,9 @@ uint8_t stv0910_reset_tsfifo(void) {
     lm_log("Flow: stv0910 reset tsfifo\n");
 
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x61); /* assert RST_HWARE (P1: serial mode 0x60|0x01) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x61); /* assert RST_HWARE (P2: serial mode 0x60|0x01) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x81); /* assert RST_HWARE (P2: DVBCI=1, required for T1) */
     if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P1_TSCFGH, 0x60); /* deassert RST_HWARE (P1: serial mode) */
-    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x60); /* deassert RST_HWARE (P2: serial mode) */
+    if (err==ERROR_NONE) err=stv0910_write_reg(RSTV0910_P2_TSCFGH, 0x80); /* deassert RST_HWARE (P2: DVBCI=1, required for T1) */
 
     /* Diagnostic: read TS status immediately after RST_HWARE pulse */
     {
