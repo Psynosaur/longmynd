@@ -634,10 +634,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
- { RSTV0910_TSGENERAL,      0x00 },
-    /* TS output config — written at end matching open_tuner order exactly.
-       P1_TSCFGH=0x80 (DVBCI=1, serial) — matches open_tuner.
-       GENCFG=0x15 (DDEMOD=1, BROADCAST=1) — matches open_tuner (dual serial). */
+    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0 — parallel TS on J3 connector */
 
 
     /* DISEQC P1 Registers */
@@ -881,13 +878,9 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_P2_TSINSDELH,      0x01 }, 		// send CRC at end of packet for DVB-S2
 ///  P1_TSCFGH, P1_TSCFGL, P2_TSCFGH, GENCFG, OUTCFG2 moved to top of table ΓÇö see TS OUTPUT CONFIG block
 ///    { RSTV0910_P2_TSDIVN,         0x83 },
-    { RSTV0910_P1_TSCFGH,         0x60 }, /* P1_TSCFGH: serial (bit6=SERIAL=1, bit5=TEIUPDATE=1) — kernel driver value */
-    { RSTV0910_P2_TSCFGH,         0x60 }, /* P2_TSCFGH: serial (bit6=SERIAL=1, bit5=TEIUPDATE=1) — kernel driver value */
-    { RSTV0910_P1_TSCFGM,         0xC0 }, /* P1_TSCFGM: MANSPEED=1, manual TS clock speed */
-    { RSTV0910_P1_TSSPEED,        0x28 }, /* P1_TSSPEED: 67.5 MHz — kernel driver value */
-    { RSTV0910_P2_TSCFGM,         0xC0 }, /* P2_TSCFGM: MANSPEED=1, manual TS clock speed */
-    { RSTV0910_P2_TSSPEED,        0x28 }, /* P2_TSSPEED: 67.5 MHz — kernel driver value */
-    { RSTV0910_GENCFG,            0x15 }, /* GENCFG: DDEMOD=1, BROADCAST=1 — dual serial, matches open_tuner */
+    { RSTV0910_P1_TSCFGH,         0x08 }, /* P1_TSCFGH: parallel mode + HSGNLOUT=1 — PA3FBX board uses plain parallel TS (8-bit data+clk+valid+sync) */
+    { RSTV0910_P2_TSCFGH,         0x80 }, /* P2_TSCFGH: DVBCI=1 — T1 serial output via FTDI channel A */
+    { RSTV0910_GENCFG,            0x05 }, /* GENCFG: DDEMOD=1, BROADCAST=0 — independent outputs, P1->parallel, P2->serial */
     { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: no clock inversion */
     {RSTV0910_P1_TSDIVN, 0x03}, // default
     {RSTV0910_P2_TSDIVN, 0x03},
