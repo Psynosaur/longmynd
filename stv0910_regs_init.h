@@ -40,7 +40,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
 ///    { RSTV0910_OUTCFG2,           0x55 }, /* OUTCFG2    invert VALID and CLOCK */
 ///    { RSTV0910_OUTCFG2,           0x11 }, /* OUTCFG2    CLOCK — was our setting, not in open_tuner */
     { RSTV0910_OUTCFG2,           0x00 }, /* OUTCFG2: 0x00 — matches open_tuner (no clock inversion) */
-    { RSTV0910_OUTCFG,            0x00 }, /* OUTCFG: 0x00 — all TS output pins push-pull */
+    { RSTV0910_OUTCFG,            0x7e }, /* OUTCFG: 0x7e — open-drain on all TS pins, matches chip power-on default */
     { RSTV0910_IRQSTATUS3,        0x00 }, /* IRQSTATUS3       reset all pending IRQs */
     { RSTV0910_IRQSTATUS2,        0x00 }, /* IRQSTATUS2       reset all pending IRQs */
     { RSTV0910_IRQSTATUS1,        0x00 }, /* IRQSTATUS1       reset all pending IRQs */
@@ -634,7 +634,7 @@ static STReg  STV0910DefVal[STV0910_NBREGS]=
     { RSTV0910_P1_TSPIDFLT0,      0x00 }, /* P1_TSPIDFLT0 */
 
     /* DVB2 P1 Registers */
-    { RSTV0910_TSGENERAL,         0x00 }, /* TSGENERAL: DISTS2PAR=0 — parallel TS on J3 connector */
+    { RSTV0910_TSGENERAL,         0x40 }, /* TSGENERAL: 0x40 — matches chip power-on default, required for P1 parallel output */
 
 
     /* DISEQC P1 Registers */
