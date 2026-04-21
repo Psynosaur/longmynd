@@ -336,7 +336,9 @@ void udp_send_normalize_tuner2(u_int8_t *b, int len)
 #define BUFF_T2_MAX_SIZE (7 * 188)
     static u_int8_t *Buffer_t2 = NULL;
     if (Buffer_t2 == NULL)
-        Buffer_t2 = (u_int8_t *)malloc(BUFF_T2_MAX_SIZE * 2);
+    {
+        Buffer_t2 = (u_int8_t *)calloc(BUFF_T2_MAX_SIZE * 2, 1);
+    }
 
     static int Size_t2 = 0;
     static bool IsSync_t2 = false;
@@ -355,10 +357,10 @@ void udp_send_normalize_tuner2(u_int8_t *b, int len)
                 break;
             }
         }
-        lm_log("T2: Not Sync!\n");
+        if (!IsSync_t2) lm_log("T2: Not Sync!\n");
     }
 
-    if (Buffer_t2[0] != 0x47)
+    if (Size_t2 > 0 && Buffer_t2[0] != 0x47)
     {
         if (Size_t2 >= 188)
         {
